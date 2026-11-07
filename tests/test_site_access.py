@@ -69,14 +69,12 @@ class TestGateFlow:
         terms = accepted.cookies.get(site_access.TERMS_COOKIE)
         assert terms and site_access.read_terms_cookie_value(terms) >= site_access.TERMS_VERSION
 
-        opened = client_nofollow.get(
-            "/", cookies={site_access.GATE_COOKIE: cookie, site_access.TERMS_COOKIE: terms}
-        )
+        client_nofollow.cookies.set(site_access.GATE_COOKIE, cookie)
+        client_nofollow.cookies.set(site_access.TERMS_COOKIE, terms)
+        opened = client_nofollow.get("/")
         assert opened.status_code == 200
 
-        still_locked_for_login = client_nofollow.get(
-            "/login", cookies={site_access.GATE_COOKIE: cookie, site_access.TERMS_COOKIE: terms}
-        )
+        still_locked_for_login = client_nofollow.get("/login")
         assert still_locked_for_login.status_code == 200
 
     def test_gate_disabled_locally(self, monkeypatch):

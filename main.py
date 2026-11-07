@@ -13,4 +13,9 @@ if __name__ == "__main__":
     # the same network. Set LOKI_HOST=0.0.0.0 deliberately to expose it.
     import os
 
-    uvicorn.run("main:app", host=os.environ.get("LOKI_HOST", "127.0.0.1"), port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host=os.environ.get("LOKI_HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "8000")),
+        reload=True,
+    )
