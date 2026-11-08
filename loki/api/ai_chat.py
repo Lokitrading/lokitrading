@@ -129,9 +129,33 @@ def _session_secret() -> bytes:
         # dev constant must never sign chat cookies (admin claims ride them).
         if site_access.secret_is_configured():
             return hmac.new(site_access._secret(), b"loki-chat-session", hashlib.sha256).digest()
+        if _public_deployment():
+            # No operator secret on a public host: share the gate's code-derived
+            # key so every serverless instance accepts the same room cookie.
+            # Admin claims are ignored in this mode (see admin_claims_trusted).
+            return hmac.new(site_access.gate_secret(), b"loki-chat-session", hashlib.sha256).digest()
     except Exception:  # noqa: BLE001 - never block chat on gate config
         pass
     return _PROCESS_SECRET
+
+
+def _public_deployment() -> bool:
+    from loki.api import site_access
+
+    return bool(os.environ.get("VERCEL")) or site_access.gate_enabled()
+
+
+def admin_claims_trusted() -> bool:
+    """Operator rights ride the room cookie only when it is signed with real secret material."""
+    if os.environ.get("LOKI_CHAT_SESSION_SECRET", "").strip():
+        return True
+    try:
+        from loki.api import site_access
+
+        # A private local run signs with the random per-process key: unforgeable.
+        return site_access.secret_is_configured() or not _public_deployment()
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _chat_code() -> str:
@@ -375,7 +399,8 @@ def decode_chat_cookie(value: str) -> Optional[Dict[str, Any]]:
         return None
     if not isinstance(data.get("sid"), str) or not data["sid"]:
         return None
-    return {"name": data["name"][:_NAME_MAX], "admin": bool(data.get("admin")), "sid": data["sid"]}
+    admin = bool(data.get("admin")) and admin_claims_trusted()
+    return {"name": data["name"][:_NAME_MAX], "admin": admin, "sid": data["sid"]}
 
 
 def chat_identity(request: Request) -> Optional[Dict[str, Any]]:

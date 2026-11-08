@@ -854,8 +854,8 @@ def deployment_warnings() -> List[str]:
         return []
     warnings = []
     if not site_access.secret_is_configured():
-        warnings.append("LOKI_GATE_SECRET is not set: each server instance signs logins with its own random key, "
-                        "so visitors are sent back to the access code page at random (Talk to Loki, trading desk).")
+        warnings.append("LOKI_GATE_SECRET is not set: access-code cookies are keyed to the access code itself "
+                        "(stable across instances) and chat admin rights are off. Set it for independent signing.")
     if not site_access.accounts_available():
         warnings.append("SUPABASE_URL and a Supabase key are not set: sign-up, login and saved workspaces are off.")
     if not os.environ.get("LOKI_BROKER_ENCRYPTION_KEY"):

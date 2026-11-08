@@ -60,14 +60,15 @@ def _accounts() -> Tuple[Optional[bool], str]:
     return None, "not set up on this server yet: add the Supabase settings to turn on sign-up and saved workspaces"
 
 
-def _logins() -> Tuple[bool, str]:
+def _logins() -> Tuple[Optional[bool], str]:
     import os
 
     from loki.api import site_access
 
     public = bool(os.environ.get("VERCEL") or site_access.gate_enabled())
-    ok = site_access.secret_is_configured() or not public
-    return ok, "stable login secret" if ok else "LOKI_GATE_SECRET missing: logins can drop"
+    if site_access.secret_is_configured() or not public:
+        return True, "stable login secret"
+    return None, "logins stay signed in (keyed to the access code); add LOKI_GATE_SECRET for independent signing"
 
 
 Check = Tuple[str, str, Callable[[], Tuple[Optional[bool], str]]]
