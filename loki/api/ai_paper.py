@@ -406,8 +406,25 @@ def ai_bars(
 
 # --- Portfolio AI ---------------------------------------------------------------
 _PORTFOLIO_TTL_SECONDS = 20 * 60.0
+# A forced refresh is honoured only once the plan is at least this old, so
+# ?refresh=true cannot be used to make the server re-download every market
+# over and over.
+_PORTFOLIO_MIN_REFRESH_SECONDS = 60.0
 _PORTFOLIO_LOCK = threading.Lock()
+# Held while a plan is being built: concurrent requests wait for that one
+# build and reuse it instead of each downloading every market again.
+_PORTFOLIO_BUILD_LOCK = threading.Lock()
 _PORTFOLIO_CACHE: Dict[str, Any] = {}
+
+
+def _portfolio_cached(refresh: bool) -> Optional[Dict[str, Any]]:
+    with _PORTFOLIO_LOCK:
+        cached = _PORTFOLIO_CACHE.get("plan")
+    if not cached:
+        return None
+    age = time.time() - cached[0]
+    fresh_enough = _PORTFOLIO_MIN_REFRESH_SECONDS if refresh else _PORTFOLIO_TTL_SECONDS
+    return cached[1] if age < fresh_enough else None
 
 
 def _portfolio_plan() -> Dict[str, Any]:
@@ -480,13 +497,15 @@ def _portfolio_plan() -> Dict[str, Any]:
 @router.get("/portfolio")
 def ai_portfolio(response: Response, refresh: bool = False) -> Dict[str, Any]:
     _private_response(response)
-    now = time.time()
-    with _PORTFOLIO_LOCK:
-        cached = _PORTFOLIO_CACHE.get("plan")
-        if cached and not refresh and now - cached[0] < _PORTFOLIO_TTL_SECONDS:
-            hit: Dict[str, Any] = cached[1]
+    hit = _portfolio_cached(refresh)
+    if hit is not None:
+        return hit
+    with _PORTFOLIO_BUILD_LOCK:
+        # Another request may have finished a build while this one waited.
+        hit = _portfolio_cached(refresh)
+        if hit is not None:
             return hit
-    plan = _portfolio_plan()
-    with _PORTFOLIO_LOCK:
-        _PORTFOLIO_CACHE["plan"] = (time.time(), plan)
-    return plan
+        plan = _portfolio_plan()
+        with _PORTFOLIO_LOCK:
+            _PORTFOLIO_CACHE["plan"] = (time.time(), plan)
+        return plan

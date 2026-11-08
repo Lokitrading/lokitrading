@@ -658,7 +658,6 @@ def train_symbol(
     strategy = EnsembleStrategy(base_cfg)
     factors = strategy.compute_factors(df)
 
-    train_frame = factors.iloc[:split_idx]
     leaderboard: List[Dict[str, Any]] = []
     weights_tested = 0
 
