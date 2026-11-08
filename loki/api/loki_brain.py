@@ -432,8 +432,11 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
     if _TRACK.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
         return {"intent": "track_record", "text": track_record() + "\n" + FOOTER}
     if allow_data and symbols and (_ADVICE.search(msg) or len(msg.split()) <= 4 or "?" in msg):
-        pairs = [(s, explain_symbol(s, name)) for s in symbols[:2]]
-        pairs = [(s, r) for s, r in pairs if r]
+        pairs: List[Tuple[str, str]] = []
+        for sym in symbols[:2]:
+            reply = explain_symbol(sym, name)
+            if reply:
+                pairs.append((sym, reply))
         if not pairs:
             return None
         body = "\n\n".join(r for _, r in pairs)
