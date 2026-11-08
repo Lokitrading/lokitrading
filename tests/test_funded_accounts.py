@@ -84,7 +84,9 @@ def test_account_reads_use_fixed_hosts_no_redirects_and_filter_foreign_accounts(
     calls = []
     payloads = {"account/list": [{"id": 7, "name": "Funded"}],
                 "position/list": [{"accountId": 7, "contractId": 10, "netPos": 1}, {"accountId": 999, "netPos": 9}],
-                "cashBalance/list": [{"accountId": 7, "currencyId": 1, "amount": 1200}, {"accountId": 999, "amount": 999}]}
+                "cashBalance/list": [{"accountId": 7, "currencyId": 1, "amount": 1200}, {"accountId": 999, "amount": 999}],
+                "contract/items": [{"id": 10, "name": "MESZ6"}],
+                "currency/list": [{"id": 1, "name": "USD"}]}
     class Reply:
         status_code = 200
         def __init__(self, payload): self.payload = payload
@@ -97,6 +99,9 @@ def test_account_reads_use_fixed_hosts_no_redirects_and_filter_foreign_accounts(
     monkeypatch.setattr(tradovate.requests, "get", get)
     result = tradovate.snapshot("demo", TOKEN)
     assert len(result["positions"]) == len(result["balances"]) == 1
+    assert result["positions"][0]["contract"] == "MESZ6" and result["balances"][0]["currency"] == "USD"
+    contract_call = next(opts for url, opts in calls if url.endswith("contract/items"))
+    assert contract_call["params"] == {"ids": "10"}
     assert all(url.startswith(tradovate.HOSTS["demo"]) and not opts["allow_redirects"] for url, opts in calls)
     assert TOKEN not in json.dumps(result)
     with pytest.raises(tradovate.TradovateError):
@@ -104,7 +109,7 @@ def test_account_reads_use_fixed_hosts_no_redirects_and_filter_foreign_accounts(
 
 
 def test_partial_data_failure_is_not_reported_as_empty_positions(monkeypatch):
-    def read(environment, token, resource):
+    def read(environment, token, resource, params=None):
         if resource == "account/list": return [{"id": 7, "name": "Funded"}]
         raise tradovate.TradovateError("Read permission unavailable")
     monkeypatch.setattr(tradovate, "read", read)

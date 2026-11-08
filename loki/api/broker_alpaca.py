@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 import math
 import urllib.error
+from datetime import datetime, timedelta, timezone
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
@@ -60,6 +61,30 @@ class AlpacaOrder(AlpacaPaperKeys):
     quantity: int = Field(ge=1, le=ORDER_QTY_MAX)
     order_type: Literal["market", "limit"]
     limit_price: Optional[float] = Field(default=None, ge=0.01, le=LIMIT_PRICE_MAX)
+
+
+class AlpacaOrderRef(AlpacaPaperKeys):
+    """One existing paper order, by Alpaca's id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class AlpacaPositionRef(AlpacaPaperKeys):
+    """One held symbol (stocks as 'AAPL', crypto as 'BTCUSD' or 'BTC/USD')."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    symbol: str = Field(min_length=1, max_length=12, pattern=r"^[A-Z][A-Z0-9.]{0,9}(/USD)?$")
+
+
+class AlpacaApply(AlpacaPaperKeys):
+    """Apply the Portfolio AI's plan: an explicit, typed confirmation is required."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirm: Literal["place paper orders"]
 
 
 class AlpacaBarsRequest(AlpacaPaperKeys):
@@ -135,6 +160,8 @@ def _exchange(
         raise HTTPException(502, f"Alpaca answered HTTP {error.code}; try again shortly.") from error
     except (urllib.error.URLError, OSError) as error:
         raise HTTPException(503, "Alpaca is unreachable right now; try again shortly.") from error
+    if not raw.strip():
+        return None  # 204 No Content (e.g. a cancelled order)
     try:
         payload = json.loads(raw)
     except ValueError as error:
@@ -310,12 +337,18 @@ async def alpaca_bars(request: Request, bars: AlpacaBarsRequest) -> Dict[str, An
     """
     _require_gate(request)
     symbol = bars.symbol.upper()
-    path = f"/v2/stocks/{symbol}/bars?timeframe=1Min&limit={bars.minutes}&feed=iex&sort=asc"
+    # Without a start Alpaca only searches today, so evenings and weekends came
+    # back empty ("bars": null) and the panel showed an error. Look back a week
+    # and take the newest bars: outside market hours that is the last session.
+    start = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    path = f"/v2/stocks/{symbol}/bars?timeframe=1Min&limit={bars.minutes}&feed=iex&sort=desc&start={start}"
     payload = await run_in_threadpool(_exchange, "GET", path, bars, None, _DATA_BASE)
-    if not isinstance(payload, dict) or not isinstance(payload.get("bars"), list):
+    if not isinstance(payload, dict) or not (payload.get("bars") is None or isinstance(payload.get("bars"), list)):
         raise HTTPException(502, "Alpaca's bar feed arrived in an unexpected shape.")
     views: List[Dict[str, Any]] = []
-    for bar in payload["bars"][:BARS_MAX]:
+    raw_bars = [bar for bar in (payload.get("bars") or []) if isinstance(bar, dict)]
+    raw_bars.sort(key=lambda bar: str(bar.get("t") or ""))  # oldest first, whatever order Alpaca used
+    for bar in raw_bars[-BARS_MAX:]:
         if not isinstance(bar, dict):
             continue
         timestamp = str(bar.get("t") or "")
@@ -331,3 +364,94 @@ async def alpaca_bars(request: Request, bars: AlpacaBarsRequest) -> Dict[str, An
             "v": _number_or_none(bar.get("v")),
         })
     return {"ok": True, "paper": True, "symbol": symbol, "bars": views}
+
+
+@router.post("/cancel", include_in_schema=False)
+async def alpaca_cancel_order(request: Request, ref: AlpacaOrderRef) -> Dict[str, Any]:
+    """Cancel one open paper order. Already-filled orders cannot be cancelled."""
+    _require_gate(request)
+    await run_in_threadpool(_paper_exchange, "DELETE", f"/v2/orders/{ref.order_id}", ref)
+    return {"ok": True, "paper": True, "cancelled": ref.order_id}
+
+
+@router.post("/close", include_in_schema=False)
+async def alpaca_close_position(request: Request, ref: AlpacaPositionRef) -> Dict[str, Any]:
+    """Close one whole paper position at market (the order Alpaca creates is returned)."""
+    _require_gate(request)
+    symbol = ref.symbol.replace("/", "")
+    payload = await run_in_threadpool(_paper_exchange, "DELETE", f"/v2/positions/{symbol}", ref)
+    order = _order_view(payload) if isinstance(payload, dict) else {}
+    return {"ok": True, "paper": True, "order": order}
+
+
+# --- Let the Portfolio AI manage this paper account ---------------------------
+AI_MAX_ORDERS = 25  # the AI trades at most 20 markets; anything more is a bug, not a plan
+
+
+def _ai_context(keys: AlpacaPaperKeys) -> Dict[str, Any]:
+    from loki.api import ai_paper, alpaca_ai
+
+    account = _dict_payload(_paper_exchange("GET", "/v2/account", keys), "account")
+    clock = _dict_payload(_paper_exchange("GET", "/v2/clock", keys), "clock")
+    raw_positions = _paper_exchange("GET", "/v2/positions", keys)
+    if not isinstance(raw_positions, list):
+        raise HTTPException(502, "Alpaca's positions answer was not the expected list.")
+    held = {str(p.get("symbol")): p for p in raw_positions if isinstance(p, dict)}
+    equity = _number_or_none(account.get("equity")) or 0.0
+    if equity <= 0:
+        raise HTTPException(422, "This paper account has no equity to allocate.")
+    plan = ai_paper.ai_portfolio(Response())
+    trades, notes = alpaca_ai.plan_trades(plan, equity, held, bool(clock.get("is_open")))
+    return {"equity": equity, "stocks_open": bool(clock.get("is_open")), "plan": plan, "trades": trades, "notes": notes}
+
+
+def _plan_view(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    plan = ctx["plan"]
+    return {
+        "ok": True, "paper": True, "equity": ctx["equity"], "us_market_open": ctx["stocks_open"],
+        "plan_as_of": plan.get("as_of"), "ai_invested_pct": round(float(plan.get("gross") or 0) * 100, 1),
+        "targets": [{"symbol": r["symbol"], "weight_pct": round(float(r["weight"]) * 100, 2)}
+                    for r in plan.get("positions", []) if float(r.get("weight") or 0) > 0],
+        "trades": ctx["trades"], "notes": ctx["notes"],
+    }
+
+
+@router.post("/ai-preview", include_in_schema=False)
+async def alpaca_ai_preview(request: Request, keys: AlpacaPaperKeys) -> Dict[str, Any]:
+    """What the Portfolio AI would trade in this paper account right now. Places nothing."""
+    _require_gate(request)
+    return _plan_view(await run_in_threadpool(_ai_context, keys))
+
+
+@router.post("/ai-apply", include_in_schema=False)
+async def alpaca_ai_apply(request: Request, body: AlpacaApply) -> Dict[str, Any]:
+    """Place the Portfolio AI's rebalancing orders in this PAPER account.
+
+    The plan is recomputed here (never trusted from the browser), sells go
+    before buys, and at most AI_MAX_ORDERS orders are sent.
+    """
+    _require_gate(request)
+    ctx = await run_in_threadpool(_ai_context, body)
+    keys = AlpacaPaperKeys(key_id=body.key_id, secret_key=body.secret_key)
+    results: List[Dict[str, Any]] = []
+    for trade in ctx["trades"][:AI_MAX_ORDERS]:
+        try:
+            if trade["side"] == "close":
+                payload = await run_in_threadpool(
+                    _paper_exchange, "DELETE", "/v2/positions/" + trade["symbol"].replace("/", ""), keys)
+            else:
+                order: Dict[str, Any] = {"symbol": trade["symbol"], "side": trade["side"], "type": "market",
+                                         "time_in_force": "gtc" if trade["crypto"] else "day"}
+                if trade["side"] == "buy":
+                    order["notional"] = f"{trade['notional']:.2f}"
+                else:
+                    order["qty"] = f"{trade['qty']:.9f}".rstrip("0").rstrip(".")
+                payload = await run_in_threadpool(_paper_exchange, "POST", "/v2/orders", keys, order)
+            results.append({**trade, "status": "placed",
+                            "order": _order_view(payload) if isinstance(payload, dict) else {}})
+        except HTTPException as error:
+            results.append({**trade, "status": "failed", "detail": str(error.detail)})
+    view = _plan_view(ctx)
+    view["trades"] = results
+    view["placed"] = sum(1 for r in results if r["status"] == "placed")
+    return view

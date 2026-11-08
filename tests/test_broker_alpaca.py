@@ -497,7 +497,9 @@ class TestAutopilotBars:
         response = client.post("/api/broker/alpaca/bars", json={**KEYS, "symbol": "spy", "minutes": 25})
         assert response.status_code == 200
         request = later["request"]
-        assert request.full_url == "https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Min&limit=25&feed=iex&sort=asc"
+        # Newest bars within the last week, so evenings and weekends show the last session.
+        assert request.full_url.startswith(
+            "https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Min&limit=25&feed=iex&sort=desc&start=")
         headers = {name.lower(): value for name, value in request.header_items()}
         assert headers.get("apca-api-key-id") == KEYS["key_id"]
         assert request.get_method() == "GET"
@@ -624,3 +626,73 @@ class TestSiteHygiene:
             "the rule trades exactly one share per crossing"
         assert "if (!bars" not in module, "placeholder shipped"  # honest mistake guard
         assert "stopAutopilot('the session ceiling of '" in module, "the ceiling must stand the train down honestly"
+
+
+class TestManageAndAi:
+    """Cancel, close, and letting the Portfolio AI manage the paper account."""
+
+    def _fake(self, monkeypatch, positions=None, is_open=True, equity="10000"):
+        calls = []
+
+        def fake(method, path, keys, body=None):
+            calls.append((method, path, body))
+            if path == "/v2/account":
+                return {"equity": equity, "status": "ACTIVE"}
+            if path == "/v2/clock":
+                return {"is_open": is_open}
+            if path == "/v2/positions" and method == "GET":
+                return positions or []
+            if method == "DELETE":
+                return None if "/orders/" in path else {"id": "c" * 8, "symbol": path.rsplit("/", 1)[1], "status": "accepted"}
+            return {"id": "o1", "symbol": body["symbol"], "side": body["side"], "status": "accepted"}
+
+        monkeypatch.setattr(module, "_paper_exchange", fake)
+        from loki.api import ai_paper
+        plan = {"as_of": "2026-11-06", "gross": 0.4, "positions": [
+            {"symbol": "SPY", "weight": 0.3}, {"symbol": "BTC-USD", "weight": 0.1}, {"symbol": "GLD", "weight": 0.0}]}
+        monkeypatch.setattr(ai_paper, "ai_portfolio", lambda response, refresh=False: plan)
+        return calls
+
+    def test_cancel_and_close(self, monkeypatch):
+        calls = self._fake(monkeypatch)
+        oid = "22cae2a3-59e6-4bcc-af90-35ca6e16b68d"
+        assert client.post("/api/broker/alpaca/cancel", json={**KEYS, "order_id": oid}).json() == {
+            "ok": True, "paper": True, "cancelled": oid}
+        assert ("DELETE", f"/v2/orders/{oid}", None) in calls
+        closed = client.post("/api/broker/alpaca/close", json={**KEYS, "symbol": "BTC/USD"}).json()
+        assert closed["ok"] and ("DELETE", "/v2/positions/BTCUSD", None) in calls
+        assert client.post("/api/broker/alpaca/cancel", json={**KEYS, "order_id": "../../v2/account"}).status_code == 422
+        assert client.post("/api/broker/alpaca/close", json={**KEYS, "symbol": "../x"}).status_code == 422
+
+    def test_preview_places_nothing(self, monkeypatch):
+        calls = self._fake(monkeypatch, positions=[{"symbol": "GLD", "market_value": "900", "qty": "2", "current_price": "450"}])
+        body = client.post("/api/broker/alpaca/ai-preview", json=KEYS).json()
+        assert body["paper"] and body["ai_invested_pct"] == 40.0
+        sides = {t["symbol"]: t["side"] for t in body["trades"]}
+        assert sides == {"GLD": "close", "SPY": "buy", "BTC/USD": "buy"}
+        assert not any(m in ("POST", "DELETE") for m, _, _ in calls)
+
+    def test_apply_needs_the_typed_confirmation_and_recomputes(self, monkeypatch):
+        calls = self._fake(monkeypatch, positions=[{"symbol": "GLD", "market_value": "900", "qty": "2", "current_price": "450"}])
+        assert client.post("/api/broker/alpaca/ai-apply", json={**KEYS, "confirm": "yes"}).status_code == 422
+        assert client.post("/api/broker/alpaca/ai-apply", json={**KEYS, "trades": [{"symbol": "TSLA"}],
+                                                                 "confirm": "place paper orders"}).status_code == 422
+        body = client.post("/api/broker/alpaca/ai-apply", json={**KEYS, "confirm": "place paper orders"}).json()
+        assert body["placed"] == 3
+        writes = [(m, p, b) for m, p, b in calls if m in ("POST", "DELETE")]
+        assert writes[0][:2] == ("DELETE", "/v2/positions/GLD")  # sell before buy
+        btc = next(b for m, p, b in writes if b and b["symbol"] == "BTC/USD")
+        assert btc["time_in_force"] == "gtc" and btc["notional"] == "1000.00"
+        spy = next(b for m, p, b in writes if b and b["symbol"] == "SPY")
+        assert spy["time_in_force"] == "day" and spy["notional"] == "3000.00"
+
+    def test_closed_market_defers_stocks(self, monkeypatch):
+        self._fake(monkeypatch, is_open=False)
+        body = client.post("/api/broker/alpaca/ai-preview", json=KEYS).json()
+        assert [t["symbol"] for t in body["trades"]] == ["BTC/USD"]
+        assert any("SPY" in n and "closed" in n for n in body["notes"])
+
+    def test_validation_errors_never_echo_secrets(self):
+        response = client.post("/api/broker/alpaca/ai-apply", json={**KEYS, "confirm": "nope"})
+        assert response.status_code == 422
+        assert KEYS["secret_key"] not in response.text and KEYS["key_id"] not in response.text

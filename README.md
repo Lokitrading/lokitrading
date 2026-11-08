@@ -115,6 +115,14 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 
 `.github/workflows/alpaca-paper-forward.yml` runs it daily at 14:45 UTC once the repository has `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` secrets (paper keys); without them it skips. Judge the results over months — a few days of paper P&L say nothing about a daily trend strategy, and tuning the AI on them would only fit noise.
 
+## Alpaca and Tradovate connectors
+
+**Alpaca (paper).** Keys stay in the visitor's browser and travel per request to a relay that only talks to `paper-api.alpaca.markets` (and `data.alpaca.markets` for bars). The panel verifies keys, shows account facts and holdings, places capped manual orders, and now also: **cancels** open orders from the log, **closes** a whole position, and **lets the Portfolio AI manage the paper account** — *Preview the AI's trades* shows exactly what it would do; *Place these paper orders* (typed confirmation server-side, plan recomputed at that moment, sells before buys, at most 25 orders) places them. The same logic (`loki/api/alpaca_ai.py`) drives `alpaca_forward.py`. Minute bars now show the last session in evenings and weekends instead of an error. Validation errors never echo submitted values, so keys can't bounce back into logs.
+
+**Tradovate (read-only).** Sign in with Tradovate API credentials (the password is used once; only the issued token is kept, encrypted, owner-bound, ≤1 hour) or paste a token. Positions now show contract names (e.g. `MESZ6`) and balances their currency, when Tradovate allows those reads. Needs `LOKI_BROKER_ENCRYPTION_KEY` on the server.
+
+**Independent-data check** (`crosscheck_alpaca.py`, run 2026-11-08 with Alpaca's own adjusted daily bars): the live stock profile gives +9.22%/yr (Sharpe 0.61, 12/13 profitable) on Alpaca data vs +9.30%/yr on Yahoo over 2017→now — correlation 0.999 across symbols. Crypto (2022→now) +9.64%/yr vs +10.55%, correlation 0.988, but Bitcoin differs (+5.2% vs +11.5%) because Alpaca's crypto volume is its own venue's; the crypto profile's volume factor makes it somewhat data-source sensitive. Nothing was tuned on this.
+
 ## Learning from mistakes
 
 `loki_v8/mistake_model.py` replays the AI's own trades, records 15 market features at every entry's signal bar and whether the trade made money after costs, and fits a small regularised logistic model. Live and in backtests the same gate then skips setups whose estimated win chance is below a threshold. It is trained only on trades that had already closed before the window it is judged on, the threshold is chosen on 2019-2022, and it ships only if the 2023+ holdout is not worse. Current result: on for stocks (validation score 0.44 → 0.51; holdout same +12.3%/yr with 108 instead of 127 trades), off for crypto (no validation gain). Rerun with `python train_long_history.py --from-report state/long_history_report.json --write-snapshot`.

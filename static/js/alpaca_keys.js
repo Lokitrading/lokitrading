@@ -64,6 +64,15 @@
           number(item.market_value), number(item.unrealized_pl)
         ])
       ));
+      const closers = document.createElement('div');
+      closers.className = 'button-row alpaca-close-row';
+      holdings.forEach((item) => {
+        const btn = element('button', `Close ${item.symbol}`, 'button secondary');
+        btn.type = 'button';
+        btn.dataset.closeSymbol = String(item.symbol);
+        closers.append(btn);
+      });
+      target.append(closers);
     }
     if (data.trading_blocked || data.account_blocked) {
       target.append(element('p', 'Alpaca flags this account as trading/blocked — check your Alpaca dashboard before expecting anything.', 'integration-note'));
@@ -222,6 +231,12 @@
       row.append(element('span', status, 'order-status'));
       if (order.filled_avg_price != null) row.append(element('span', `filled @ US$${number(order.filled_avg_price)}`, 'order-price'));
       row.append(element('span', String(order.created_at || '').replace('T', ' ').slice(0, 16), 'order-when'));
+      if (['new', 'accepted', 'pending_new', 'partially_filled', 'held'].includes(status) && /^[0-9a-f-]{36}$/.test(String(order.id || ''))) {
+        const cancel = element('button', 'Cancel', 'button secondary order-cancel');
+        cancel.type = 'button';
+        cancel.dataset.cancelOrder = String(order.id);
+        row.append(cancel);
+      }
       log.append(row);
     });
   }
@@ -434,6 +449,97 @@
   // Verify on arrival — but only when the stored keys changed since the last
   // check. A fingerprint on the key ID (not object identity) keeps repeat
   // visits from re-hitting Alpaca's endpoint without reason.
+  /* ---------- cancel / close, from the log and the holdings ---------- */
+  document.addEventListener('click', async (event) => {
+    const cancel = event.target.closest('[data-cancel-order]');
+    const close = event.target.closest('[data-close-symbol]');
+    if (!cancel && !close) return;
+    const saved = load();
+    if (!saved || !connected || busy) return;
+    const button = cancel || close;
+    if (close && !window.confirm(`Close your whole ${close.dataset.closeSymbol} paper position at market?`)) return;
+    button.disabled = true;
+    try {
+      if (cancel) await request('/api/broker/alpaca/cancel', { ...saved, order_id: cancel.dataset.cancelOrder });
+      else await request('/api/broker/alpaca/close', { ...saved, symbol: close.dataset.closeSymbol });
+      message('#alpaca-order-message', cancel ? 'Order cancelled on Alpaca paper.' : `Close order sent for ${close.dataset.closeSymbol} (paper).`, false);
+      fetchOrders();
+      refreshPortfolio();
+    } catch (error) {
+      message('#alpaca-order-message', error.message || 'Alpaca did not accept that request.', true);
+      button.disabled = false;
+    }
+  });
+
+  /* ---------- let the Portfolio AI manage this paper account ---------- */
+  let aiPreviewed = false;
+  function aiControls() {
+    const ready = !!load() && connected && !busy;
+    const preview = $('#alpaca-ai-preview');
+    const apply = $('#alpaca-ai-apply');
+    if (preview) preview.disabled = !ready;
+    if (apply) apply.disabled = !ready || !aiPreviewed;
+  }
+  function renderAi(data, applied) {
+    const out = $('#alpaca-ai-out');
+    out.replaceChildren();
+    const targets = (data.targets || []).map((t) => `${t.symbol} ${t.weight_pct}%`).join(', ') || 'all cash — every market is out of its uptrend';
+    out.append(element('p', `Plan as of ${data.plan_as_of || '—'} · AI invested ${data.ai_invested_pct}% · account equity US$${number(data.equity)} · US market ${data.us_market_open ? 'open' : 'closed'}.`, 'integration-note'));
+    out.append(element('p', `Targets: ${targets}`, 'caption'));
+    const trades = data.trades || [];
+    if (trades.length) {
+      out.append(table(['Market', 'Action', 'Now', 'Target', applied ? 'Result' : ''],
+        trades.map((t) => [t.symbol,
+          t.side === 'buy' ? `Buy US$${number(t.notional)}` : t.side === 'close' ? 'Close' : `Sell ${Number(t.qty).toPrecision(4)}`,
+          `US$${number(t.current)}`, `US$${number(t.target)}`,
+          applied ? (t.status === 'placed' ? 'placed ✓' : `failed — ${t.detail || ''}`) : ''])));
+    } else {
+      out.append(element('p', 'No orders needed right now.', 'muted'));
+    }
+    (data.notes || []).forEach((note) => out.append(element('p', note, 'caption')));
+  }
+  async function aiPreview() {
+    const saved = load();
+    if (!saved || !connected) return;
+    busy = true; aiControls();
+    $('#alpaca-ai-status').textContent = 'Reading the AI plan…';
+    try {
+      const data = await request('/api/broker/alpaca/ai-preview', saved);
+      aiPreviewed = (data.trades || []).length > 0;
+      renderAi(data, false);
+      $('#alpaca-ai-status').textContent = aiPreviewed ? `${data.trades.length} paper order(s) ready` : 'Nothing to place now';
+      message('#alpaca-ai-message', aiPreviewed ? 'Review the orders, then press "Place these paper orders".' : '', false);
+    } catch (error) {
+      aiPreviewed = false;
+      $('#alpaca-ai-status').textContent = 'Preview failed';
+      message('#alpaca-ai-message', error.message || 'The AI plan could not be read right now.', true);
+    } finally { busy = false; aiControls(); }
+  }
+  async function aiApply() {
+    const saved = load();
+    if (!saved || !connected || !aiPreviewed) return;
+    if (!window.confirm("Place the Portfolio AI's orders in your Alpaca PAPER account? The plan is re-checked at this moment.")) return;
+    busy = true; aiControls();
+    $('#alpaca-ai-status').textContent = 'Placing paper orders…';
+    try {
+      const data = await request('/api/broker/alpaca/ai-apply', { ...saved, confirm: 'place paper orders' });
+      renderAi(data, true);
+      $('#alpaca-ai-status').textContent = `${data.placed} paper order(s) placed`;
+      message('#alpaca-ai-message', 'Done. Orders appear in the log above; stock orders fill during US market hours.', false);
+      aiPreviewed = false;
+      fetchOrders();
+      refreshPortfolio();
+    } catch (error) {
+      $('#alpaca-ai-status').textContent = 'Not placed';
+      message('#alpaca-ai-message', error.message || 'Alpaca did not accept the orders.', true);
+    } finally { busy = false; aiControls(); }
+  }
+  if ($('#alpaca-ai-preview')) {
+    $('#alpaca-ai-preview').addEventListener('click', aiPreview);
+    $('#alpaca-ai-apply').addEventListener('click', aiApply);
+    setInterval(aiControls, 1000);
+  }
+
   window.addEventListener('hashchange', () => {
     if (viewActive() && !busy) {
       const saved = load();

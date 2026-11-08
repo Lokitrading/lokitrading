@@ -915,3 +915,21 @@ async def honest_http_exception(request: Request, exc: StarletteHTTPException):
         page.status_code = 404
         return page
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+
+
+# ---------------------------------------------------------------------------
+# Validation errors never echo what was sent. FastAPI's default 422 body
+# repeats the submitted values ("input"), which for the broker relays means
+# API secrets would travel back and land in browser consoles and logs.
+# ---------------------------------------------------------------------------
+from fastapi.encoders import jsonable_encoder  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_without_echo(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        clean = {k: v for k, v in error.items() if k not in ("input", "ctx", "url")}
+        errors.append(clean)
+    return JSONResponse({"detail": jsonable_encoder(errors)}, status_code=422)
