@@ -123,6 +123,23 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 
 The top price ticker now updates prices in place, so its loop never restarts and every symbol on the board comes round.
 
+## Polymarket paper bot
+
+The **Loki Polymarket bot** (`/#predictions`, `loki/api/polymarket_bot.py`) trades Polymarket price ladders with paper money:
+
+- **Fair value:** live spot and 30-day realised volatility give a lognormal chance of finishing above each strike, blended 50/50 with the crowd's mid-price (the crowd often knows about earnings or quiet weekends the model does not).
+- **Entries:** it buys the YES token (view: above) or the NO token (view: below) only when fair value beats the price actually payable on the live CLOB book (`clob.polymarket.com/book`, asks walked level by level) by at least 3 points after Polymarket's taker fee. Rungs with a YES spread over 10c, long shots under 10c and near-certainties over 90c are skipped.
+- **Sizing:** quarter-Kelly, at most 5% per trade and 30% invested, one rung per ladder and two per underlying.
+- **Exits are checked before any entry, every minute:** out 30 minutes before the market locks, a 40% stop-loss, take-profit once 60% of the remaining upside is in hand, or when the edge is gone. Sells walk the bids, so exit slippage counts. A market the bot just left is not re-entered for 6 hours.
+- **Orders** are shown in Polymarket's CLOB shape (`token_id`, `side`, `price`, `size`, `FOK`) for review. **Loki never holds a wallet private key and never signs or sends an order**; the paper account lives in the browser (`loki_poly_bot_v1`).
+- **Not built, on purpose:** latency arbitrage on 5-minute markets (a website server cannot win races against co-located bots) and market making (paper fills for resting orders would be invented).
+
+API: `GET /api/polymarket/bot/signals?bankroll=&exposure=` and `POST /api/polymarket/bot/review` (max 20 positions), rate-limited.
+
+## Status lights and paper badges
+
+The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/feed_status.py`): Yahoo stock quotes, Binance crypto quotes, Polymarket odds, Polymarket order books, the trading-AI profiles, accounts and login security, each checked with a tiny live request (parallel, 45 s cache, refreshed every minute while the tab is visible). States are Live, Slow, Not set up and Down; details never include hosts or secrets. A pulsing **PAPER TRADING · SIMULATED** badge sits beside it and turns red (**REAL ACCOUNT**) only in the real-account view; every paper P&L panel carries a **SIMULATED** tag.
+
 ## Alpaca and Tradovate connectors
 
 **Alpaca (paper).** Keys stay in the visitor's browser and travel per request to a relay that only talks to `paper-api.alpaca.markets` (and `data.alpaca.markets` for bars). The panel verifies keys, shows account facts and holdings, places capped manual orders, and now also: **cancels** open orders from the log, **closes** a whole position, and **lets the Portfolio AI manage the paper account** — *Preview the AI's trades* shows exactly what it would do; *Place these paper orders* (typed confirmation server-side, plan recomputed at that moment, sells before buys, at most 25 orders) places them. The same logic (`loki/api/alpaca_ai.py`) drives `alpaca_forward.py`. Minute bars now show the last session in evenings and weekends instead of an error. Validation errors never echo submitted values, so keys can't bounce back into logs.

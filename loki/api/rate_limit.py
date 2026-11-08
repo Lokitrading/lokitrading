@@ -38,6 +38,9 @@ RULES: Tuple[Tuple[str, str, int, float], ...] = (
     ("POST", "/api/fusion/learn-history", 6, 60.0),
     ("POST", "/api/broker/alpaca/", 60, 60.0),
     ("GET", "/api/polymarket/crowd-vs-machine", 20, 60.0),
+    ("GET", "/api/polymarket/bot/signals", 10, 60.0),
+    ("POST", "/api/polymarket/bot/review", 30, 60.0),
+    ("GET", "/api/status/", 20, 60.0),
     ("GET", "/api/polymarket/", 60, 60.0),
 )
 
