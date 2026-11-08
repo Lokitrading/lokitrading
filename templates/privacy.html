@@ -76,7 +76,8 @@
         <li><strong>Workspace saves (optional).</strong> Only if you choose to save to your account: your paper journals, watchlists and game progress. Broker keys, passwords and session cookies are never included. Basis: contract / your request.</li>
         <li><strong>Published game scores (optional).</strong> If you publish a Loki Dive score: your nickname, best score, number of publications and time — these are shown publicly on the leaderboard.</li>
         <li><strong>Chat room.</strong> The name you type and your messages and Loki's replies are stored on the server for up to <strong>30 days</strong> (and at most the latest 400 turns across the room) so Loki can use recent context. Your own copy stays in your browser until you clear it. Do not type personal or sensitive information into chats.</li>
-        <li><strong>Broker connections (optional).</strong> Alpaca paper keys are kept in your browser and sent to our relay only for the request you make; we do not store them. Tradovate credentials are used once to obtain an access token and are not stored; the token is kept only in an encrypted cookie for up to one hour.</li>
+        <li><strong>Broker connections (optional).</strong> Alpaca keys stay in your browser and are sent by your browser directly to Alpaca (paper keys are saved in this browser; live keys only for the open tab); Loki's server never receives them. Tradovate credentials pass once through our relay to obtain an access token and are not stored; the token is kept only in your browser tab.</li>
+        <li><strong>On-device engine.</strong> The AI council, sentiment swarm, risk matrix, Monte Carlo simulations, replays and the signed trade log run in your browser and are stored only in your browser. The signing key is generated on your device and cannot be exported.</li>
         <li><strong>Security records.</strong> To stop password guessing and abuse we briefly keep counters keyed by your IP address in server memory (cleared within about an hour or on restart). Our hosting provider keeps standard request logs (IP address, time, page) under its own retention. Basis: legitimate interest in keeping the service secure.</li>
       </ul>
       <p>We do <strong>not</strong> collect payment details, government IDs, precise location, contacts, biometrics, or your date of birth, and we do not make automated decisions with legal effects about you.</p>
@@ -89,7 +90,7 @@
         <li><strong>Account and database provider</strong> (Supabase) stores accounts, optional saves and published scores.</li>
         <li><strong>Brokers you connect</strong> (Alpaca, Tradovate) receive your requests under their own privacy policies, only when you use those features.</li>
       </ul>
-      <p>Market data (prices, headlines) is fetched by our server from public providers without any of your personal data. We do not sell personal data or share it for advertising. We disclose data if the law requires it.</p>
+      <p>Market data is fetched without any of your personal data. Stock prices and headlines come through our server. When you use the on-device engine features (Trade, AI council, sentiment swarm, prediction-market engines, Replay lab), your browser contacts these public providers directly, which means they see your IP address and browser type like any website you visit: Binance market data (data-api.binance.vision), Polymarket (gamma-api / clob.polymarket.com), Alpaca (only if you connect it), and, for the swarm's social agent, Reddit (www.reddit.com) and Hacker News search (hn.algolia.com). No account details, keys or cookies of ours are sent to them. We do not sell personal data or share it for advertising. We disclose data if the law requires it.</p>
     </div>
 
     <div class="card">

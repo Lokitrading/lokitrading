@@ -105,14 +105,18 @@
 
     function frame() {
       if (!running) return;
-      t += 1;
-      mouse.x += (mouse.tx - mouse.x) * 0.05;
-      mouse.y += (mouse.ty - mouse.y) * 0.05;
+      // Reduced motion still gets a calm, slow drift (a frozen hero read as
+      // "broken"); only the parallax and fast particles are switched off.
+      t += reduce ? 0.25 : 1;
+      if (!reduce) {
+        mouse.x += (mouse.tx - mouse.x) * 0.05;
+        mouse.y += (mouse.ty - mouse.y) * 0.05;
+      }
       ctx.clearRect(0, 0, w, h);
 
       // particles + links
       for (const p of particles) {
-        p.x += p.vx; p.y += p.vy;
+        p.x += reduce ? p.vx * 0.2 : p.vx; p.y += reduce ? p.vy * 0.2 : p.vy;
         if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
         if (p.x < -0.05) p.x = 1.05; if (p.x > 1.05) p.x = -0.05;
       }
@@ -191,7 +195,6 @@
       }).observe(host);
     }
     if (!full && 'ResizeObserver' in window) new ResizeObserver(resize).observe(host);
-    if (reduce) { running = true; frame(); running = false; return; } // one static frame
     raf = requestAnimationFrame(frame);
   }
 

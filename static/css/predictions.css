@@ -1,5 +1,5 @@
 /* Prediction markets view (predictions.js). Uses studio tokens where present. */
-.nav-new { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #ffd27a; color: #1a1406; font: 700 9px/1.5 var(--mono, ui-monospace, monospace); letter-spacing: .08em; vertical-align: middle; }
+.nav-new { flex: none; white-space: nowrap; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #ffd27a; color: #1a1406; font: 700 9px/1.5 var(--mono, ui-monospace, monospace); letter-spacing: .08em; vertical-align: middle; }
 
 /* Crowd vs Machine */
 .cvm-panel { border-color: #ffd27a40; background: radial-gradient(900px 300px at 85% -20%, rgba(255, 210, 122, .08), transparent 60%), var(--panel, #0f1a22); }

@@ -120,7 +120,7 @@ function navigate(){const aliases={'risk-studio':'portfolio'};const hash=locatio
   }
   const navLabel=$(`.sidebar nav a[data-view="${view}"]`).cloneNode(true);
   navLabel.querySelectorAll('[aria-hidden="true"]').forEach(icon=>icon.remove());
-  $('#page-name').textContent=navLabel.textContent.trim();document.title=`Loki · ${$('#page-name').textContent}`;
+  $('#page-name').textContent=navLabel.textContent.replace(/\bNEW\b/g,'').trim();document.title=`Loki · ${$('#page-name').textContent}`;
   document.dispatchEvent(new CustomEvent('loki:view',{detail:{view}}));
   requestAnimationFrame(()=>{if(hash==='risk-studio')$('#risk-studio').scrollIntoView();else window.scrollTo({top:0,behavior:'instant'});drawChart();});
 }

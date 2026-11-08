@@ -28,6 +28,7 @@ from loki.api.ai_chat import router as ai_chat_router
 from loki.api.ai_paper import router as ai_paper_router
 from loki.api.analogue import router as analogue_router
 from loki.api.broker_alpaca import router as broker_alpaca_router
+from loki.api.broker_tradovate import router as broker_tradovate_router
 from loki.api.broker_workspace import router as broker_workspace_router
 from loki.api.dive_board import router as dive_board_router
 from loki.api.dive_sessions import router as dive_sessions_router
@@ -40,6 +41,7 @@ from loki.api.news_desk import router as news_desk_router
 from loki.api.feed_status import router as feed_status_router
 from loki.api.polymarket import router as polymarket_router
 from loki.api.polymarket_bot import router as polymarket_bot_router
+from loki.api.replay_data import router as replay_router
 from loki.api.revenue import router as revenue_router
 from loki.api.trading_desk import router as trading_desk_router
 from loki.api.watchtower import router as watchtower_router
@@ -67,6 +69,8 @@ for _router in (
     polymarket_router,
     feed_status_router,
     broker_alpaca_router,
+    broker_tradovate_router,
+    replay_router,
     trading_desk_router,
     news_desk_router,
     dive_board_router,
@@ -90,7 +94,13 @@ CONTENT_SECURITY_POLICY = "; ".join(
         "style-src 'self' 'unsafe-inline'",
         "font-src 'self' data:",
         "img-src 'self' data: blob:",
-        "connect-src 'self'",
+        # The on-device engine talks to public market APIs directly (they send
+        # CORS headers), and Alpaca keys go from the browser straight to Alpaca.
+        "connect-src 'self' https://gamma-api.polymarket.com https://clob.polymarket.com "
+        "wss://ws-subscriptions-clob.polymarket.com https://data-api.binance.vision "
+        "wss://data-stream.binance.vision https://paper-api.alpaca.markets https://api.alpaca.markets "
+        "https://data.alpaca.markets https://www.reddit.com https://hn.algolia.com",
+        "worker-src 'self'",
         "frame-ancestors 'self'",
         "object-src 'none'",
         "base-uri 'self'",

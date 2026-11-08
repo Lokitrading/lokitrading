@@ -1,20 +1,35 @@
 # Loki Trading Workspace
 
-One FastAPI application: the information workspace at the gate, a Supabase-gated sign-in, AI paper trading, a market planner, research and strategy lab surfaces, news desk, watchtower, and the "Bored?" game — Loki Dive, a nova-deep trivia ride with seven 25-second rounds per dive, streak combos, typo forgiveness, and example answers after every miss — plus a browser-held Alpaca paper order rail and an in-page autopilot with published, hand-railed rules.
+One FastAPI application plus an on-device engine: the information workspace at the gate, a Supabase-gated sign-in, a real-money-capable trade terminal (Alpaca and Tradovate), a six-bot self-learning AI council, AI paper trading, prediction-market engines, a replay sandbox, a quant lab, news desk, watchtower, and the "Bored?" game — Loki Dive, a nova-deep trivia ride with seven 25-second rounds per dive, streak combos, typo forgiveness, and example answers after every miss — plus a browser-held Alpaca paper order rail and an in-page autopilot with published, hand-railed rules.
 
-Everything ships over Vercel: every push to `main` reaches https://loki-joshua-5183.vercel.app through the connected Vercel project. Access is code-gated; the gate code lives in the deployment env, not in this repository.
+Everything ships over Vercel: every push to `main` reaches https://lokitrading.vercel.app through the connected Vercel project. Access is code-gated; the gate code lives in the deployment env, not in this repository.
 
-## Integrated cloud research
+## On-device engine (2.52)
 
-The current workspace includes **Cloud research** at `/#cloud-research`, using
-the existing Loki login through a signed server bridge. The Next.js optimizer
-in `cloud/` runs separately on Vercel and shares the same Supabase Auth project.
-Existing paper accounts, local models and broker controls are preserved; cloud
-certification does not enable orders. This addition still requires deployment,
-reviewed database setup and server environment configuration.
+Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so Vercel mostly serves files and a few relays:
 
-See [docs/CLOUD_INTEGRATION.md](docs/CLOUD_INTEGRATION.md) for the combined setup
-and [cloud/README.md](cloud/README.md) for the worker and research protocol.
+- **Device-direct data.** Binance market data, Polymarket odds and order books, and Alpaca (with the visitor's own keys) are called straight from the browser; these hosts send CORS headers and are the only ones the CSP `connect-src` allows. Stock history and headlines still come through Loki's cached relays (Yahoo sends no CORS headers). Past replay windows are edge-cacheable (`/api/replay/bars`).
+- **AI council** (`/#council`, `engine/council.js`). Six bots (Trend Hawk, Reversion Owl, Momentum Fox, Volatility Bear, Swarm Bee, Pattern Raven) each predict P(higher in 5 bars). Weights are earned with the Hedge rule on decayed log-loss, blending each symbol's record with the all-symbol record. A first visit replays ~250 walk-forward decisions; every live call is stored and scored when its horizon passes, with a written reflection. It is a learning statistical engine, not a conscious mind, and the page shows its Brier score next to a coin flip's 0.25.
+- **Autonomous sentiment swarm** (`engine/swarm.js`). Price Pulse, Vol Burst, Book Imbalance, Odds Mover, Newswire and Social Chatter report alarm/direction/confidence; a quorum across families (market + crowd) is a volatility event that shrinks position size and biases the Swarm Bee. Lead time over the first matching headline is measured, never assumed. Social feeds are best effort and say when a browser blocks them.
+- **Self-healing risk matrix** (`engine/risk.js`). Drawdown limit = 2.5 × recent weekly volatility (3–15%); GREEN / AMBER (half size) / RED (no new entries). On RED it plans exits by liquidity: thin prediction-market positions are hedged with the opposite outcome token, thin stock/crypto/futures positions get sliced limit exits, liquid ones are halved. After a 30-minute cooldown and a calm swarm, size ramps back 25 → 50 → 100%.
+- **Monte Carlo** (`engine/mc_core.js`, run in a Web Worker). 5,000 paths per order: log-normal network delay, price drift during the delay, fills walking a randomly thinned book (or spread + impact), fees and on-chain gas spikes, block-bootstrapped horizon returns or a fair-probability draw for binaries. Confidence = share of profitable paths after costs, plus VaR/CVaR and p99 slippage.
+- **Predictive arbitrage engine** (predictions page, `engine/arb.js`, paper only). Prices Polymarket's 5-minute "Up or Down" crypto contracts exactly as they settle (Chainlink 60-second TWAP vs start price) from Binance 1-second candles, compares both books after the market's fee (rate × p(1−p)), and paper-fills only if the edge survives the measured round trip plus signing time. It records signal-vs-fill edge decay and book lag. No real orders are ever sent.
+- **Replay lab** (`/#replay`, `engine/replay.js`). FTX, LUNA, Black Thursday, the yen unwind, election night 2024, tariff shocks, COVID, DeepSeek and the 2022 bear market, played bar by bar with the council (learning inside the replay), a volatility alarm, the risk matrix and the co-pilot's stops, against buy-and-hold.
+- **Holographic execution map** (`/#execution-map`, `engine/execmap.js`, Three.js r170 vendored under `static/vendor/three`, MIT). A 3D topology of every venue the device talks to; real requests (from a fetch tap that records host, status and timing only) and orders animate along the edges.
+- **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
+- **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
+
+## Trade terminal
+
+`/#trade` (`static/js/trade.js`) sends real orders to **Alpaca paper or live** (browser → Alpaca directly; paper keys saved in the browser, live keys kept only for the tab) and **Tradovate demo or live** (`loki/api/broker_tradovate.py`, a stateless relay that stores nothing: credentials → token once, then token per request; contracts capped at 10 per ticket). Guardrails:
+
+- Live trading must be armed per session by typing "trade real money".
+- Every live order shows its full details for confirmation and must pass every pre-trade check (council, Monte Carlo, risk matrix, notional cap). There is a 20-live-orders-a-day cap.
+- The risk breaker blocks new live entries, and a kill switch cancels everything and flattens.
+- The autopilot only ever trades paper/demo accounts.
+- Every order lands in the signed log.
+
+Polymarket stays paper-only: real orders there would need a wallet private key.
 
 ## Run locally
 
