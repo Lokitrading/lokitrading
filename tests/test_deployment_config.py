@@ -166,11 +166,13 @@ class DeploymentConfigTests(unittest.TestCase):
         source = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
         # Primary workspaces, including AI trading, stay directly accessible.
         group_start = source.index('id="nav-more-group"')
-        for visible in ('data-view="overview"', 'data-view="strategy-lab"', 'data-view="portfolio"', 'data-view="ai-trading"'):
+        # Talk to Loki is a main feature, so it is never tucked under "More tools".
+        for visible in ('data-view="overview"', 'data-view="strategy-lab"', 'data-view="portfolio"',
+                        'data-view="ai-trading"', 'data-view="copilot"'):
             self.assertLess(source.index(visible), group_start)
         self.assertIn('id="nav-more-toggle"', source)
         for grouped in ("agent-council", "simulated-market", "real-market",
-                        "scenarios", "copilot", "paper-planner", "trading-desk", "game"):
+                        "scenarios", "paper-planner", "trading-desk", "game"):
             self.assertGreater(source.index(f'data-view="{grouped}"'), group_start, grouped)
         # Account pill mounts into the topbar instead of floating over content.
         auth_js = (ROOT / "static" / "js" / "loki_auth.js").read_text(encoding="utf-8")

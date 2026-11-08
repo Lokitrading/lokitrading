@@ -5,6 +5,12 @@ const msgEl = document.getElementById('msg');
 const cardEl = document.getElementById('card');
 const codeEl = document.getElementById('code');
 const setMsg = (text, ok) => { msgEl.className = ok ? 'ok' : ''; msgEl.textContent = text; };
+// Where to go after the code is accepted: only our own gated pages, never an outside URL.
+const NEXT_PAGES = ['/', '/account', '/paper-tools', '/indicator', '/ai-chat'];
+const safeNext = (value) => {
+  const path = String(value || '').trim().toLowerCase().replace(/\/+$/, '') || '/';
+  return NEXT_PAGES.indexOf(path) >= 0 ? path : '/';
+};
 
 document.getElementById('show-toggle').addEventListener('click', (event) => {
   const hidden = codeEl.type === 'password';
@@ -76,8 +82,9 @@ formEl.addEventListener('submit', async (event) => {
       btn.disabled = false;
       return;
     }
-    setMsg('Welcome in — opening the workspace…', true);
-    window.location.href = '/';
+    const next = safeNext(new URLSearchParams(window.location.search).get('next'));
+    setMsg(next === '/ai-chat' ? 'Welcome in — opening Talk to Loki…' : 'Welcome in — opening the workspace…', true);
+    window.location.href = next;
   } catch (err) {
     setMsg('Connection hiccup — check the internet and try again.');
     btn.disabled = false;

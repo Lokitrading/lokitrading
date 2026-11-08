@@ -39,6 +39,7 @@
       <a href="#portfolio" data-view="portfolio"><svg class="ui-icon" aria-hidden="true"><use href="#icon-wallet"/></svg> Paper portfolio</a>
       <a href="#ai-trading" data-view="ai-trading"><svg class="ui-icon" aria-hidden="true"><use href="#icon-spark"/></svg> AI trading</a>
       <a href="#live-markets" data-view="live-markets"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"/></svg> Live markets <span class="nav-live-dot" aria-hidden="true"></span></a>
+      <a href="#copilot" data-view="copilot"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat"/></svg> Talk to Loki</a>
       <a href="#news" data-view="news"><svg class="ui-icon" aria-hidden="true"><use href="#icon-news"/></svg> News</a>
       <button type="button" class="nav-more" id="nav-more-toggle" aria-expanded="false" aria-controls="nav-more-group"><svg class="ui-icon" aria-hidden="true"><use href="#icon-layers"/></svg> More tools <span class="nav-chevron" aria-hidden="true">⌄</span></button>
       <div class="nav-more-group" id="nav-more-group" hidden>
@@ -46,10 +47,9 @@
         <a href="#simulated-market" data-view="simulated-market"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"/></svg> Simulated market</a>
         <a href="#real-market" data-view="real-market"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow"/></svg> Real account</a>
         <a href="#scenarios" data-view="scenarios"><svg class="ui-icon" aria-hidden="true"><use href="#icon-shield"/></svg> Scenarios</a>
-        <a href="#copilot" data-view="copilot"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat"/></svg> Talk to Loki</a>
         <a href="#paper-planner" data-view="paper-planner"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"/></svg> Market planner</a>
         <a href="#trading-desk" data-view="trading-desk"><svg class="ui-icon" aria-hidden="true"><use href="#icon-sliders"/></svg> Trading desk</a>
-        <a href="/ai-chat" target="_blank" rel="noopener"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat"/></svg> Loki's private room</a>
+        <a href="/ai-chat"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat"/></svg> Loki's private room</a>
         <a href="#game" data-view="game">Bored?</a>
       </div>
     </nav>
@@ -62,7 +62,7 @@
     <div class="workspace-context" id="workspace-context" hidden><div><span class="status-dot"></span><strong id="context-symbol"></strong><span id="context-detail"></span></div><a href="#strategy-lab">Change dataset ↗</a></div>
     <section id="overview" class="workspace-view" aria-label="Overview">
       <div class="overview-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h1>Pick up where you left off<span class="heading-period">.</span></h1></div><a class="button secondary" href="#strategy-lab"><svg class="ui-icon" aria-hidden="true"><use href="#icon-flask"/></svg> New research <span aria-hidden="true">↗</span></a></div>
-      <div class="hero arrival-scene loki-glow" data-loki-scene="hero"><div class="hero-copy"><p class="eyebrow hero-greeting" id="hero-greeting" hidden></p><p class="eyebrow hero-kicker"><span class="status-dot" aria-hidden="true"></span> LESS NOISE. MORE PERSPECTIVE.</p><h2 data-reveal-words>Test ideas against<br><em class="loki-shimmer">real market history.</em></h2><p class="muted loki-rise" style="--rise:2">Bring an idea. Argue it against the tape.<br>Every conclusion here shows its work — sources, grades, and the calls it got wrong too.</p><div class="hero-actions loki-rise" style="--rise:3"><a class="button primary loki-sheen" href="#ai-trading">Open trading workspace <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow"/></svg></a><a class="text-link" href="/ai-chat" target="_blank" rel="noopener">Talk to Loki <span aria-hidden="true">→</span></a></div><div class="arrival-principles"><span><b>01</b> Observe</span><span><b>02</b> Test</span><span><b>03</b> Decide</span></div></div>
+      <div class="hero arrival-scene loki-glow" data-loki-scene="hero"><div class="hero-copy"><p class="eyebrow hero-greeting" id="hero-greeting" hidden></p><p class="eyebrow hero-kicker"><span class="status-dot" aria-hidden="true"></span> LESS NOISE. MORE PERSPECTIVE.</p><h2 data-reveal-words>Test ideas against<br><em class="loki-shimmer">real market history.</em></h2><p class="muted loki-rise" style="--rise:2">Bring an idea. Argue it against the tape.<br>Every conclusion here shows its work — sources, grades, and the calls it got wrong too.</p><div class="hero-actions loki-rise" style="--rise:3"><a class="button primary loki-sheen" href="#ai-trading">Open trading workspace <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow"/></svg></a><a class="text-link" href="/ai-chat">Talk to Loki <span aria-hidden="true">→</span></a></div><div class="arrival-principles"><span><b>01</b> Observe</span><span><b>02</b> Test</span><span><b>03</b> Decide</span></div></div>
         <div class="signal-instrument radar-instrument">
           <div class="instrument-heading"><span><span class="status-dot" aria-hidden="true"></span> AI MARKET RADAR · LIVE</span><button id="signal-motion-toggle" type="button" aria-pressed="false">Pause motion</button></div>
           <div class="radar-wrap"><canvas id="ai-radar" aria-label="Live AI radar of 21 markets"></canvas><div class="radar-tip" id="radar-tip" hidden></div></div>
