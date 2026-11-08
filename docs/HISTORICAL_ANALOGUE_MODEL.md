@@ -155,7 +155,7 @@ profitability tests: licensed real intraday/futures data is still needed.
 
 ## Corrected v2 training run
 
-Reproducible daily training command from `tradingbot/`:
+Reproducible daily training command from the repository root (`lokitrading/`):
 
 ```powershell
 python train_analogue.py --symbols SPY QQQ AAPL MSFT --years 20 --horizon 3

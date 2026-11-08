@@ -8,7 +8,7 @@ is not Loki's runtime memory; it remains untouched as a historical archive.
 
 1. Run Loki through its local launcher and open its chat.
 2. In Obsidian choose **Open folder as vault** and select
-   `tradingbot/state/loki_memory`. Send the first `remember` message to create it.
+   `lokitrading/state/loki_memory`. Send the first `remember` message to create it.
 3. In Loki chat send `remember I prefer reviewing paper results weekly`.
 4. Send `recall weekly` or `show memory`. Loki reads the saved notes after
    browser/server restarts. Obsidian edits to `loki-note-*.md` appear on recall.

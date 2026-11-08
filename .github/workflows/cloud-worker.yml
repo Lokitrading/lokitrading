@@ -19,8 +19,14 @@ jobs:
           CRON_SECRET: ${{ secrets.LOKI_CLOUD_CRON_SECRET }}
         shell: bash
         run: |
+          if [ -z "$WORKER_URL" ] && [ -z "$CRON_SECRET" ]; then
+            # Not set up in this repository yet: skip quietly instead of
+            # failing (and emailing) every five minutes.
+            echo "::notice::Cloud optimizer is not configured here (set LOKI_CLOUD_WORKER_URL and LOKI_CLOUD_CRON_SECRET); skipping."
+            exit 0
+          fi
           if [ -z "$WORKER_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "::error::Cloud optimizer configuration is missing; no work was triggered."
+            echo "::error::Cloud optimizer configuration is incomplete; no work was triggered."
             exit 1
           fi
           if [[ ! "$WORKER_URL" =~ ^https://[a-zA-Z0-9-]+\.vercel\.app$ ]]; then
