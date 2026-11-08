@@ -23,6 +23,11 @@ Exits are written before entries
     3. target    — sell once most of the remaining upside is in hand
     4. edge gone — sell when the model now values the token below its bid
     Sells walk the bids for the full size, so exit slippage is counted too.
+    Self-healing exit: when the bid side is too thin (the sell cannot fill, or
+    fills 3%+ under the best bid) and buying the OPPOSITE token locks more,
+    the bot hedges instead (YES + NO pays $1 a pair at resolution) rather than
+    dumping into an empty book. The co-pilot's hedge rule can also force a
+    hedge when volatility crosses the user's line.
 
 Sizing
     Quarter-Kelly on the edge, capped per position and in total; at most one
@@ -355,7 +360,8 @@ def scan(bankroll: float, exposure: float = 0.0) -> Dict[str, Any]:
         candidates.append({
             "symbol": ladder["symbol"], "question": ladder["title"], "url": ladder["url"], "strike": rung["strike"],
             "resolves": ladder["end"].isoformat().replace("+00:00", "Z"), "market_id": rung["market_id"],
-            "token": "YES" if side_yes else "NO", "token_id": w["token"], "thesis": (
+            "token": "YES" if side_yes else "NO", "token_id": w["token"],
+            "hedge_token_id": rung["no_token"] if side_yes else rung["yes_token"], "thesis": (
                 f"finishes above {rung['strike']:,.4g}" if side_yes else f"finishes below {rung['strike']:,.4g}"),
             "spot": round(w["spot"], 4), "sigma": round(w["sigma"], 4), "model_prob": round(model, 4),
             "market_prob": round(w["market"], 4), "avg_fill": round(avg, 4),
@@ -386,7 +392,32 @@ def choose(candidates: List[Dict[str, Any]], room: float) -> List[Dict[str, Any]
     return chosen
 
 
-def review(positions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+HEDGE_SLIPPAGE = 0.03       # a sell that would fill 3%+ under the best bid counts as thin liquidity
+
+
+def hedge_plan(shares: float, bid_avg: Optional[float], best_bid: Optional[float],
+               opposite_asks: List[Tuple[float, float]], force: bool = False) -> Optional[Dict[str, Any]]:
+    """Buy the opposite outcome instead of selling into a thin book, when that is worth more.
+
+    YES + NO always pays $1 per pair at resolution, so buying `shares` of the
+    opposite token at average price q locks (1 - q) per share, versus `bid_avg`
+    from selling now. Thin = the sell cannot fill, or fills HEDGE_SLIPPAGE
+    below the best bid. `force` (the co-pilot's volatility hedge rule) hedges
+    whenever the opposite book can fill.
+    """
+    fill = walk(opposite_asks, shares)
+    if not fill or fill[2] < shares * 0.999:
+        return None
+    avg, worst, _ = fill
+    locked = 1.0 - avg
+    thin = bid_avg is None or (best_bid is not None and best_bid > 0 and (best_bid - bid_avg) / best_bid >= HEDGE_SLIPPAGE)
+    if force or (thin and locked > (bid_avg or 0.0) + 0.005):
+        return {"avg": round(avg, 4), "worst": round(worst, 3), "locked_per_share": round(locked, 4),
+                "sell_per_share": round(bid_avg, 4) if bid_avg else None, "thin": thin, "forced": force}
+    return None
+
+
+def review(positions: List[Dict[str, Any]], hedge_above_vol: Optional[float] = None) -> List[Dict[str, Any]]:
     """Exit decisions for open paper positions, walking the bids for the real exit price."""
     now = datetime.now(timezone.utc)
     inputs = _market_inputs(sorted({str(p["symbol"]) for p in positions}))
@@ -397,9 +428,10 @@ def review(positions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         except ValueError:
             end = now
         seconds = (end - now).total_seconds()
-        bid_avg, mid = None, None
+        bid_avg, mid, best_bid = None, None, None
         try:
             b = book(p["token_id"])
+            best_bid = b["bids"][0][0] if b["bids"] else None
             fill = walk(b["bids"], float(p["shares"]))
             bid_avg = fill[0] if fill and fill[2] >= float(p["shares"]) * 0.999 else None
             if b["bids"] and b["asks"]:
@@ -415,7 +447,22 @@ def review(positions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 fair = own if mid is None else MODEL_WEIGHT * own + (1.0 - MODEL_WEIGHT) * mid
         action, reason = exit_decision(p, bid_avg, fair, seconds)
         out = {"id": p["id"], "action": action, "reason": reason, "bid": round(bid_avg, 4) if bid_avg else None,
-               "model_prob": round(fair, 4) if fair is not None else None}
+               "model_prob": round(fair, 4) if fair is not None else None,
+               "sigma": round(sigma, 4) if sigma else None}
+        forced = bool(hedge_above_vol and sigma and sigma * 100.0 > hedge_above_vol)
+        if p.get("hedge_token_id") and (action == "sell" or forced):
+            try:
+                plan = hedge_plan(float(p["shares"]), bid_avg, best_bid, book(p["hedge_token_id"])["asks"], forced)
+            except polymarket.PolymarketError:
+                plan = None
+            if plan:
+                why = (f"volatility {(sigma or 0.0) * 100:.0f}% is above your {hedge_above_vol or 0.0:.0f}% hedge line" if forced
+                       else f"selling would fill at {plan['sell_per_share'] if plan['sell_per_share'] is not None else 'no price'}"
+                            f" in a thin book; buying the opposite token locks {plan['locked_per_share']:.3f} per share")
+                out.update(action="hedge", reason=f"hedge instead of selling: {why}", hedge=plan,
+                           order={"token_id": p["hedge_token_id"], "side": "BUY", "price": plan["worst"],
+                                  "size": float(p["shares"]), "order_type": "FOK"})
+                return out
         if action == "sell" and bid_avg:
             out["order"] = {"token_id": p["token_id"], "side": "SELL", "price": round(bid_avg, 3),
                             "size": float(p["shares"]), "order_type": "FOK"}
@@ -444,11 +491,13 @@ class Position(BaseModel):
     entry: float = Field(gt=0, lt=1)
     shares: float = Field(gt=0, lt=1e7)
     resolves: str = Field(min_length=10, max_length=40)
+    hedge_token_id: Optional[str] = Field(default=None, pattern=r"^\d{10,90}$")
 
 
 class ReviewBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     positions: List[Position] = Field(max_length=20)
+    hedge_above_vol: Optional[float] = Field(default=None, gt=0, le=500)
 
 
 @router.get("/signals")
@@ -468,7 +517,7 @@ def api_signals(response: Response, bankroll: float = Query(default=1000.0, gt=0
 @router.post("/review")
 def api_review(body: ReviewBody, response: Response) -> Dict[str, Any]:
     try:
-        decisions = review([p.model_dump() for p in body.positions])
+        decisions = review([p.model_dump() for p in body.positions], body.hedge_above_vol)
     except polymarket.PolymarketError as exc:
         raise HTTPException(503, f"{exc}. Positions are held until the book answers.") from None
     response.headers["Cache-Control"] = "no-store"

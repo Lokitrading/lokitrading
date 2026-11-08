@@ -208,3 +208,42 @@ def test_unconfigured_services_show_setup_not_an_outage(monkeypatch):
                                                  ("accounts", "Accounts", lambda: (None, "not set up"))])
     body = feed_status.snapshot(force=True)
     assert body["overall"] == "setup" and body["feeds"][1]["state"] == "setup"
+
+
+# --- hedge instead of selling into a thin book ------------------------------------
+def test_hedge_plan_prefers_locking_when_the_bid_side_is_thin():
+    # Selling 100 shares fills at 0.20 average against a 0.40 best bid (50% slippage);
+    # buying 100 NO at ~0.55 locks 0.45 per share instead.
+    plan = bot.hedge_plan(100, bid_avg=0.20, best_bid=0.40, opposite_asks=[(0.55, 500.0)])
+    assert plan and plan["thin"] and plan["locked_per_share"] == pytest.approx(0.45)
+    # A deep bid side is just sold; no hedge.
+    assert bot.hedge_plan(100, bid_avg=0.395, best_bid=0.40, opposite_asks=[(0.55, 500.0)]) is None
+    # An opposite book that cannot fill the size cannot hedge.
+    assert bot.hedge_plan(100, bid_avg=None, best_bid=None, opposite_asks=[(0.55, 10.0)]) is None
+    # The volatility rule forces a hedge whenever the opposite book can fill.
+    assert bot.hedge_plan(100, bid_avg=0.39, best_bid=0.40, opposite_asks=[(0.55, 500.0)], force=True)["forced"]
+
+
+def test_review_hedges_a_thin_position_and_honours_the_volatility_rule(monkeypatch):
+    books = {YES: {"asks": [(0.30, 50.0)], "bids": [(0.15, 5.0), (0.05, 400.0)], "tick": 0.01, "min_size": 5.0},
+             NO: {"asks": [(0.62, 400.0)], "bids": [(0.60, 400.0)], "tick": 0.01, "min_size": 5.0}}
+    wire(monkeypatch)
+    monkeypatch.setattr(bot, "book", lambda t: books[t])
+    out = bot.review([position(hedge_token_id=NO)])[0]
+    assert out["action"] == "hedge" and out["order"]["token_id"] == NO and out["order"]["side"] == "BUY"
+    assert out["hedge"]["locked_per_share"] == pytest.approx(0.38)
+    # Without the opposite token id the bot can only sell.
+    assert bot.review([position()])[0]["action"] == "sell"
+    # Calm, liquid position: held, unless volatility crosses the user's hedge line.
+    books[YES] = {"asks": [(0.37, 400.0)], "bids": [(0.36, 400.0)], "tick": 0.01, "min_size": 5.0}
+    assert bot.review([position(hedge_token_id=NO)])[0]["action"] == "hold"
+    forced = bot.review([position(hedge_token_id=NO)], hedge_above_vol=30)[0]
+    assert forced["action"] == "hedge" and "volatility" in forced["reason"]
+    ok = client.post("/api/polymarket/bot/review", json={"positions": [position(hedge_token_id=NO)], "hedge_above_vol": 30})
+    assert ok.status_code == 200 and ok.json()["decisions"][0]["action"] == "hedge"
+
+
+def test_signals_carry_the_opposite_token_for_hedging(monkeypatch):
+    wire(monkeypatch)
+    s = bot.scan(1000)["signals"][0]
+    assert s["token_id"] == YES and s["hedge_token_id"] == NO

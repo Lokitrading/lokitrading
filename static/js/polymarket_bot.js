@@ -41,8 +41,8 @@
   const log = (text, kind = '') => bot.log.push({ t: Date.now(), text, kind });
   const newId = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   const mark = (p) => (Number.isFinite(p.mark) ? p.mark : p.entry);
-  const openValue = () => bot.positions.reduce((s, p) => s + p.shares * mark(p), 0);
-  const exposure = () => bot.positions.reduce((s, p) => s + p.cost, 0);
+  const openValue = () => bot.positions.reduce((s, p) => s + (p.hedged ? p.shares : p.shares * mark(p)), 0);
+  const exposure = () => bot.positions.reduce((s, p) => s + p.cost + (p.hedged ? p.hedged.cost : 0), 0);
   const equity = () => bot.cash + openValue();
   const describe = (p) => `${p.token} · ${NAMES[p.symbol] || p.symbol} ${p.token === 'YES' ? 'above' : 'not above'} ${Number(p.strike).toLocaleString('en-US')}`;
 
@@ -60,10 +60,21 @@
     const pnl = proceeds - p.cost;
     bot.closed.push({ ...p, exit: price, pnl, reason, closedAt: new Date().toISOString() });
     log(`Sold ${describe(p)} at ${cents(price)} → ${usd(pnl, true)} (${reason})`, pnl >= 0 ? 'up' : 'down');
+    window.Loki?.emit('order', { venue: 'polymarket', side: 'sell', symbol: describe(p), qty: p.shares, paper: true });
+    window.Loki?.audit?.append({ kind: 'paper', venue: 'polymarket-bot', action: 'sell', market: p.market_id, token: p.token, shares: p.shares, price, pnl, reason });
   }
 
   async function settleExpired() {
     const now = Date.now();
+    bot.positions = bot.positions.filter((p) => {
+      if (!p.hedged || new Date(p.resolves).getTime() + 5 * 60000 > now) return true;
+      const payout = p.shares, cost = p.cost + p.hedged.cost, pnl = payout - cost;
+      bot.cash += payout;
+      bot.closed.push({ ...p, exit: 1, pnl, reason: 'hedged pair settled at $1 a pair', closedAt: new Date().toISOString() });
+      log(`Settled hedged ${describe(p)}: pair paid ${usd(payout)} → ${usd(pnl, true)}`, pnl >= 0 ? 'up' : 'down');
+      window.Loki?.audit?.append({ kind: 'paper', venue: 'polymarket-bot', action: 'settle', market: p.market_id, pnl, hedged: true });
+      return false;
+    });
     const expired = bot.positions.filter((p) => new Date(p.resolves).getTime() + 5 * 60000 < now && /^\d+$/.test(p.market_id || ''));
     if (!expired.length) return;
     const ids = [...new Set(expired.map((p) => p.market_id))].slice(0, 25);
@@ -80,9 +91,11 @@
   }
 
   async function reviewExits() {
-    const open = bot.positions.slice(0, 20);
+    const open = bot.positions.filter((p) => !p.hedged).slice(0, 20);
     if (!open.length) return;
-    const body = { positions: open.map((p) => ({ id: p.id, token_id: p.token_id, token: p.token, symbol: p.symbol, strike: p.strike, entry: p.entry, shares: p.shares, resolves: p.resolves })) };
+    const rule = window.Loki && window.Loki.config ? window.Loki.config().hedge_rule : null;
+    const body = { positions: open.map((p) => ({ id: p.id, token_id: p.token_id, token: p.token, symbol: p.symbol, strike: p.strike, entry: p.entry, shares: p.shares, resolves: p.resolves, ...(p.hedge_token_id ? { hedge_token_id: p.hedge_token_id } : {}) })) };
+    if (rule && rule.enabled) body.hedge_above_vol = rule.vol_threshold_pct;
     const data = await api('/api/polymarket/bot/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (data.rules) bot.rules = data.rules;
     const byId = new Map((data.decisions || []).map((d) => [d.id, d]));
@@ -92,6 +105,19 @@
       if (Number.isFinite(d.bid)) p.mark = d.bid;
       p.model = Number.isFinite(d.model_prob) ? d.model_prob : p.model;
       p.status = d.reason;
+      if (d.action === 'hedge' && d.hedge && d.order) {
+        const cost = d.hedge.avg * p.shares;
+        if (cost <= bot.cash) {
+          bot.cash -= cost;
+          p.hedged = { price: d.hedge.avg, cost, at: new Date().toISOString() };
+          p.mark = 1 - d.hedge.avg; // the pair is now worth $1 at resolution: value the YES leg at what is locked
+          p.status = `${d.reason}. Locked until resolution.`;
+          log(`Hedged ${describe(p)}: bought the opposite token at ${cents(d.hedge.avg)} instead of selling into a thin book`, 'buy');
+          window.Loki?.emit('order', { venue: 'polymarket', side: 'buy', symbol: `hedge ${describe(p)}`, qty: p.shares, paper: true });
+          window.Loki?.audit?.append({ kind: 'paper', venue: 'polymarket-bot', action: 'hedge', market: p.market_id, shares: p.shares, price: d.hedge.avg, reason: d.reason });
+          return true;
+        }
+      }
       if (d.action === 'sell' && Number.isFinite(d.bid) && d.order) { close(p, d.bid, d.reason); return false; }
       if (d.action === 'sell') p.status = `${d.reason} — but the book has no bids for the full size, so it is held`;
       return true;
@@ -110,7 +136,9 @@
       if (bot.closed.some((c) => c.market_id === s.market_id && Date.now() - new Date(c.closedAt).getTime() < COOLDOWN_MS)) continue;
       if (!(s.cost > 0) || s.cost > bot.cash) continue;
       bot.cash -= s.cost;
-      bot.positions.push({ id: newId(), token_id: s.token_id, token: s.token, symbol: s.symbol, strike: s.strike, market_id: s.market_id, question: s.question, url: s.url,
+      window.Loki?.emit('order', { venue: 'polymarket', side: 'buy', symbol: describe(s), qty: s.shares, paper: true });
+      window.Loki?.audit?.append({ kind: 'paper', venue: 'polymarket-bot', action: 'buy', market: s.market_id, token: s.token, shares: s.shares, price: s.avg_fill, edge: s.edge });
+      bot.positions.push({ id: newId(), token_id: s.token_id, hedge_token_id: s.hedge_token_id, token: s.token, symbol: s.symbol, strike: s.strike, market_id: s.market_id, question: s.question, url: s.url,
         resolves: s.resolves, entry: s.avg_fill, shares: s.shares, cost: s.cost, mark: s.avg_fill, model: s.model_prob, edge: s.edge, opened: new Date().toISOString(), status: 'just opened' });
       log(`Bought ${describe(s)} — ${s.shares} shares at ${cents(s.avg_fill)} (model ${pct(s.model_prob)}, edge ${(s.edge * 100).toFixed(1)} pts)`, 'buy');
       bought += 1;
@@ -170,7 +198,7 @@
     root.classList.toggle('is-running', bot.auto);
 
     $('pmb-positions').innerHTML = bot.positions.length ? bot.positions.map((p) => {
-      const pnl = p.shares * mark(p) - p.cost;
+      const pnl = p.hedged ? p.shares - p.cost - p.hedged.cost : p.shares * mark(p) - p.cost;
       const link = safeUrl(p.url);
       return `<div class="pmb-pos"><div><b>${esc(describe(p))}</b><span class="muted"> · resolves ${esc(day(p.resolves))}</span>` +
         `<p class="caption">${esc(p.status || '')}${link ? ` · <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">Market ↗</a>` : ''}</p></div>` +

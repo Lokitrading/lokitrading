@@ -76,9 +76,19 @@ class TestMinimisation:
             for tag in re.findall(r"<(?:script|link|img|iframe)\b[^>]*>", text):
                 assert not re.search(r'(src|href)="https?://', tag) or "rel=\"noopener" in tag, (template.name, tag)
 
-    def test_csp_allows_no_external_hosts(self):
+    def test_csp_allows_only_disclosed_market_data_hosts(self):
+        # The on-device engine may call public market-data providers directly; every one
+        # must be disclosed in the privacy policy, and scripts/images stay first-party.
         csp = TestClient(app).get("/terms").headers["content-security-policy"]
-        assert "https://" not in csp
+        directives = dict(part.strip().split(" ", 1) for part in csp.split(";") if " " in part.strip())
+        for name, value in directives.items():
+            if name != "connect-src":
+                assert "https://" not in value and "wss://" not in value, name
+        hosts = [h.split("//", 1)[1] for h in directives["connect-src"].split() if "//" in h]
+        policy = (ROOT / "templates" / "privacy.html").read_text(encoding="utf-8").lower()
+        for host in hosts:
+            root_name = host.split(".")[-2]
+            assert root_name in policy, f"{host} is reachable from the browser but not disclosed in the privacy policy"
 
     def test_chat_turns_expire_after_30_days(self, tmp_path, monkeypatch):
         monkeypatch.setattr(ai_chat, "_DB_DIR", tmp_path)

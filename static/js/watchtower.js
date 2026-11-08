@@ -150,36 +150,10 @@
       void refreshQuotes(true);
     });
     actions.append(remove);
-    const analyze = element('button', 'Quant lab feed ↗', 'row-action');
-    analyze.type = 'button';
-    analyze.addEventListener('click', () => sendToPlanner(item));
-    actions.append(analyze);
     card.append(actions);
     return card;
   }
 
-  function sendToPlanner(item) {
-    const pair = String(item.symbol || '');
-    const binancePair = /^[A-Z0-9]{2,10}\/[A-Z0-9]{2,10}$/.test(pair) ? pair.replace('/', '') : '';
-    const frame = document.querySelector('#paper-planner iframe[data-src]');
-    if (!binancePair || !frame) {
-      if (!binancePair) {
-        say(
-          'Only crypto pairs have a live Binance candle feed, so ' + (item.symbol || 'this symbol') +
-          ' cannot preview in the planner. The quote stays in the watchtower.',
-          true
-        );
-      } else {
-        say('The planner frame is not available on this page layout.', true);
-      }
-      return;
-    }
-    const target = '/paper-tools?symbol=' + encodeURIComponent(binancePair);
-    frame.dataset.src = target;
-    if (frame.getAttribute('src')) frame.src = target;
-    location.hash = '#paper-planner';
-    say(binancePair + ' handoff: the planner is loading the live ' + binancePair + ' feed.', false);
-  }
 
   function renderQuotesLoading() {
     if (!watchCards) return;

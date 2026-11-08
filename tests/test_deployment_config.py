@@ -93,7 +93,7 @@ class DeploymentConfigTests(unittest.TestCase):
         # JS/CSS: every static asset tag is versioned from the context var.
         import re
         tag_pattern = re.compile(r'(?:src|href)="(/static/[^"]+)"', re.IGNORECASE)
-        indexed = ("index.html", "research_desk.html")
+        indexed = ("index.html",)
         for name in indexed:
             text = (ROOT / "templates" / name).read_text(encoding="utf-8")
             urls = tag_pattern.findall(text)
@@ -101,13 +101,6 @@ class DeploymentConfigTests(unittest.TestCase):
             for url in urls:
                 self.assertTrue(url.endswith("?v={{ version }}"), f"{name}: asset {url} has no ?v={{ version }} cache bust")
                 self.assertTrue(url.split("?")[0].endswith((".css", ".js")), f"{name}: unexpected asset {url}")
-        for name in ("strategy_lab.html", "paper_tools.html"):
-            text = (ROOT / "templates" / name).read_text(encoding="utf-8")
-            self.assertIn("url_for('static'", text, f"{name} should load assets")
-            lines = [line for line in text.splitlines() if "url_for('static'" in line]
-            self.assertTrue(lines, f"{name} has url_for assets")
-            for line in lines:
-                self.assertIn("?v={{ version }}", line, f"{name}: url_for asset line lacks ?v cache bust: {line[:60]}")
 
     def test_landing_assets_are_included_in_the_deployment_bundle(self):
         config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
@@ -116,32 +109,8 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn("static/**", included)
         self.assertTrue((ROOT / "templates" / "index.html").is_file())
         self.assertTrue((ROOT / "static" / "css" / "style.css").is_file())
-        self.assertTrue((ROOT / "static" / "js" / "profile.js").is_file())
         self.assertTrue((ROOT / "static" / "js" / "strategy-lab.js").is_file())
         self.assertTrue((ROOT / "static" / "js" / "workspace.js").is_file())
-
-    def test_landing_page_has_required_labelled_personal_profile_fields(self):
-        source = (ROOT / "templates" / "research_desk.html").read_text(encoding="utf-8")
-        page = LandingPageContract()
-        page.feed(source)
-        inputs = {item.get("id"): item for item in page.inputs}
-        self.assertIn("profileForm", [form.get("id") for form in page.forms])
-        self.assertEqual(inputs["profileNickname"].get("autocomplete"), "nickname")
-        self.assertEqual(inputs["profileEmail"].get("type"), "email")
-        self.assertEqual(inputs["profileEmail"].get("autocomplete"), "email")
-        self.assertTrue(any(s.startswith("/static/js/profile.js") for s in page.scripts), page.scripts)
-        self.assertTrue(any(s.startswith("/static/css/research_desk.css") for s in page.stylesheets), page.stylesheets)
-        self.assertIn("does not send your details to the server", " ".join(page.text))
-
-    def test_workspace_has_navigable_research_views_and_no_github_promotion(self):
-        source = (ROOT / "templates" / "research_desk.html").read_text(encoding="utf-8")
-        for view in ("overview", "strategy", "paper", "journal", "council"):
-            self.assertIn(f'data-view="{view}"', source)
-            self.assertIn(f'id="view-{view}"', source)
-        self.assertIn('id="csvUpload"', source)
-        self.assertIn("REAL MODE", source)
-        self.assertIn("Live execution is not connected", source)
-        self.assertNotIn("github.com/eleven-official", source)
 
     def test_landing_has_loki_dive_arcade_wiring(self):
         source = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
@@ -172,7 +141,7 @@ class DeploymentConfigTests(unittest.TestCase):
             self.assertLess(source.index(visible), group_start)
         self.assertIn('id="nav-more-toggle"', source)
         for grouped in ("agent-council", "simulated-market", "real-market",
-                        "scenarios", "paper-planner", "trading-desk", "game"):
+                        "scenarios", "trading-desk", "game"):
             self.assertGreater(source.index(f'data-view="{grouped}"'), group_start, grouped)
         # Account pill mounts into the topbar instead of floating over content.
         auth_js = (ROOT / "static" / "js" / "loki_auth.js").read_text(encoding="utf-8")
@@ -183,7 +152,7 @@ class DeploymentConfigTests(unittest.TestCase):
         workspace = (ROOT / "static" / "js" / "workspace.js").read_text(encoding="utf-8")
         for marker in ("loki_steps_data", "loki_steps_run", "loki_steps_council"):
             self.assertIn(marker, workspace)
-        self.assertIn("loki_steps_journal", (ROOT / "static" / "js" / "planner.js").read_text(encoding="utf-8"))
+        self.assertIn("loki_steps_journal", workspace)  # recording a paper portfolio action ticks the journal step
         # CSV preview before a replay.
         self.assertIn('id="quant-csv-preview"', source)
         self.assertIn('id="preview-apply"', source)
@@ -292,8 +261,6 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn("window.LokiCurrency", workspace)  # via the shared formatter
         ai = (ROOT / "static" / "js" / "ai_trading.js").read_text(encoding="utf-8")
         self.assertIn("loki:currency", ai)  # AI panel already followed; keep it so
-        planner = (ROOT / "static" / "js" / "planner.js").read_text(encoding="utf-8")
-        self.assertIn("no decision to save yet", planner)  # empty-save tells the user, never silently no-ops
 
     def test_run_summary_evidence_card_and_practice_streak(self):
         source = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
@@ -401,29 +368,6 @@ class DeploymentConfigTests(unittest.TestCase):
         for template in sorted((ROOT / "templates").glob("*.html")):
             text = template.read_text(encoding="utf-8")
             self.assertNotIn("github.com/eleven-official", text, str(template))
-
-    def test_rule_version_labels_match_replay_engine(self):
-        html = (ROOT / "templates" / "research_desk.html").read_text(encoding="utf-8")
-        engine = (ROOT / "static" / "js" / "strategy-lab.js").read_text(encoding="utf-8")
-        match = re.search(r'const RULE_VERSION = "([^"]+)";', engine)
-        self.assertIsNotNone(match)
-        version = match.group(1)
-        self.assertIn(f"RULE SET · VERSION {version}", html)
-        self.assertIn(f'class="versionValue">{version}</strong>', html)
-        self.assertIn(f"REVIEWING RULE SET {version}", html)
-        self.assertIn("matched-cost buy-and-hold baseline", html)
-        agent_match = re.search(r'const AGENT_VERSION = "([^"]+)";', engine)
-        self.assertIsNotNone(agent_match)
-        self.assertIn(f"ADAPTIVE PAPER AGENT · VERSION {agent_match.group(1)}", html)
-        workspace = (ROOT / "static" / "js" / "research_desk.js").read_text(encoding="utf-8")
-        self.assertIn("trainingBenchmarkReturnPct", workspace)
-        self.assertIn("latestAgentPaper.agentVersion !== LAB.AGENT_VERSION", workspace)
-
-    def test_profile_code_persists_locally_without_sending_contact_details(self):
-        source = (ROOT / "static" / "js" / "profile.js").read_text(encoding="utf-8")
-        self.assertIn("localStorage.setItem", source)
-        self.assertIn("localStorage.removeItem", source)
-        self.assertNotRegex(source, r"\bfetch\s*\(|XMLHttpRequest|navigator\.sendBeacon")
 
     def test_server_resolves_template_and_static_paths_from_repository_root(self):
         source = (ROOT / "loki" / "api" / "server.py").read_text(encoding="utf-8")

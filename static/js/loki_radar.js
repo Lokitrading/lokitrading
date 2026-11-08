@@ -79,7 +79,8 @@
 
   function draw(dt) {
     const paused = instrument && instrument.dataset.paused === 'true';
-    if (!paused && !reduce) sweep += dt * (Math.PI * 2) / 5200;
+    // Reduced motion: one calm revolution every ~21 s instead of 5 s.
+    if (!paused) sweep += dt * (Math.PI * 2) / (reduce ? 21000 : 5200);
     ctx.clearRect(0, 0, size, size);
 
     // dish
@@ -172,7 +173,7 @@
   function frame(t) {
     const dt = Math.min(64, t - last); last = t;
     draw(dt);
-    if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame);
+    if (visible && !document.hidden) raf = requestAnimationFrame(frame);
   }
   function start() { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(frame); }
 
@@ -199,7 +200,7 @@
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) start(); });
   draw(16);
-  if (!reduce) start();
+  start();
   load();
   setInterval(() => { if (!document.hidden && (failed || Date.now() - loadedAt > 10 * 60 * 1000)) load(); }, 60000);
 })();

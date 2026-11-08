@@ -250,9 +250,5 @@ def test_watchtower_pages_and_backup_are_wired():
     assert "loki_watchlist_v1" in backup
     server = (ROOT / "loki" / "api" / "server.py").read_text(encoding="utf-8")
     assert "watchtower_router" in server
-    planner = (ROOT / "static" / "js" / "planner.js").read_text(encoding="utf-8")
-    assert "Watchtower handoff" in planner  # ?symbol= bridge from the watchtower
-    paper_tools = (ROOT / "templates" / "paper_tools.html").read_text(encoding="utf-8")
-    assert 'id="live-feed-status"' in paper_tools and 'id="live-feed-form"' in paper_tools
     styles = (ROOT / "static" / "css" / "style.css").read_text(encoding="utf-8")
     assert ".watch-card" in styles and ".floor-grid" in styles

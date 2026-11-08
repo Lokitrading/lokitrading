@@ -3,10 +3,7 @@ import math
 import time
 
 import pytest
-from fastapi.testclient import TestClient
 
-import loki.api.paper_tools as paper_tools
-import loki.api.server as server
 from loki.api.binance_market_data import MarketDataError, get_binance_spot_history
 from loki.api.strategy_backtest import (
     BacktestInputError,
@@ -31,21 +28,6 @@ def candle_series(count=200):
     rows[150].update(open=100.2, high=103.0, low=100.1, close=102.5, volume=300.0)
     rows[151].update(open=102.5, high=104.0, low=102.4, close=103.5, volume=100.0)
     return rows
-
-
-def test_strategy_lab_page_and_assets_are_served():
-    client = TestClient(server.app)
-
-    home = client.get("/")
-    page = client.get("/strategy-lab")
-
-    assert home.status_code == 200
-    assert 'href="/strategy-lab"' in home.text
-    assert page.status_code == 200
-    assert "Out-of-sample review" in page.text
-    assert "strategy_lab.js" in page.text
-    assert client.get("/static/js/strategy_lab.js").status_code == 200
-    assert client.get("/static/css/strategy_lab.css").status_code == 200
 
 
 def test_holdout_keeps_later_breakout_out_of_training_and_fills_next_bar():
@@ -137,43 +119,3 @@ def test_history_request_rejects_a_too_short_window():
     with pytest.raises(MarketDataError, match="120"):
         get_binance_spot_history("BTCUSDT", "1h", 99)
 
-
-def test_api_exposes_holdout_metrics_without_execution(monkeypatch):
-    client = TestClient(server.app)
-    monkeypatch.setattr(paper_tools, "get_binance_spot_history", lambda symbol, interval, limit: candle_series())
-    response = client.post(
-        "/api/strategy-backtest",
-        json={
-            "symbol": "BTCUSDT",
-            "interval": "1h",
-            "strategy": "breakout",
-            "bars": 200,
-            "starting_capital": 10_000,
-            "risk_percent": 1,
-            "fee_bps": 10,
-            "slippage_bps": 5,
-            "max_holding_bars": 20,
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json()["mode"] == "historical-paper-replay"
-    assert response.json()["out_of_sample"]["trade_count"] == 1
-    assert response.json()["training"]["trade_count"] == 0
-    assert "not a forecast" in response.json()["disclaimer"]
-
-
-def test_api_maps_market_data_outage_to_gateway_error(monkeypatch):
-    client = TestClient(server.app)
-
-    def unavailable(*args, **kwargs):
-        raise MarketDataError("public market data unavailable")
-
-    monkeypatch.setattr(paper_tools, "get_binance_spot_history", unavailable)
-    response = client.post(
-        "/api/strategy-backtest",
-        json={"strategy": "breakout"},
-    )
-
-    assert response.status_code == 502
-    assert response.json()["detail"] == "public market data unavailable"

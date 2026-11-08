@@ -6,7 +6,6 @@
   const KEYS = [
     "loki-fusion-paper-v1",   // paper portfolio journal (workspace)
     "loki_ai_paper_v1",       // AI paper-trading journal
-    "loki.paper-journal.v1",  // planner decision journal
     "loki.daily-risk-limit.v1",
     "loki_dive_best", "loki_dive_dives", "loki_dive_challenge", "loki_dive_recent", "loki_dive_history",
     "loki_currency", "loki_visit_snapshot",
