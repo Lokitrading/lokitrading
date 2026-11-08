@@ -638,11 +638,67 @@ def order_answer(name: str, symbols: List[str]) -> str:
             "and you can practise the trade with paper money on the AI trading page, or place it yourself through a broker you connect.")
 
 
+# --- prediction-market odds (Polymarket, read-only) ------------------------------
+_ODDS = re.compile(r"\b(odds|chances?|probability|probabilities|polymarket|prediction markets?|betting|bet on|crowd (think|says?|expects?)|"
+                   r"will the fed|fed (decision|meeting)|rate (cut|hike)s?|recession|ipo)\b", re.I)
+_ODDS_FILLER = re.compile(r"\b(what('s| is| are)?|whats|the|of|a|an|on|for|to|is|are|be|there|any|odds|chances?|probability|"
+                          r"probabilities|polymarket|prediction|markets?|betting|bet|crowd|think|says?|expects?|do|does|"
+                          r"people|traders|right now|currently|loki|please|tell|me|about|how|likely|will|that)\b", re.I)
+
+
+def _poly_search(query: str) -> List[Dict[str, Any]]:
+    from loki.api import polymarket
+
+    try:
+        return polymarket.search(query, 4)
+    except Exception as exc:  # noqa: BLE001 - chat must never 500
+        logger.warning("brain polymarket search failed: %s", exc.__class__.__name__)
+        return []
+
+
+def odds_answer(msg: str) -> Optional[str]:
+    query = " ".join(_ODDS_FILLER.sub(" ", msg).split())[:60]
+    month = re.search(r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\b", msg, re.I)
+    if re.search(r"\b(fed|rates?)\b", msg, re.I) and month:
+        query = f"fed decision {month.group(1).lower()}"  # Polymarket titles these "Fed Decision in <Month>?"
+    elif not query and re.search(r"fed|rate", msg, re.I):
+        query = "fed decision"
+    if not query:
+        return None
+    found = _poly_search(query)
+    if not found:
+        return None
+    words = {w for w in re.findall(r"[a-z0-9]+", _ODDS_FILLER.sub(" ", f"{msg} {query}").lower()) if len(w) > 2}
+    names_country = re.search(r"\b(japan|uk|britain|china|europe|eu|canada|australia|germany|france|india)\b", msg, re.I)
+
+    def relevance(event: Dict[str, Any]) -> Tuple[int, int]:
+        title = event["title"].lower()
+        overlap = sum(1 for w in words if w in title)
+        us_bias = 1 if not names_country and re.search(r"\b(us|u\.s\.|fed)\b", title) else 0
+        return overlap, us_bias
+
+    found = sorted(found, key=relevance, reverse=True)  # stable: ties keep Polymarket's ranking
+    event = found[0]
+    end = str(event.get("end") or "")[:10]
+    top = event.get("markets", [])[:4]
+    if len(top) == 1:
+        odds = f"{top[0]['yes'] * 100:.0f}% chance of Yes"
+    else:
+        odds = " · ".join(f"{m['label']} {m['yes'] * 100:.1f}%" for m in top)
+    lines = [f"Polymarket traders currently price “{event['title']}”{f' (resolves {end})' if end else ''}: {odds}."]
+    if len(found) > 1:
+        lines.append("Related: " + "; ".join(e["title"] for e in found[1:3]) + ".")
+    lines.append("These are crowd betting odds, not Loki's prediction. The Prediction markets tab has the full board, "
+                 "Crowd vs Machine, and paper predictions.")
+    return "\n".join(lines)
+
+
 HELP_TEXT = ("Here's what I can do:\n"
              "• Name any ticker or coin — 'what about NVDA?', 'should I buy bitcoin?' — and I'll run the live AI on it and explain its decision. Compare two with 'NVDA vs AMD'.\n"
              "• 'How's the market?' for a quick live check across stocks, crypto, gold and the fear gauge.\n"
              "• 'How did the AI do?' for its honest 20-year track record, or 'how does the AI work?'.\n"
              "• 'What is the Portfolio AI holding?' — the 21-market book and its unseen-data record.\n"
+             "• 'What are the odds of a Fed rate cut?' — live crowd odds from Polymarket prediction markets.\n"
              "• Ask what any trading term means — stop loss, ATR, drawdown, Sharpe, position sizing, trend following…\n"
              "I don't place orders or give personal financial advice — I explain what the data and the AI are saying.")
 
@@ -742,6 +798,10 @@ def _answer(msg: str, name: str, allow_data: bool, last_symbol: Optional[str] = 
         return {"intent": "trust", "text": trust_answer()}
     if _TRACK.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
         return {"intent": "track_record", "text": track_record() + "\n" + FOOTER}
+    if allow_data and _ODDS.search(msg) and re.search(r"\b(odds|chances?|probability|polymarket|prediction|bet|crowd|will the fed|rate (cut|hike)|recession|ipo)\b", low):
+        text = odds_answer(msg)
+        if text:
+            return {"intent": "odds", "text": text}
     if symbols and re.match(r"^\s*(what('s| is| are)|explain|define)\b", msg, re.I) and not _ADVICE.search(msg):
         term = _glossary(msg)
         if term:

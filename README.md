@@ -115,6 +115,14 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 
 `.github/workflows/alpaca-paper-forward.yml` runs it daily at 14:45 UTC once the repository has `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` secrets (paper keys); without them it skips. Judge the results over months — a few days of paper P&L say nothing about a daily trend strategy, and tuning the AI on them would only fit noise.
 
+## Prediction markets (Polymarket) and Crowd vs Machine
+
+`/#predictions` shows live Polymarket odds — Finance, Economy & Fed, Crypto, Stocks, Politics, Trending, plus search — through a read-only relay (`loki/api/polymarket.py`: fixed host `gamma-api.polymarket.com`, 90 s cache, 8 MB cap, whitelisted fields, Polymarket links validated). **Loki never places Polymarket bets**: real-money orders need a crypto wallet's private key and are geo-restricted in several countries. Visitors practise with **paper predictions** (1,000 play credits in the browser; positions revalue from live odds and settle when a market resolves).
+
+**Crowd vs Machine** (only on Loki): for every Polymarket price ladder ("Bitcoin above ___ on November 11?", "NVIDIA closes above ___ …") the ladder is smoothed into a monotone curve, giving the crowd's chance of finishing above today's price and its median expected price; Loki's trading AI reads the same market, and each card says whether they agree, disagree or are mixed. Ladders at least 3 days out are preferred (a ladder settling within hours is a coin flip). Talk to Loki answers odds questions from the same data ("will the Fed cut rates in December?").
+
+The top price ticker now updates prices in place, so its loop never restarts and every symbol on the board comes round.
+
 ## Alpaca and Tradovate connectors
 
 **Alpaca (paper).** Keys stay in the visitor's browser and travel per request to a relay that only talks to `paper-api.alpaca.markets` (and `data.alpaca.markets` for bars). The panel verifies keys, shows account facts and holdings, places capped manual orders, and now also: **cancels** open orders from the log, **closes** a whole position, and **lets the Portfolio AI manage the paper account** — *Preview the AI's trades* shows exactly what it would do; *Place these paper orders* (typed confirmation server-side, plan recomputed at that moment, sells before buys, at most 25 orders) places them. The same logic (`loki/api/alpaca_ai.py`) drives `alpaca_forward.py`. Minute bars now show the last session in evenings and weekends instead of an error. Validation errors never echo submitted values, so keys can't bounce back into logs.

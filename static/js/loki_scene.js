@@ -197,6 +197,9 @@
 
   /* ----------------------------------------------------------- ticker */
   async function fillTicker(el) {
+    // The tape loops forever. Price refreshes update the numbers in place, so
+    // the loop never snaps back to the start: every symbol gets its turn
+    // (rebuilding the strip each minute used to hide the second half).
     const fmt = (v, s) => {
       const d = /=X$/.test(s) ? 4 : v >= 1 ? 2 : 4;
       return Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -205,14 +208,37 @@
       const res = await fetch('/api/markets/live', { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
-      const items = (data.categories || []).flatMap((c) => c.items).filter((i) => i.ok);
+      const seen = new Set();
+      const items = (data.categories || []).flatMap((c) => c.items)
+        .filter((i) => i && i.ok && !seen.has(i.symbol) && seen.add(i.symbol));
       if (!items.length) throw new Error('empty');
-      const row = items.map((i) => {
+      const key = items.map((i) => i.symbol).join('|');
+      const cell = (i) => {
         const up = (i.change_pct ?? 0) >= 0;
-        return `<span class="lt-item"><b>${esc(i.label || i.symbol)}</b> ${esc(fmt(i.price, i.symbol))} <em class="${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(Math.abs(i.change_pct ?? 0).toFixed(2))}%</em></span>`;
-      }).join('');
-      el.innerHTML = `<div class="lt-track"><div class="lt-row">${row}</div><div class="lt-row" aria-hidden="true">${row}</div></div>`;
-      el.style.setProperty('--lt-duration', `${Math.max(40, items.length * 3.2)}s`);
+        return `<b>${esc(i.label || i.symbol)}</b> <span class="lt-price">${esc(fmt(i.price, i.symbol))}</span> ` +
+          `<em class="${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${esc(Math.abs(i.change_pct ?? 0).toFixed(2))}%</em>`;
+      };
+      if (el.dataset.symbols === key) {
+        for (const i of items) {
+          el.querySelectorAll(`[data-sym="${CSS.escape(i.symbol)}"]`).forEach((node) => {
+            const before = node.querySelector('.lt-price');
+            const old = before ? before.textContent : '';
+            node.innerHTML = cell(i);
+            const after = node.querySelector('.lt-price');
+            if (old && after && old !== after.textContent) {
+              node.classList.remove('lt-flash');
+              void node.offsetWidth;
+              node.classList.add('lt-flash');
+            }
+          });
+        }
+      } else {
+        const row = items.map((i) => `<span class="lt-item" data-sym="${esc(i.symbol)}">${cell(i)}</span>`).join('');
+        el.innerHTML = `<div class="lt-track"><div class="lt-row">${row}</div><div class="lt-row" aria-hidden="true">${row}</div></div>`;
+        el.dataset.symbols = key;
+        el.style.setProperty('--lt-duration', `${Math.max(40, items.length * 3.2)}s`);
+        el.setAttribute('aria-label', `Live prices for ${items.length} markets`);
+      }
       el.hidden = false;
     } catch {
       if (!el.innerHTML) el.hidden = true;

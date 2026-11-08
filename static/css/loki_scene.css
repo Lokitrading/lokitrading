@@ -195,3 +195,8 @@ body.loki-workspace::before { content: ''; position: fixed; inset: -20vmax; z-in
 @media (prefers-reduced-motion: reduce) { .welcome-name, .welcome-name-card { animation: none; } }
 /* The visitor's name reads as a real greeting, not a tiny label. */
 .hero-copy .hero-greeting { margin-bottom: 10px; color: #c9ffe2; font: 600 clamp(17px, 1.6vw, 21px)/1.35 Inter, system-ui, sans-serif; letter-spacing: 0; text-transform: none; }
+
+/* Ticker: a changed price glows briefly without restarting the loop. */
+.lt-item.lt-flash { animation: lt-flash 1.4s ease-out; border-radius: 6px; }
+@keyframes lt-flash { from { background: rgba(201, 255, 226, .22); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .loki-ticker { overflow-x: auto; } .lt-item.lt-flash { animation: none; } }

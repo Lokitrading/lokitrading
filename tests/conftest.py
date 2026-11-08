@@ -20,6 +20,7 @@ def offline_brain(monkeypatch, request):
     monkeypatch.setattr(loki_brain, "_quotes", lambda symbols: [])
     monkeypatch.setattr(loki_brain, "_portfolio", lambda: None)
     monkeypatch.setattr(loki_brain, "_board", lambda: None)
+    monkeypatch.setattr(loki_brain, "_poly_search", lambda query: [])
 
 
 @pytest.fixture(autouse=True)

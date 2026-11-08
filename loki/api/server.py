@@ -39,6 +39,7 @@ from loki.api.live_markets import router as live_markets_router
 from loki.api.member_data import router as member_router
 from loki.api.news_desk import router as news_desk_router
 from loki.api.paper_tools import router as paper_tools_router
+from loki.api.polymarket import router as polymarket_router
 from loki.api.revenue import router as revenue_router
 from loki.api.trading_desk import router as trading_desk_router
 from loki.api.watchtower import router as watchtower_router
@@ -63,6 +64,7 @@ for _router in (
     paper_tools_router,
     watchtower_router,
     live_markets_router,
+    polymarket_router,
     broker_alpaca_router,
     trading_desk_router,
     news_desk_router,
