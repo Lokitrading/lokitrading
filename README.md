@@ -37,7 +37,7 @@ Optional environment variables: `LOKI_SITE_GATE=1` enables the gate (default cod
 
 ## Live markets
 
-`/#live-markets` is a self-refreshing board (every ~15 s while the view is open and the tab is visible) covering crypto majors, US mega-caps, indices, commodities and FX, with session status, top movers, flash-on-change tiles and a personal watchlist saved in the browser. Clicking a tile opens its chart and the AI engine's review-only read for that symbol. Served by `loki/api/live_markets.py` (`/api/markets/live`, `/api/markets/quotes`); crypto comes from Binance Spot (live), everything else from Yahoo Finance (near-live). Failed feeds stay visible per tile.
+`/#live-markets` is a self-refreshing board (every ~15 s while the view is open and the tab is visible) covering crypto majors, US mega-caps, indices, commodities and FX, with session status, top movers, flash-on-change tiles and a personal watchlist saved in the browser. A candlestick chart sits at the top of the view (the S&P 500 until you pick another tile): 1m, 5m, 15m, 1h, daily and weekly candles (weekly built from daily), candles or line, 20/50-period moving averages, a volume pane, and a crosshair readout of open/high/low/close/volume by mouse, touch or arrow keys. The newest candle follows the live board price between candle refreshes. Below it, the AI engine's review-only read for that symbol. Served by `loki/api/live_markets.py` (`/api/markets/live`, `/api/markets/quotes`); crypto comes from Binance Spot (live), everything else from Yahoo Finance (near-live). Failed feeds stay visible per tile.
 
 ## Live AI follows the verified rules
 
@@ -96,6 +96,18 @@ python train_long_history.py --write-snapshot        # ~30 min on 4 cores
 - **Daily AI briefing** on the overview: health meter, this week's entries/exits, and the uncertainty range; Talk to Loki answers "how is the AI doing?" and "what changed this week?".
 - **Price alerts** on Live markets: above/below alerts stored in this browser, checked on every board refresh, with an in-page toast and an optional browser notification.
 - The operator named in the policies defaults to Joshua Mathew (`LOKI_OPERATOR_NAME` / `LOKI_OPERATOR_EMAIL` override it).
+
+## Self-evolving AI (weekly)
+
+Every Sunday `.github/workflows/ai-evolution.yml` runs `evolve.py`, one generation of champion vs challengers (`loki_v8/evolution.py`):
+
+1. The live profile is the champion; its one-step neighbours on the training grid plus a few random grid points are the challengers (~15 per asset class).
+2. All are backtested over the full 20 years with the same fees, slippage, windows and score the champion was chosen with.
+3. A challenger is promoted only if its rank score (worse of 2005-2018 and 2019-2022) beats the champion's by at least 0.05 **and** it is no worse on 2023-onward and the last 12 months. Recent data can veto a promotion but never choose one.
+4. The learn-from-mistakes filter is re-validated walk-forward; the live setting is re-checked before any new one can replace it, and when it is kept it is refitted on every closed trade, including the newest.
+5. The generation is appended to `loki_v8/evolution_log.json`, the tests run, and the update is opened as a pull request. Merging deploys it; closing it keeps the current AI.
+
+The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading page, and explained by Talk to Loki ("is the AI improving itself?"). Generation 1 (2026-11-08): both champions kept (best challengers 0.441 vs 0.444 for stocks, 0.844 vs 0.852 for crypto); the stocks mistake filter was refitted on 686 closed trades. Run by hand with `python evolve.py --write-snapshot`. For the workflow to open PRs, enable *Allow GitHub Actions to create and approve pull requests* in Settings → Actions → General.
 
 ## Learning from mistakes
 

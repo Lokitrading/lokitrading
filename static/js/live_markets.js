@@ -3,8 +3,9 @@
  * Polls /api/markets/live every refresh_seconds while the view is open and
  * the tab is visible (no background traffic). Prices that move flash
  * green/red. A watchlist of extra symbols is saved in this browser
- * (account-scoped by scoped_storage.js). Clicking a tile opens its chart
- * and the AI engine's current, review-only read for that instrument.
+ * (account-scoped by scoped_storage.js). A candlestick chart sits at the
+ * top (SPY by default); clicking a tile charts it and offers the AI engine's
+ * current, review-only read for that instrument.
  */
 'use strict';
 (() => {
@@ -33,7 +34,7 @@
   const lastPrice = new Map();
   const flashes = new Map();
 
-  const savePrefs = () => store(PREFS_KEY, { tab: prefs.tab, tf: prefs.tf, selected: prefs.selected });
+  const savePrefs = () => store(PREFS_KEY, { tab: prefs.tab, tf: prefs.tf, type: prefs.type, ov: prefs.ov, selected: prefs.selected });
 
   function isActive() {
     return !root.hidden && !document.hidden;
@@ -164,6 +165,8 @@
       else if (!watchlist.length) watchItems = [];
       trackFlashes(allItems());
       checkAlerts(allItems());
+      followLivePrice(allItems());
+      autoSelect();
       lastOkAt = Date.now();
       const degraded = Number(board.degraded) || 0;
       $('lm-message').textContent = degraded ? `${degraded} instrument(s) unavailable from their public feed right now — shown as such, never guessed.` : '';
@@ -228,68 +231,247 @@
     if (i < 0) refresh(true);
   }
 
-  // ---- detail: chart + AI read ------------------------------------------
-  let chartCandles = [];
+  // ---- detail: candlestick chart + AI read --------------------------------
+  // Candles come from /api/fusion/ai/bars (Yahoo, possibly delayed). Weekly
+  // candles are built here from daily ones. The newest candle follows the live
+  // board price between fetches, and is marked as still forming.
+  let chartCandles = [];   // what is drawn (after weekly aggregation)
+  let chartMeta = null;    // { symbol, tf }
+  let hoverIndex = -1;
+  let chartTimer = null;
+  const CHART_H = 380;
+  const COLORS = { up: '#a8f0c6', down: '#ffb3a7', grid: 'rgba(162,181,196,.12)', text: '#a2b5c4', ma20: '#ffd27a', ma50: '#9ec5ff', line: '#c9ffe2' };
+  if (!['candles', 'line'].includes(prefs.type)) prefs.type = 'candles';
+  if (!prefs.ov || typeof prefs.ov !== 'object') prefs.ov = { ma20: true, ma50: true, vol: true };
+  const TF_FETCH = { '1m': ['1m', 240], '5m': ['5m', 240], '15m': ['15m', 240], '1h': ['1h', 240], '1d': ['1d', 300], '1wk': ['1d', 300] };
+  const TF_REFRESH_MS = { '1m': 20000, '5m': 30000, '15m': 45000, '1h': 60000, '1d': 120000, '1wk': 300000 };
+  if (!TF_FETCH[prefs.tf]) prefs.tf = '1d';
+
+  function toWeekly(daily) {
+    const weeks = [];
+    for (const c of daily) {
+      const d = new Date(c.t);
+      const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)));
+      const key = monday.toISOString().slice(0, 10);
+      const last = weeks[weeks.length - 1];
+      if (last && last.key === key) {
+        last.h = Math.max(last.h, c.h); last.l = Math.min(last.l, c.l); last.c = c.c; last.v += c.v || 0;
+      } else {
+        weeks.push({ key, t: key, o: c.o, h: c.h, l: c.l, c: c.c, v: c.v || 0 });
+      }
+    }
+    return weeks;
+  }
+
+  function movingAverage(values, n) {
+    const out = new Array(values.length).fill(null);
+    let sum = 0;
+    for (let i = 0; i < values.length; i += 1) {
+      sum += values[i];
+      if (i >= n) sum -= values[i - n];
+      if (i >= n - 1) out[i] = sum / n;
+    }
+    return out;
+  }
+
+  const fmtVol = (v) => (!Number.isFinite(v) || v <= 0 ? '—' : v >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : v.toFixed(0));
+  function fmtTime(t) {
+    const s = String(t || '');
+    if (prefs.tf === '1d' || prefs.tf === '1wk') return s.slice(0, 10);
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? s.slice(0, 16).replace('T', ' ') : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function chartGeometry(width, height = CHART_H) {
+    const showVol = prefs.ov.vol && chartCandles.some((c) => c.v > 0);
+    const pad = { l: 8, r: 70, t: 14, b: 24 };
+    const volH = showVol ? Math.round(height * 0.2) : 0;
+    const priceBottom = height - pad.b - (showVol ? volH + 8 : 0);
+    return { pad, volH, showVol, priceBottom, step: (width - pad.l - pad.r) / Math.max(1, chartCandles.length) };
+  }
+
+  function renderStats() {
+    const el = $('lm-chart-stats');
+    if (!chartCandles.length) { el.textContent = ''; return; }
+    const first = chartCandles[0], last = chartCandles[chartCandles.length - 1];
+    const hi = Math.max(...chartCandles.map((c) => c.h)), lo = Math.min(...chartCandles.map((c) => c.l));
+    const chg = (last.c / first.o - 1) * 100;
+    const sym = prefs.selected && prefs.selected.symbol;
+    const span = { '1m': 'minutes', '5m': '5-min candles', '15m': '15-min candles', '1h': 'hours', '1d': 'days', '1wk': 'weeks' }[prefs.tf];
+    el.innerHTML = `<strong>${esc(fmtPrice(last.c, sym))}</strong> <span class="${chg >= 0 ? 'up' : 'down'}">${esc(fmtPct(chg))}</span> over ${chartCandles.length} ${esc(span)} · high ${esc(fmtPrice(hi, sym))} · low ${esc(fmtPrice(lo, sym))}`;
+  }
+
   function drawChart() {
     const canvas = $('lm-chart');
-    const empty = $('lm-chart-empty');
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    const width = canvas.clientWidth || 600, height = 300;
-    canvas.width = width * dpr; canvas.height = height * dpr;
+    const width = canvas.clientWidth || 600, height = canvas.clientHeight || CHART_H;
+    canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    if (!chartCandles.length) return;
-    empty.hidden = true;
-    const pad = { l: 8, r: 64, t: 12, b: 22 };
-    const lows = chartCandles.map((c) => c.l), highs = chartCandles.map((c) => c.h);
-    const lo = Math.min(...lows), hi = Math.max(...highs), span = hi - lo || 1;
-    const y = (v) => pad.t + (1 - (v - lo) / span) * (height - pad.t - pad.b);
-    const step = (width - pad.l - pad.r) / chartCandles.length;
-    ctx.strokeStyle = 'rgba(162,181,196,.12)'; ctx.fillStyle = '#a2b5c4'; ctx.font = '11px ui-monospace, monospace'; ctx.lineWidth = 1;
+    renderStats();
+    if (!chartCandles.length) { $('lm-readout').hidden = true; return; }
+    $('lm-chart-empty').hidden = true;
+    const sym = prefs.selected && prefs.selected.symbol;
+    const { pad, volH, showVol, priceBottom, step } = chartGeometry(width, height);
+    const closes = chartCandles.map((c) => c.c);
+    const ma20 = prefs.ov.ma20 ? movingAverage(closes, 20) : [];
+    const ma50 = prefs.ov.ma50 ? movingAverage(closes, 50) : [];
+    const pool = [...chartCandles.map((c) => c.l), ...chartCandles.map((c) => c.h), ...ma20.filter(Number.isFinite), ...ma50.filter(Number.isFinite)];
+    const lo = Math.min(...pool), hi = Math.max(...pool), span = hi - lo || hi * 0.01 || 1;
+    const y = (v) => pad.t + (1 - (v - lo) / span) * (priceBottom - pad.t);
+    const xAt = (i) => pad.l + i * step + step / 2;
+
+    // grid + price axis
+    ctx.lineWidth = 1; ctx.font = '11px ui-monospace, monospace';
+    const lastY = y(chartCandles[chartCandles.length - 1].c);
     for (let g = 0; g <= 4; g += 1) {
       const v = lo + span * g / 4, yy = y(v);
-      ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(width - pad.r, yy); ctx.stroke();
-      ctx.fillText(fmtPrice(v, prefs.selected && prefs.selected.symbol), width - pad.r + 6, yy + 4);
+      ctx.strokeStyle = COLORS.grid; ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(width - pad.r, yy); ctx.stroke();
+      // Skip axis labels that would sit under the live price tag.
+      if (Math.abs(yy - lastY) > 14) { ctx.fillStyle = COLORS.text; ctx.fillText(fmtPrice(v, sym), width - pad.r + 6, yy + 4); }
     }
-    chartCandles.forEach((c, i) => {
-      const x = pad.l + i * step + step / 2;
-      const up = c.c >= c.o;
-      ctx.strokeStyle = ctx.fillStyle = up ? '#a8f0c6' : '#ffb3a7';
-      ctx.beginPath(); ctx.moveTo(x, y(c.h)); ctx.lineTo(x, y(c.l)); ctx.stroke();
-      const top = y(Math.max(c.o, c.c)), bottom = y(Math.min(c.o, c.c));
-      ctx.fillRect(x - Math.max(1, step * 0.32), top, Math.max(2, step * 0.64), Math.max(1, bottom - top));
-    });
+
+    // volume pane
+    if (showVol) {
+      const maxV = Math.max(...chartCandles.map((c) => c.v || 0), 1);
+      const base = height - pad.b;
+      chartCandles.forEach((c, i) => {
+        const h = (c.v || 0) / maxV * volH;
+        ctx.fillStyle = c.c >= c.o ? 'rgba(168,240,198,.28)' : 'rgba(255,179,167,.28)';
+        ctx.fillRect(xAt(i) - Math.max(1, step * 0.35), base - h, Math.max(1.5, step * 0.7), h);
+      });
+      ctx.fillStyle = COLORS.text; ctx.fillText(`Volume · max ${fmtVol(maxV)}`, pad.l + 4, base - volH + 10);
+    }
+
+    // price: candles or line
+    if (prefs.type === 'line') {
+      const grad = ctx.createLinearGradient(0, pad.t, 0, priceBottom);
+      grad.addColorStop(0, 'rgba(201,255,226,.22)'); grad.addColorStop(1, 'rgba(201,255,226,0)');
+      ctx.beginPath();
+      chartCandles.forEach((c, i) => (i ? ctx.lineTo(xAt(i), y(c.c)) : ctx.moveTo(xAt(i), y(c.c))));
+      ctx.strokeStyle = COLORS.line; ctx.lineWidth = 1.8; ctx.stroke();
+      ctx.lineTo(xAt(chartCandles.length - 1), priceBottom); ctx.lineTo(xAt(0), priceBottom); ctx.closePath();
+      ctx.fillStyle = grad; ctx.fill(); ctx.lineWidth = 1;
+    } else {
+      const bodyW = Math.max(1.5, Math.min(14, step * 0.66));
+      chartCandles.forEach((c, i) => {
+        const x = xAt(i);
+        const up = c.c >= c.o;
+        ctx.strokeStyle = ctx.fillStyle = up ? COLORS.up : COLORS.down;
+        ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, y(c.h)); ctx.lineTo(Math.round(x) + 0.5, y(c.l)); ctx.stroke();
+        const top = y(Math.max(c.o, c.c)), bottom = y(Math.min(c.o, c.c));
+        if (up && step > 5) { ctx.strokeRect(x - bodyW / 2, top, bodyW, Math.max(1, bottom - top)); ctx.globalAlpha = 0.35; ctx.fillRect(x - bodyW / 2, top, bodyW, Math.max(1, bottom - top)); ctx.globalAlpha = 1; }
+        else ctx.fillRect(x - bodyW / 2, top, bodyW, Math.max(1, bottom - top));
+        if (c.forming) { ctx.setLineDash([2, 2]); ctx.strokeRect(x - bodyW / 2 - 2, y(c.h) - 2, bodyW + 4, y(c.l) - y(c.h) + 4); ctx.setLineDash([]); }
+      });
+    }
+
+    // moving averages
+    const drawMa = (series, color) => {
+      ctx.beginPath(); let started = false;
+      series.forEach((v, i) => { if (!Number.isFinite(v)) return; if (started) ctx.lineTo(xAt(i), y(v)); else { ctx.moveTo(xAt(i), y(v)); started = true; } });
+      ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.stroke(); ctx.lineWidth = 1;
+    };
+    if (ma20.some(Number.isFinite)) drawMa(ma20, COLORS.ma20);
+    if (ma50.some(Number.isFinite)) drawMa(ma50, COLORS.ma50);
+    let legendX = pad.l + 4;
+    for (const [on, label, color] of [[ma20.some(Number.isFinite), 'MA 20', COLORS.ma20], [ma50.some(Number.isFinite), 'MA 50', COLORS.ma50]]) {
+      if (!on) continue;
+      ctx.fillStyle = color; ctx.fillRect(legendX, pad.t + 2, 10, 3); ctx.fillText(label, legendX + 14, pad.t + 7); legendX += 62;
+    }
+
+    // last price tag
     const last = chartCandles[chartCandles.length - 1];
     const ly = y(last.c);
     ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(201,255,226,.5)';
     ctx.beginPath(); ctx.moveTo(pad.l, ly); ctx.lineTo(width - pad.r, ly); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#c9ffe2'; ctx.fillRect(width - pad.r + 2, ly - 9, pad.r - 4, 18);
-    ctx.fillStyle = '#0a131c'; ctx.fillText(fmtPrice(last.c, prefs.selected && prefs.selected.symbol), width - pad.r + 6, ly + 4);
-    ctx.fillStyle = '#a2b5c4';
-    const first = chartCandles[0].t, end = last.t;
-    ctx.fillText(String(first).slice(0, 10), pad.l, height - 6);
-    ctx.fillText(String(end).slice(0, prefs.tf === '1d' ? 10 : 16).replace('T', ' '), width - pad.r - 110, height - 6);
+    ctx.fillStyle = last.c >= last.o ? COLORS.up : COLORS.down; ctx.fillRect(width - pad.r + 2, ly - 9, pad.r - 4, 18);
+    ctx.fillStyle = '#0a131c'; ctx.fillText(fmtPrice(last.c, sym), width - pad.r + 6, ly + 4);
+
+    // time axis
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText(fmtTime(chartCandles[0].t), pad.l, height - 7);
+    const endLabel = fmtTime(last.t);
+    ctx.fillText(endLabel, width - pad.r - ctx.measureText(endLabel).width, height - 7);
+
+    // crosshair
+    if (hoverIndex >= 0 && hoverIndex < chartCandles.length) {
+      const c = chartCandles[hoverIndex];
+      const x = xAt(hoverIndex);
+      ctx.strokeStyle = 'rgba(201,255,226,.35)'; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, height - pad.b); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pad.l, y(c.c)); ctx.lineTo(width - pad.r, y(c.c)); ctx.stroke(); ctx.setLineDash([]);
+      const out = $('lm-readout');
+      const chg = (c.c / c.o - 1) * 100;
+      out.innerHTML = `<b>${esc(fmtTime(c.t))}${c.forming ? ' · forming' : ''}</b>` +
+        `<span>O ${esc(fmtPrice(c.o, sym))}</span><span>H ${esc(fmtPrice(c.h, sym))}</span><span>L ${esc(fmtPrice(c.l, sym))}</span>` +
+        `<span>C ${esc(fmtPrice(c.c, sym))}</span><span class="${chg >= 0 ? 'up' : 'down'}">${esc(fmtPct(chg))}</span>` +
+        (c.v > 0 ? `<span>Vol ${esc(fmtVol(c.v))}</span>` : '') +
+        (Number.isFinite(ma20[hoverIndex]) ? `<span class="ma20">MA20 ${esc(fmtPrice(ma20[hoverIndex], sym))}</span>` : '') +
+        (Number.isFinite(ma50[hoverIndex]) ? `<span class="ma50">MA50 ${esc(fmtPrice(ma50[hoverIndex], sym))}</span>` : '');
+      out.hidden = false;
+    } else {
+      $('lm-readout').hidden = true;
+    }
   }
 
-  async function loadChart() {
+  function pointerToIndex(event) {
+    const canvas = $('lm-chart');
+    const rect = canvas.getBoundingClientRect();
+    const { pad, step } = chartGeometry(rect.width, rect.height);
+    const i = Math.floor((event.clientX - rect.left - pad.l) / step);
+    return i >= 0 && i < chartCandles.length ? i : -1;
+  }
+
+  function syncControls() {
+    document.querySelectorAll('#lm-tf [data-tf]').forEach((b) => { const on = b.dataset.tf === prefs.tf; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+    document.querySelectorAll('#lm-type [data-type]').forEach((b) => { const on = b.dataset.type === prefs.type; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+    document.querySelectorAll('#lm-overlays [data-ov]').forEach((b) => { const on = !!prefs.ov[b.dataset.ov]; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+    $('lm-chart').setAttribute('aria-label', `${prefs.type === 'line' ? 'Line' : 'Candlestick'} chart of ${(prefs.selected && prefs.selected.label) || 'the selected market'}`);
+  }
+
+  async function loadChart(quiet) {
     if (!prefs.selected) return;
     const sym = engineSymbol(prefs.selected.symbol);
+    const tf = prefs.tf;
+    const [fetchTf, limit] = TF_FETCH[tf];
     const empty = $('lm-chart-empty');
-    document.querySelectorAll('#lm-tf [data-tf]').forEach((b) => b.classList.toggle('active', b.dataset.tf === prefs.tf));
+    syncControls();
+    if (!quiet) { empty.hidden = false; empty.textContent = 'Loading candles…'; }
     try {
-      const res = await fetch(`/api/fusion/ai/bars?symbol=${encodeURIComponent(sym)}&timeframe=${prefs.tf}&limit=120`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
+      const res = await fetch(`/api/fusion/ai/bars?symbol=${encodeURIComponent(sym)}&timeframe=${fetchTf}&limit=${limit}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Chart data unavailable');
-      if (!prefs.selected || engineSymbol(prefs.selected.symbol) !== sym) return;
-      chartCandles = data.candles || [];
+      if (!prefs.selected || engineSymbol(prefs.selected.symbol) !== sym || prefs.tf !== tf) return;
+      let candles = (data.candles || []).filter((c) => [c.o, c.h, c.l, c.c].every(Number.isFinite));
+      if (tf === '1wk') candles = toWeekly(candles);
+      if (candles.length) candles[candles.length - 1].forming = true;
+      chartCandles = candles;
+      chartMeta = { symbol: prefs.selected.symbol, tf };
+      empty.hidden = true;
       drawChart();
     } catch (error) {
+      if (quiet && chartCandles.length) return; // keep the last good chart on a background blip
       chartCandles = [];
       drawChart();
       empty.hidden = false;
       empty.textContent = `${error.message || 'Chart data unavailable'} — the chart stays empty rather than inventing candles.`;
+    } finally {
+      clearTimeout(chartTimer);
+      chartTimer = setTimeout(() => { if (isActive() && !paused) loadChart(true); else if (isActive()) chartTimer = setTimeout(() => loadChart(true), 5000); }, TF_REFRESH_MS[prefs.tf] || 60000);
     }
+  }
+
+  // Between candle fetches, the newest candle follows the live board price.
+  function followLivePrice(items) {
+    if (!chartCandles.length || !chartMeta || !prefs.selected || chartMeta.symbol !== prefs.selected.symbol) return;
+    const item = items.find((i) => i.ok && i.symbol === prefs.selected.symbol && Number.isFinite(i.price));
+    if (!item) return;
+    const last = chartCandles[chartCandles.length - 1];
+    if (!last.forming || Math.abs(item.price / last.c - 1) > 0.2) return; // ignore anything implausible
+    last.c = item.price; last.h = Math.max(last.h, item.price); last.l = Math.min(last.l, item.price);
+    drawChart();
   }
 
   function select(symbol, label) {
@@ -299,9 +481,19 @@
     $('lm-detail-title').textContent = `${label || symbol}`;
     $('lm-detail-eyebrow').textContent = `SELECTED · ${symbol}`;
     $('lm-ai-out').innerHTML = '<p class="caption">Runs the trained strategy\'s entry checklist on the last completed daily bar. Review only — nothing is bought.</p>';
+    hoverIndex = -1;
+    if (!chartMeta || chartMeta.symbol !== symbol) { chartCandles = []; drawChart(); }
     renderGrid();
     renderAlerts();
     loadChart();
+  }
+
+  // Show a chart straight away: the last market viewed, else the S&P 500.
+  function autoSelect() {
+    if (prefs.selected) { if ($('lm-detail').hidden) select(prefs.selected.symbol, prefs.selected.label); return; }
+    const items = allItems().filter((i) => i.ok);
+    const pick = items.find((i) => i.symbol === 'SPY') || items.find((i) => /S&P/i.test(i.label || '')) || items[0];
+    if (pick) select(pick.symbol, pick.label || pick.symbol);
   }
 
   const GATE_NAMES = { signal: 'Signal strength', volatility_cap: 'Volatility cap', trend_filter: '200-day trend filter', regime_filter: 'Regime filter', learned_filter: 'Learned from past mistakes' };
@@ -350,13 +542,30 @@
     const tab = event.target.closest('[data-tab]');
     if (tab) { prefs.tab = tab.dataset.tab; savePrefs(); renderTabs(); renderGrid(); return; }
     const tf = event.target.closest('#lm-tf [data-tf]');
-    if (tf) { prefs.tf = tf.dataset.tf; savePrefs(); loadChart(); return; }
+    if (tf) { prefs.tf = tf.dataset.tf; hoverIndex = -1; savePrefs(); loadChart(); return; }
+    const type = event.target.closest('#lm-type [data-type]');
+    if (type) { prefs.type = type.dataset.type; savePrefs(); syncControls(); drawChart(); return; }
+    const ov = event.target.closest('#lm-overlays [data-ov]');
+    if (ov) { prefs.ov = { ...prefs.ov, [ov.dataset.ov]: !prefs.ov[ov.dataset.ov] }; savePrefs(); syncControls(); drawChart(); return; }
     const tile = event.target.closest('[data-symbol]');
     if (tile) { select(tile.dataset.symbol, tile.dataset.label); $('lm-detail').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   });
   root.addEventListener('keydown', (event) => {
     const star = event.target.closest('[data-star]');
     if (star && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); event.stopPropagation(); toggleWatch(star.dataset.star); }
+  });
+  const chartEl = $('lm-chart');
+  const onPointer = (event) => { const i = pointerToIndex(event); if (i !== hoverIndex) { hoverIndex = i; drawChart(); } };
+  chartEl.addEventListener('pointermove', onPointer);
+  chartEl.addEventListener('pointerdown', onPointer);
+  chartEl.addEventListener('pointerleave', () => { if (hoverIndex !== -1) { hoverIndex = -1; drawChart(); } });
+  chartEl.tabIndex = 0;
+  chartEl.addEventListener('keydown', (event) => {
+    if (!chartCandles.length || !['ArrowLeft', 'ArrowRight', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Escape') hoverIndex = -1;
+    else hoverIndex = Math.max(0, Math.min(chartCandles.length - 1, (hoverIndex < 0 ? chartCandles.length : hoverIndex) + (event.key === 'ArrowLeft' ? -1 : 1)));
+    drawChart();
   });
   $('lm-alert-form').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -408,6 +617,7 @@
       refresh(true);
       schedule();
       if (prefs.selected && $('lm-detail').hidden) select(prefs.selected.symbol, prefs.selected.label);
+      else if (prefs.selected) loadChart(true); // resume candle refreshes
     }
   }
   document.addEventListener('loki:view', onViewChange);

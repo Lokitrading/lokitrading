@@ -46,7 +46,7 @@ class DeploymentConfigTests(unittest.TestCase):
         function = config["functions"]["main.py"]
         self.assertEqual(
             function["includeFiles"],
-            "{templates/**,static/**,loki_v8/training_report_snapshot.json}",
+            "{templates/**,static/**,loki_v8/training_report_snapshot.json,loki_v8/evolution_log.json}",
         )
         self.assertNotIn("runtime", function)
         self.assertNotIn("routes", config)

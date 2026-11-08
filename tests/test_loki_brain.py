@@ -178,3 +178,22 @@ class TestEverydayQuestions:
         monkeypatch.setattr(loki_brain, "_symbol_record", lambda symbol: None)
         text = loki_brain.answer("what about SPY?")["text"]
         assert "regime is still up, but short-term momentum has turned down" in text
+
+
+class TestEvolution:
+    def test_self_improvement_questions_use_the_evolution_log(self, monkeypatch):
+        log = {"latest": {"generation": 3, "date": "2026-11-08", "equity": {"promoted": True, "challengers_tested": 15,
+                                                                           "mistakes": {"kept": True, "lessons": 686}},
+                          "crypto": {"promoted": False, "challengers_tested": 16, "mistakes": {"kept": False}}},
+               "promotions": 1}
+        monkeypatch.setattr(loki_brain, "_evolution", lambda: log)
+        for question in ("is the AI self-improving?", "how has the AI evolved", "does loki get better over time?"):
+            reply = loki_brain.answer(question)
+            assert reply["intent"] == "evolution", question
+        text = loki_brain.answer("is the AI self-improving?")["text"]
+        assert "a challenger was promoted after 15 challengers" in text
+        assert "686 closed trades" in text and "generation 3" in text
+
+    def test_no_log_yet_is_said_plainly(self, monkeypatch):
+        monkeypatch.setattr(loki_brain, "_evolution", lambda: {})
+        assert "hasn't been recorded" in loki_brain.answer("how does the ai evolve?")["text"]

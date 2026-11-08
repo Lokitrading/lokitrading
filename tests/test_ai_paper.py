@@ -382,7 +382,7 @@ class TestBars:
         _bars_stub(monkeypatch, provider)
         assert client.get("/api/fusion/ai/bars?symbol=" + "S" * 13).status_code == 422
         assert client.get("/api/fusion/ai/bars?symbol=SPY&limit=5").status_code == 422
-        assert client.get("/api/fusion/ai/bars?symbol=SPY&limit=121").status_code == 422
+        assert client.get("/api/fusion/ai/bars?symbol=SPY&limit=301").status_code == 422
         assert client.get("/api/fusion/ai/bars?symbol=SPY&timeframe=2m").status_code == 422
 
     def test_intraday_futures_and_malformed_geometry(self, monkeypatch):

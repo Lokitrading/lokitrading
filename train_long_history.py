@@ -294,7 +294,8 @@ def _run_all(data: Dict[str, pd.DataFrame], kind: str, params: Dict[str, Any], m
     return out
 
 
-def learn_from_mistakes(kind: str, data: Dict[str, pd.DataFrame], params: Dict[str, Any]) -> Dict[str, Any]:
+def learn_from_mistakes(kind: str, data: Dict[str, pd.DataFrame], params: Dict[str, Any],
+                        thresholds: Tuple[float, ...] = None) -> Dict[str, Any]:
     """Fit the trade filter walk-forward and decide honestly whether to keep it.
 
     1. Replay the winning profile; every closed trade becomes a lesson.
@@ -320,7 +321,7 @@ def learn_from_mistakes(kind: str, data: Dict[str, pd.DataFrame], params: Dict[s
         return report
     dev_model = mistake_model.fit(X_dev, y_dev)
     best_t, best_val = None, base_val
-    for t in META_THRESHOLDS:
+    for t in (thresholds or META_THRESHOLDS):
         rows = [b["rows"] for b in _run_all(data, kind, params, {"model": dev_model, "threshold": t}).values()]
         v = score(rows, "validation")
         report["trials"].append({"threshold": t, "validation_score": round(v, 3)})
