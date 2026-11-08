@@ -43,7 +43,7 @@ class TestAccessCode:
 class TestGateFlow:
     def test_locked_pages_redirect_without_cookie(self, monkeypatch):
         monkeypatch.setenv("VERCEL", "1")
-        expected = {"/": "/gate", "/paper-tools": "/gate?next=/paper-tools", "/login": "/gate"}
+        expected = {"/": "/gate", "/ai-chat": "/gate?next=/ai-chat", "/login": "/gate"}
         for path, location in expected.items():
             response = client_nofollow.get(path)
             assert response.status_code == 303, path

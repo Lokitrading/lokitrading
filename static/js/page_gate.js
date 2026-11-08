@@ -6,7 +6,7 @@ const cardEl = document.getElementById('card');
 const codeEl = document.getElementById('code');
 const setMsg = (text, ok) => { msgEl.className = ok ? 'ok' : ''; msgEl.textContent = text; };
 // Where to go after the code is accepted: only our own gated pages, never an outside URL.
-const NEXT_PAGES = ['/', '/account', '/paper-tools', '/indicator', '/ai-chat'];
+const NEXT_PAGES = ['/', '/account', '/indicator', '/ai-chat'];
 const safeNext = (value) => {
   const path = String(value || '').trim().toLowerCase().replace(/\/+$/, '') || '/';
   return NEXT_PAGES.indexOf(path) >= 0 ? path : '/';

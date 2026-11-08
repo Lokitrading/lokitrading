@@ -29,7 +29,6 @@ from loki.api.ai_paper import router as ai_paper_router
 from loki.api.analogue import router as analogue_router
 from loki.api.broker_alpaca import router as broker_alpaca_router
 from loki.api.broker_workspace import router as broker_workspace_router
-from loki.api.cloud_research import router as cloud_research_router
 from loki.api.dive_board import router as dive_board_router
 from loki.api.dive_sessions import router as dive_sessions_router
 from loki.api.funded import router as funded_router
@@ -38,7 +37,6 @@ from loki.api.indicator_page import router as indicator_page_router
 from loki.api.live_markets import router as live_markets_router
 from loki.api.member_data import router as member_router
 from loki.api.news_desk import router as news_desk_router
-from loki.api.paper_tools import router as paper_tools_router
 from loki.api.feed_status import router as feed_status_router
 from loki.api.polymarket import router as polymarket_router
 from loki.api.polymarket_bot import router as polymarket_bot_router
@@ -63,7 +61,6 @@ for _router in (
     broker_workspace_router,
     ai_paper_router,
     ai_chat_router,
-    paper_tools_router,
     watchtower_router,
     live_markets_router,
     polymarket_bot_router,
@@ -76,7 +73,6 @@ for _router in (
     dive_sessions_router,
     revenue_router,
     member_router,
-    cloud_research_router,
     funded_router,
     analogue_router,
     indicator_page_router,
@@ -191,7 +187,7 @@ async def root(request: Request):
 # The gate engages only on remote deployments (VERCEL) or when the launcher
 # asks for it (LOKI_SITE_GATE=1); the local desktop experience stays open.
 # ---------------------------------------------------------------------------
-_GATED_PAGES = {"/", "/account", "/paper-tools", "/paper-tools/", "/indicator", "/ai-chat"}
+_GATED_PAGES = {"/", "/account", "/indicator", "/ai-chat"}
 
 
 def _safe_next(value: Optional[str]) -> str:
