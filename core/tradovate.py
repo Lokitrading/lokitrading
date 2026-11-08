@@ -75,7 +75,37 @@ def snapshot(environment, token):
                               for b in balances if b.get("accountId") in owners]
     except TradovateError as exc:
         result["messages"].append(str(exc))
+    _name_contracts(environment, token, result)
+    _name_currencies(environment, token, result)
     return result
+
+
+def _name_contracts(environment, token, result):
+    """Show 'MESZ6' instead of a bare contract id. Optional: ids stay if the read is refused."""
+    ids = sorted({p["contract_id"] for p in result.get("positions") or []
+                  if isinstance(p.get("contract_id"), int) and not isinstance(p.get("contract_id"), bool)})
+    if not ids:
+        return
+    try:
+        rows = read(environment, token, "contract/items", params={"ids": ",".join(str(i) for i in ids[:100])})
+    except TradovateError:
+        return
+    names = {r.get("id"): str(r.get("name"))[:40] for r in rows if isinstance(r.get("name"), str)}
+    for position in result["positions"]:
+        position["contract"] = names.get(position.get("contract_id"))
+
+
+def _name_currencies(environment, token, result):
+    """Show 'USD' instead of a bare currency id. Optional, like contract names."""
+    if not result.get("balances"):
+        return
+    try:
+        rows = read(environment, token, "currency/list")
+    except TradovateError:
+        return
+    names = {r.get("id"): str(r.get("name"))[:10] for r in rows if isinstance(r.get("name"), str)}
+    for balance in result["balances"]:
+        balance["currency"] = names.get(balance.get("currency_id"))
 
 
 def request_token(environment, name, password, cid, sec, app_id="Loki", app_version="1.0"):

@@ -20,10 +20,10 @@
     details.append(text('h3',account?.name||'Account'),text('p',`${state.environment.toUpperCase()} server · ${account?.closed?'Closed':account?.restricted?'Restricted':'Verified account'} · last refreshed ${new Date().toLocaleTimeString()}`));
     details.append(text('h4','Cash balances'));
     if(state.balances===null)details.append(text('p','Balances could not be read. Refresh to try again.'));
-    else{const balances=state.balances.filter(b=>b.account_id===id);details.append(balances.length?table(['Currency ID','Cash','Realized P&L','Broker timestamp'],balances.map(b=>[b.currency_id,format(b.cash),format(b.realized_pnl),b.timestamp])):text('p','Tradovate returned no cash balances for this account.'));}
+    else{const balances=state.balances.filter(b=>b.account_id===id);details.append(balances.length?table(['Currency','Cash','Realized P&L','Broker timestamp'],balances.map(b=>[b.currency||`#${b.currency_id}`,format(b.cash),format(b.realized_pnl),b.timestamp])):text('p','Tradovate returned no cash balances for this account.'));}
     details.append(text('h4','Open positions'));
     if(state.positions===null)details.append(text('p','Positions could not be read. This does not mean the account is flat.'));
-    else{const positions=state.positions.filter(p=>p.account_id===id);details.append(positions.length?table(['Contract ID','Net contracts','Net price'],positions.map(p=>[p.contract_id,format(p.quantity),format(p.net_price)])):text('p','No open positions returned for this account.'));}
+    else{const positions=state.positions.filter(p=>p.account_id===id);details.append(positions.length?table(['Contract','Net contracts','Net price'],positions.map(p=>[p.contract||`#${p.contract_id}`,format(p.quantity),format(p.net_price)])):text('p','No open positions returned for this account.'));}
     if(state.messages?.length)details.append(text('p',state.messages.join(' ')));
     details.append(text('p',`Connection expires by ${new Date(state.expires_at*1000).toLocaleTimeString()}. Trading remains on your broker's platform.`));
   }
