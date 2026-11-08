@@ -64,10 +64,12 @@ class TestIntents:
 
     def test_orders_fall_through_to_the_refusal_path(self):
         assert loki_brain.answer("buy 10 BTC now") is None
-        assert client.post("/api/copilot", json={"message": "buy 10 BTC now"}).json()["intent"] == "action"
+        order = client.post("/api/copilot", json={"message": "buy 10 BTC now"}).json()
+        assert order["intent"] == "brain:order" and "can't place orders" in order["text"]
 
     def test_unknown_chatter_falls_back(self):
-        assert loki_brain.answer("the weather is purple and my cat sings") is None
+        assert loki_brain.answer("the weather is purple and my cat sings")["intent"] == "off_topic"
+    assert loki_brain.answer("purple monkey dishwasher sings") is None
 
 
 @pytest.mark.brain_data
@@ -197,3 +199,68 @@ class TestEvolution:
     def test_no_log_yet_is_said_plainly(self, monkeypatch):
         monkeypatch.setattr(loki_brain, "_evolution", lambda: {})
         assert "hasn't been recorded" in loki_brain.answer("how does the ai evolve?")["text"]
+
+
+class TestEverydayBattery:
+    """Real visitor phrasings (from a 127-question battery) each get the right kind of answer."""
+
+    @pytest.mark.parametrize("message,intent", [
+        ("how are you", "smalltalk"), ("what's up", "smalltalk"), ("lol", "laugh"), ("bye", "bye"),
+        ("tell me a joke", "joke"), ("what's the weather", "off_topic"),
+        ("i'm nervous about the market", "feelings"), ("i lost money today", "feelings"),
+        ("what should i buy", "tips"), ("i have 1000 dollars what should i buy", "tips"), ("give me a stock tip", "tips"),
+        ("how much should i invest", "tips"), ("can i trust the ai", "trust"), ("how risky is the ai", "trust"),
+        ("is my data safe", "privacy"), ("how do i delete my data", "privacy"),
+        ("is this financial advice", "advice_disclaimer"), ("how do i start", "getting_started"),
+        ("how do i use the paper trader", "getting_started"), ("what's a good strategy for beginners", "getting_started"),
+        ("can you connect to my broker", "broker"), ("what is the game", "game"),
+        ("what is a dividend", "glossary"), ("what is dollar cost averaging", "glossary"), ("what is market cap", "glossary"),
+        ("what is pe ratio", "glossary"), ("what does hodl mean", "glossary"), ("what is a limit order", "glossary"),
+        ("what does stand aside mean", "glossary"), ("what does the trend score mean", "glossary"),
+        ("what is the entry bar", "glossary"), ("what is diversification", "glossary"), ("what is the dow", "glossary"),
+        ("how much money does the ai make", "track_record"),
+    ])
+    def test_intents(self, message, intent):
+        reply = loki_brain.answer(message, "Josh")
+        assert reply and reply["intent"] == intent, (message, reply and reply["intent"])
+
+    def test_typos_are_read_and_said_out_loud(self, monkeypatch):
+        monkeypatch.setattr(loki_brain, "_quotes", lambda symbols: [{"ok": True, "symbol": symbols[0][0], "price": 75000.0, "change_pct": -0.3}])
+        reply = loki_brain.answer("bitcon price")
+        assert reply["intent"] == "price" and reply["symbols"] == ["BTC-USD"]
+        assert reply["text"].startswith("(I read 'bitcon' as Bitcoin.)") and "75,000.00" in reply["text"]
+        assert loki_brain.fuzzy_symbols("which coin is better than the weather") == []
+
+    def test_price_questions_get_a_quick_quote_not_an_essay(self, monkeypatch):
+        monkeypatch.setattr(loki_brain, "_quotes", lambda symbols: [{"ok": True, "symbol": "ETH-USD", "price": 2231.5, "change_pct": 1.2}])
+        text = loki_brain.answer("price of ethereum")["text"]
+        assert text.startswith("Ethereum is at 2,231.50, +1.2% today")
+
+    def test_movers_come_from_the_live_board(self, monkeypatch):
+        board = {"movers": {"gainers": [{"symbol": "AMD", "label": "AMD", "change_pct": 11.0}],
+                            "losers": [{"symbol": "ADAUSDT", "label": "Cardano", "change_pct": -2.6}]}}
+        monkeypatch.setattr(loki_brain, "_board", lambda: board)
+        text = loki_brain.answer("what are the biggest gainers today")["text"]
+        assert "Leading: AMD +11.0%" in text and "Lagging: Cardano -2.6%" in text
+
+    def test_follow_up_uses_the_last_ticker(self, monkeypatch):
+        monkeypatch.setattr(loki_brain, "_ai_read", fake_read(allowed=True))
+        monkeypatch.setattr(loki_brain, "_symbol_record", lambda symbol: None)
+        reply = loki_brain.answer("what about its risk?", last_symbol="NVDA")
+        assert reply["intent"] == "symbol" and reply["symbols"] == ["NVDA"]
+        assert loki_brain.answer("what about its risk?", last_symbol="<script>") is None or \
+            loki_brain.answer("what about its risk?", last_symbol="<script>")["intent"] != "symbol"
+
+    def test_orders_get_a_friendly_refusal_only_when_asked(self):
+        assert loki_brain.answer("buy 10 shares of apple") is None  # the private room keeps its own refusal
+        reply = loki_brain.answer("buy 10 shares of apple", "Josh", order_reply=True)
+        assert reply["intent"] == "order" and "can't place orders" in reply["text"]
+
+    def test_copilot_route_never_returns_a_blank_snapshot(self):
+        for message in ("asdfgh", "?", "can you connect to my broker", "is my data safe", "i lost money today"):
+            data = client.post("/api/copilot", json={"message": message, "context": {"visitor_name": "Josh"}}).json()
+            assert not data["text"].startswith("Snapshot: unknown data"), message
+        greet = client.post("/api/copilot", json={"message": "hi", "context": {"visitor_name": "Josh"}}).json()
+        assert "Josh" in greet["text"]
+        hostile = client.post("/api/copilot", json={"message": "hi", "context": {"visitor_name": "<img src=x onerror=alert(1)>"}}).json()
+        assert "<img" not in hostile["text"]

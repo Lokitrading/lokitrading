@@ -109,6 +109,12 @@ Every Sunday `.github/workflows/ai-evolution.yml` runs `evolve.py`, one generati
 
 The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading page, and explained by Talk to Loki ("is the AI improving itself?"). Generation 1 (2026-11-08): both champions kept (best challengers 0.441 vs 0.444 for stocks, 0.844 vs 0.852 for crypto); the stocks mistake filter was refitted on 686 closed trades. Run by hand with `python evolve.py --write-snapshot`. For the workflow to open PRs, enable *Allow GitHub Actions to create and approve pull requests* in Settings → Actions → General.
 
+## Forward test on Alpaca paper
+
+`alpaca_forward.py` mirrors the Portfolio AI's current plan onto an Alpaca **paper** account (the host is hard-wired to `paper-api.alpaca.markets`): it reads the same plan the website serves, trades only the AI's markets, skips moves under 2% of equity, sells before it buys, defers stock trades while the US market is closed (crypto trades any day), and reports the account's return and worst drop since it started. BNB is not offered by Alpaca, so its share stays in cash. It is a dry run unless `--execute` is passed.
+
+`.github/workflows/alpaca-paper-forward.yml` runs it daily at 14:45 UTC once the repository has `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` secrets (paper keys); without them it skips. Judge the results over months — a few days of paper P&L say nothing about a daily trend strategy, and tuning the AI on them would only fit noise.
+
 ## Learning from mistakes
 
 `loki_v8/mistake_model.py` replays the AI's own trades, records 15 market features at every entry's signal bar and whether the trade made money after costs, and fits a small regularised logistic model. Live and in backtests the same gate then skips setups whose estimated win chance is below a threshold. It is trained only on trades that had already closed before the window it is judged on, the threshold is chosen on 2019-2022, and it ships only if the 2023+ holdout is not worse. Current result: on for stocks (validation score 0.44 → 0.51; holdout same +12.3%/yr with 108 instead of 127 trades), off for crypto (no validation gain). Rerun with `python train_long_history.py --from-report state/long_history_report.json --write-snapshot`.

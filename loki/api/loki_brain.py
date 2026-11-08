@@ -12,6 +12,7 @@ Nothing here places orders or gives personal advice.
 from __future__ import annotations
 
 import logging
+import difflib
 import random
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -82,6 +83,41 @@ def detect_symbols(text: str) -> List[str]:
     return found[:3]
 
 
+# Friendly names for quick price answers ("Bitcoin is at …").
+LABELS: Dict[str, str] = {
+    "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana", "DOGE-USD": "Dogecoin", "XRP-USD": "XRP",
+    "ADA-USD": "Cardano", "LTC-USD": "Litecoin", "LINK-USD": "Chainlink", "BNB-USD": "BNB", "AAPL": "Apple",
+    "MSFT": "Microsoft", "NVDA": "Nvidia", "AMZN": "Amazon", "GOOGL": "Alphabet (Google)", "META": "Meta",
+    "TSLA": "Tesla", "NFLX": "Netflix", "AMD": "AMD", "JPM": "JPMorgan", "XOM": "Exxon", "GLD": "Gold (GLD)",
+    "TLT": "Long-term Treasuries (TLT)", "SPY": "the S&P 500 (SPY)", "QQQ": "the Nasdaq-100 (QQQ)",
+    "DIA": "the Dow (DIA)", "IWM": "small caps (IWM)",
+}
+# Common words that must never be "corrected" into a ticker.
+_NOT_TYPOS = {
+    "about", "think", "should", "would", "could", "which", "better", "going", "doing", "price", "today", "market",
+    "markets", "stock", "stocks", "money", "trade", "trading", "trend", "worth", "right", "there", "their", "where",
+    "other", "after", "before", "these", "those", "thing", "things", "apply", "ample", "sample", "metal", "metals",
+    "media", "solar", "soldier", "ripples", "tesla's", "google's", "golden", "bitcoins", "ether's", "coins", "crypto",
+    "invest", "investing", "nervous", "explain", "please", "thanks", "hello", "loser", "losers", "gainer", "gainers",
+    "weather", "whether", "leather", "feather", "together", "either", "neither", "seller", "teller", "apples", "amazing",
+    "solid", "salad", "doggo", "ripped", "cards", "chain", "linked", "litre", "ethics", "theory", "nasty", "russia",
+    "google", "goggle", "goggles", "alpha", "alphas", "meta's", "binary", "bitter", "tesco", "testa", "taste", "stable",
+}
+_FUZZY_TARGETS = sorted({k for k in NAMES if len(k) >= 5 and " " not in k} | {"nvidia"})
+
+
+def fuzzy_symbols(text: str) -> List[Tuple[str, str]]:
+    """Ticker guesses for misspelled names ('bitcon' -> BTC-USD), as (typed word, symbol)."""
+    out: List[Tuple[str, str]] = []
+    for word in re.findall(r"[a-z]{4,12}", text.lower()):
+        if word in _NOT_TYPOS or word in NAMES:
+            continue
+        match = difflib.get_close_matches(word, _FUZZY_TARGETS, n=1, cutoff=0.83)
+        if match and abs(len(match[0]) - len(word)) <= 2 and NAMES[match[0]] not in [s for _, s in out]:
+            out.append((word, NAMES[match[0]]))
+    return out[:2]
+
+
 # --- glossary -----------------------------------------------------------------
 GLOSSARY: Dict[Tuple[str, ...], str] = {
     ("stop loss", "stop-loss", "stoploss", "stop order"): "A stop loss is a pre-set exit price below your entry (for a long). If price falls there, you sell and cap the loss. Loki's AI sets its stop in ATR units — a multiple of the asset's normal daily range — so a jumpy asset gets a wider stop than a calm one. Stops can slip in fast markets or overnight gaps.",
@@ -115,6 +151,49 @@ GLOSSARY: Dict[Tuple[str, ...], str] = {
     ("expectancy",): "Expectancy is the average profit per trade (wins and losses combined). Positive expectancy after costs is the only thing that makes a strategy worth running.",
     ("candle", "candlestick"): "A candlestick shows one period's open, high, low and close. Green means it closed above the open, red below. Loki's AI decides on completed daily candles only — never on today's still-forming one.",
     ("alpaca",): "Alpaca is a US broker with a free paper-trading API. In Loki's AI trading page you can paste your Alpaca paper keys (they stay in your browser) to see your account and send clicked paper orders.",
+    ("dollar cost averaging", "dollar-cost averaging", "dca"): "Dollar-cost averaging means investing a fixed amount on a schedule (say every month) regardless of price. You buy more when prices are low and less when they're high, and it takes the guesswork out of timing. Many long-term investors use it instead of trying to pick the perfect moment.",
+    ("market cap", "market capitalization", "market capitalisation"): "Market cap is a company's share price times the number of shares — what the whole company is valued at. Large caps (over ~$10B) like Apple tend to be steadier; small caps move more in both directions.",
+    ("dividend", "dividends"): "A dividend is cash a company pays its shareholders out of profits, usually quarterly. Dividend yield is the yearly payout divided by the share price. Loki's backtests use prices adjusted for dividends so returns aren't understated.",
+    ("p/e", "pe ratio", "p/e ratio", "price to earnings", "price-to-earnings"): "The P/E ratio is share price divided by earnings per share — how many dollars investors pay for $1 of yearly profit. High P/E means the market expects fast growth (or is optimistic); low P/E can mean value or trouble. Loki's AI is price-based and doesn't use P/E.",
+    ("liquidity", "liquid"): "Liquidity is how easily you can buy or sell without moving the price. Big stocks and major coins are very liquid; tiny ones can jump when you trade them. Low liquidity means wider spreads and more slippage.",
+    ("compound interest", "compounding", "compound"): "Compounding is earning returns on your previous returns. $10,000 growing 8% a year becomes about $21,600 after 10 years and $46,600 after 20 — the growth speeds up over time. Avoiding big losses matters because a −50% drop needs +100% to recover.",
+    ("hodl",): "HODL is crypto slang (from a famous typo of 'hold') for holding through ups and downs instead of trading. Loki's crypto AI does the opposite of HODL in downtrends: it steps aside to cash, which historically cut the worst drops a lot.",
+    ("limit order",): "A limit order buys or sells only at your price or better. You control the price but it might not fill. Loki's paper rail uses limit orders for a reviewed entry.",
+    ("market order",): "A market order fills immediately at the best available price. It always fills but you can pay a bit more than the last quote (slippage), especially in fast or thin markets.",
+    ("stop limit", "stop-limit"): "A stop-limit order becomes a limit order once a trigger price is hit. It protects you from filling at a terrible price, but in a fast drop it may not fill at all.",
+    ("trailing stop", "trailing stop loss"): "A trailing stop follows price up and stays a fixed distance below it, locking in gains as a trade works. It sells if price falls back by that distance. Loki's current rules found a trend exit (below the 200-day average) worked better than a tight trail.",
+    ("momentum",): "Momentum is the tendency of things that have been rising to keep rising for a while (and fallers to keep falling). Loki's trend score blends momentum with trend, volume flow and volatility.",
+    ("stand aside", "standing aside"): "'Stand aside' is the AI's way of saying it would not hold this market right now — usually because its trend score is negative or price is below the 200-day average. It isn't a prediction that price will fall, just that the AI's rules see no uptrend worth owning.",
+    ("trend score", "score"): "The trend score is the AI's 0-to-±100 summary of the market: trend, momentum, money flow, squeeze and volatility combined from finished daily candles. Positive means up-trending conditions; the AI only buys when it clears the entry bar (30 for stocks, 8 for crypto) and every other check passes.",
+    ("entry bar", "threshold"): "The entry bar is the minimum trend score the AI needs before it will buy: 30 for stocks/ETFs and 8 for crypto. Those bars were chosen on 2005-2022 data and checked on 2023 onward.",
+    ("buy setup", "verdict"): "'BUY setup' means every one of the AI's checks passes right now: strong enough trend score, volatility within limits, price above its 200-day average, a regime that allows buying, and it doesn't look like the AI's past losing trades. It's what the paper AI would do — information, not advice.",
+    ("support", "resistance"): "Support is a price area where buying has tended to stop declines; resistance is where selling has capped rallies. They're useful for context but fuzzy — Loki's AI doesn't draw them; it uses trend and volatility instead.",
+    ("bid", "ask", "spread", "bid-ask"): "The bid is the highest price buyers offer, the ask the lowest price sellers accept; the gap is the spread. You buy at the ask and sell at the bid, so wide spreads are a hidden cost.",
+    ("inflation", "cpi"): "Inflation is the rise in prices across the economy, measured by indexes like CPI. High inflation tends to push interest rates up, which can weigh on stocks and bonds. Gold and some commodities have historically held up better.",
+    ("interest rate", "interest rates", "fed", "federal reserve", "fomc", "rate cut", "rate hike"): "Interest rates are the price of borrowing money, steered by central banks like the US Federal Reserve. Higher rates usually pressure stock valuations and bond prices; cuts tend to help. Rate decisions are among the biggest scheduled market events — see the News tab.",
+    ("recession",): "A recession is a broad economic decline, often defined as two quarters of shrinking GDP. Stocks often fall ahead of or during recessions, which is when trend-following rules that step aside to cash can help most.",
+    ("ipo",): "An IPO (initial public offering) is when a private company first sells shares on the stock market. New listings can be very volatile and have little price history — the AI needs about 250 days of history before it will trade one.",
+    ("options", "call option", "put option", "calls and puts"): "Options are contracts giving the right (not obligation) to buy (a call) or sell (a put) at a set price before a date. They can magnify gains and losses and can expire worthless. Loki doesn't trade options.",
+    ("futures", "futures contract"): "Futures are contracts to buy or sell an asset at a set price on a future date, traded with leverage. Funded-account firms often use futures (e.g. via Tradovate). Leverage means small moves can produce big gains or losses.",
+    ("margin call",): "A margin call happens when a leveraged account falls below the broker's required level and you must add money or have positions sold. Loki's AI never uses leverage, so it can't get margin-called.",
+    ("risk reward", "risk/reward", "risk to reward", "r multiple"): "Risk/reward compares what a trade could lose (entry to stop) with what it might gain. Trend-following accepts lots of small losses because a few big winners pay for them.",
+    ("beta",): "Beta measures how much a stock tends to move with the overall market. Beta 1 moves like the market, 2 moves about twice as much, 0.5 about half.",
+    ("alpha",): "Alpha is return above what you'd expect from the market's own move — the 'skill' part. Honest measurement needs costs and out-of-sample data; Loki reports its results against buy-and-hold for that reason.",
+    ("yield", "bond yield"): "A yield is the income an investment pays as a percentage of its price — a bond's interest or a stock's dividends. Bond prices fall when yields rise.",
+    ("bond", "bonds", "treasury", "treasuries"): "A bond is a loan to a government or company that pays interest and returns the principal at maturity. US Treasuries are seen as the safest. TLT (long-term Treasuries) is one of the markets Loki's AI trades.",
+    ("stock", "share", "shares", "equity"): "A stock (or share) is a small piece of ownership in a company. Its price moves with expectations about the company's future profits and the overall market mood.",
+    ("fomo",): "FOMO — fear of missing out — is the urge to jump into something because it's already soared. It's one of the most expensive feelings in trading. Rules-based systems like Loki's AI exist partly to take that emotion out.",
+    ("fud",): "FUD means fear, uncertainty and doubt — negative talk (sometimes deliberate) that spooks people into selling. Loki's AI ignores headlines and decides only on price behaviour.",
+    ("whale", "whales"): "A whale is someone holding or trading enough of an asset to move its price — common talk in crypto.",
+    ("altcoin", "altcoins"): "An altcoin is any cryptocurrency other than Bitcoin. Altcoins are usually far more volatile than Bitcoin; Loki's crypto AI sizes them smaller because of that.",
+    ("stablecoin", "stablecoins", "usdt", "usdc"): "A stablecoin is a crypto token designed to stay at $1, like USDT or USDC. Traders use them to park cash on crypto exchanges. They carry issuer risk rather than price risk.",
+    ("halving",): "The Bitcoin halving cuts the reward for mining new blocks in half about every four years, slowing new supply. Past halvings have been followed by big moves, but with only a handful of examples it's weak evidence.",
+    ("breakout",): "A breakout is when price pushes through a level it struggled with before, often on higher volume. Many breakouts fail, which is why Loki's AI waits for a broad trend score rather than one level.",
+    ("pullback", "dip", "buy the dip"): "A pullback (or dip) is a temporary drop inside a bigger uptrend. 'Buying the dip' works in strong trends and hurts in real downtrends — the hard part is telling which one you're in. Loki's AI only buys when the broader trend is still up.",
+    ("mean reversion",): "Mean reversion is the idea that prices that stretched far from their average tend to snap back. It's the opposite bet to trend following; Loki's Quant lab can test both.",
+    ("correlation", "correlated"): "Correlation measures how much two markets move together, from −1 (opposite) to +1 (in lockstep). Combining low-correlation markets is what makes the Portfolio AI smoother than any single market.",
+    ("hedge", "hedging"): "Hedging means taking a position that gains if your main bet loses, to reduce risk. It costs something, like insurance. Loki's AI doesn't short or hedge; it reduces risk by holding cash when trends break.",
+    ("benchmark", "buy and hold", "buy-and-hold"): "A benchmark is what you compare a strategy against. Loki compares its AI with buy-and-hold — simply owning the same markets the whole time — so you can see if the rules actually add anything.",
     ("tradovate",): "Tradovate is a futures broker used by many funded-account firms. Loki can connect read-only to view your balances and positions — sign in with your Tradovate API credentials and only the issued token is kept, encrypted.",
 }
 
@@ -135,15 +214,17 @@ _THANKS = re.compile(r"\b(thanks|thank you|thx|cheers|appreciate it)\b", re.I)
 _HELP = re.compile(r"\b(help|what can you do|how do i use|commands|what do you do)\b", re.I)
 _IDENTITY = re.compile(r"\b(who are you|what are you|are you (an? )?(ai|bot|human|real))\b", re.I)
 _MAKER = re.compile(r"\bwho (made|built|created|makes|owns|runs|designed|coded) (you|loki|this( site| app)?)\b", re.I)
-_TIMING = re.compile(r"\b(good time to (invest|buy|get in)|right time to (invest|buy)|time the market|should i (invest|buy|get in) (now|today|yet)|"
+_TIMING = re.compile(r"\b(will (the )?(market|stocks?|crypto) (crash|fall|drop|go (up|down)|recover)|market crash|good time to (invest|buy|get in)|right time to (invest|buy)|time the market|should i (invest|buy|get in) (now|today|yet)|"
                      r"is (it|now) (a )?good (time|moment)|crash (coming|soon)|is (this|it) a bubble|recession (coming|soon))\b", re.I)
-_TRACK = re.compile(r"\b(track record|historic\w*|history|backtest(ed|s)?|profitab\w*|how (good|well)|how did|performance|results?|win rate|returns?|proof|make money|making money)\b", re.I)
+_TRACK = re.compile(r"\b(track record|historic\w*|history|backtest(ed|s)?|profitab\w*|how (good|well)|how did|performance|results?|win rate|returns?|proof|make money|making money|money|earn\w*)\b", re.I)
 _HOW_AI = re.compile(r"\b(how (does|do) (the |your )?(ai|you|loki|model) (work|trade|decide|think|learn)|learn(s|ing)? from (its |your )?mistakes|explain (the |your )?(ai|model))\b", re.I)
 _ORDER = re.compile(r"^\s*(please\s+)?(buy|sell|short|close|place|submit|execute)\b", re.I)
-_MARKET = re.compile(r"\b(market(s)? (today|now|doing|look)|how('s| is) the market|what('s| is) moving|movers|market overview|market update|the tape)\b", re.I)
+_MARKET = re.compile(r"\b(market(s)? (today|now|doing|look)|how('s| is) the market|market overview|market update|the tape|"
+                     r"(is|are) (the )?(stock )?markets? (up|down|open|closed|red|green)|stocks? (are )?(up|down) today)\b", re.I)
+_MOVERS = re.compile(r"\b(what('s| is) moving|movers?|gainers?|losers?|biggest (moves?|winners?|losers?|jumps?|drops?)|top (stocks|coins|performers)|what('s| is) (hot|pumping|dumping))\b", re.I)
 _ADVICE = re.compile(r"\b(should i|can i|is it (a )?good (time|idea)|worth (buying|it)|buy|sell|invest|entry|enter|think of|thoughts on|opinion|analy[sz]e|read on|outlook|what about|look(s|ing)? (at|good)|forecast|predict|"
-                     r"tell me about|how('s| is) .{1,20} doing|price|news on|update on|vs\.?|versus|compare)\b", re.I)
-_ASK_AI_DEFINE = re.compile(r"\b(what('s| is| are)|explain|define|meaning of|tell me about)\b", re.I)
+                     r"tell me about|how('s| is) .{1,20} doing|price|news on|update on|vs\.?|versus|compare|better|which|going (up|down))\b", re.I)
+_ASK_AI_DEFINE = re.compile(r"\b(what('s| is| are| does)|explain|define|meaning of|means?|tell me about|why)\b", re.I)
 
 
 def _pick(options: List[str]) -> str:
@@ -412,7 +493,149 @@ def evolution_answer() -> str:
     return "\n".join(lines)
 
 
-_PORTFOLIO_Q = re.compile(r"\b(portfolio ai|portfolio|diversif\w*|all (the )?markets|what (is|are) (the ai|you|it) (holding|buying|in)|holdings|allocation|what changed|this week|how is the ai doing|ai doing|self.?check|health)\b", re.I)
+_PORTFOLIO_Q = re.compile(r"\b(portfolio ai|portfolio|all (the )?markets|what (is|are) (the ai|you|it) (holding|buying|in)|holdings|allocation|what changed|this week|how is the ai doing|ai doing|self.?check|health)\b", re.I)
+
+
+# --- conversation, boundaries and practical questions ---------------------------
+_SMALLTALK = re.compile(r"^\s*(how are (you|u)|how('s| is) it going|how you doing|what'?s up|wh?at'?s good|sup|you good|how('s| is) your day)\b", re.I)
+_LAUGH = re.compile(r"^\s*(lol+|lmao+|haha+|hehe+|rofl|😂|🤣|nice|cool|ok(ay)?|k|great|awesome|wow)[\s!.?]*$", re.I)
+_BYE = re.compile(r"^\s*(bye+|goodbye|good night|goodnight|see (you|ya)|cya|later|gtg|gotta go|night)\b", re.I)
+_JOKE = re.compile(r"\b(tell me a joke|joke|make me laugh|something funny)\b", re.I)
+_OFFTOPIC = re.compile(r"\b(weather|forecast for (today|tomorrow)|recipe|movie|song|sports?|football|soccer|basketball|homework|poem|girlfriend|boyfriend)\b", re.I)
+_FEELINGS = re.compile(r"\b(nervous|scared|afraid|worried|anxious|stress(ed)?|panic\w*|freaking out|lost (a lot of |so much |some )?money|losing money|down bad|wiped out|regret)\b", re.I)
+_TIPS = re.compile(r"\b(what should i (buy|invest in|trade)|stock tips?|give me a tip|any tips|best (stock|coin|crypto|investment)s?|make me (rich|money)|get rich|"
+                   r"how much (should|do) i (invest|put|buy)|i have \$?\d[\d,]*|what to buy|trade for me|manage my money|pick (a|me a) stock)\b", re.I)
+_TRUST = re.compile(r"\b(trust|risky|risk|safe|worst (drop|loss|case)|lose money|guarantee\w*|reliable|scam|legit)\b", re.I)
+_PRIVACY = re.compile(r"\b(my data|data (safe|secure|private)|personal (data|info\w*)|store (my|any)|privacy|delete (my|account)|cookies?|track(ing)? me|sell my data)\b", re.I)
+_ADVICE_Q = re.compile(r"\b(financial advi[cs]e|is this advice|are you (an? )?(advisor|adviser|licensed)|licensed|regulated)\b", re.I)
+_START = re.compile(r"\b(how do i (start|begin|use (this|loki|the paper|it))|get(ting)? started|where (do|should) i (start|begin)|i'?m new|new here|beginners?|first time|strateg(y|ies) for (a )?(beginner|newbie|new)|good strategy)\b", re.I)
+_BROKER = re.compile(r"\b(connect (to )?(my )?(broker|account|exchange)|real money|live (trading|account)|link my (broker|account))\b", re.I)
+_GAME = re.compile(r"\b(game|bored|trivia|wordle)\b", re.I)
+_PRICE_ONLY = re.compile(r"\b(price|quote|trading at|how much is|worth|cost)\b", re.I)
+_ANALYSIS_WORDS = re.compile(r"\b(should|buy|sell|think|analy[sz]e|ai|read|good|bad|outlook|vs|versus|compare|better|predict|forecast)\b", re.I)
+_FOLLOWUP = re.compile(r"\b(it|its|it's|that one|this one|that|them)\b", re.I)
+
+JOKES = [
+    "Why did the trader stand aside in the rain? Because the trend score said no umbrella was worth the risk.",
+    "I asked the market for a sign. It gave me a candlestick… then a gap down.",
+    "My portfolio and I have a lot in common: we both look better on a long-term chart.",
+    "A bull, a bear and a trend follower walk into a bar. The trend follower waits for the bar to close.",
+]
+
+
+def _who(name: str) -> str:
+    return f", {name}" if name else ""
+
+
+def quote_answer(symbol: str) -> Optional[str]:
+    label = LABELS.get(symbol, symbol)
+    rows = [r for r in _quotes([(symbol, label)]) if r.get("ok") and isinstance(r.get("price"), (int, float))]
+    if not rows:
+        return None
+    r = rows[0]
+    change = f", {_pct(r.get('change_pct'))} today" if isinstance(r.get("change_pct"), (int, float)) else ""
+    return (f"{label} is at {r['price']:,.2f}{change} (public feed, can be slightly delayed). "
+            f"Want the AI's read on it? Ask 'what about {symbol.replace('-USD', '')}?'")
+
+
+def _board() -> Optional[Dict[str, Any]]:
+    from fastapi import Response
+
+    from loki.api import live_markets
+
+    try:
+        return live_markets.live_board(Response())
+    except Exception as exc:  # noqa: BLE001 - chat must never 500
+        logger.warning("brain board read failed: %s", exc.__class__.__name__)
+        return None
+
+
+def movers_answer() -> str:
+    board = _board() or {}
+    m = board.get("movers") or {}
+    fmt = lambda rows: ", ".join(f"{r.get('label') or r['symbol']} {_pct(r.get('change_pct'))}" for r in rows)  # noqa: E731
+    if not (m.get("gainers") or m.get("losers")):
+        return market_overview()
+    parts = ["Biggest moves on the live board right now:"]
+    if m.get("gainers"):
+        parts.append(f"• Leading: {fmt(m['gainers'])}.")
+    if m.get("losers"):
+        parts.append(f"• Lagging: {fmt(m['losers'])}.")
+    parts.append("Name any of them and I'll run the AI on it, or open Live markets for candlestick charts.\n" + FOOTER)
+    return "\n".join(parts)
+
+
+def trust_answer() -> str:
+    uni = _universal()
+    eq = (uni.get("equity") or {}).get("holdout_pooled") or {}
+    cr = (uni.get("crypto") or {}).get("holdout_pooled") or {}
+    pf = (uni.get("portfolio") or {}).get("holdout") or {}
+    lines = ["Fair question — here's the honest picture, not a sales pitch:",
+             "• All results are hypothetical backtests with fees and slippage, chosen on 2005-2022 and tested on 2023 onward. They are not real trading and can't promise anything about the future."]
+    if eq:
+        lines.append(f"• Stocks/ETFs: average worst drop {_pct(eq.get('mean_max_dd_pct'))} on 2023-onward data, versus {_pct(eq.get('buy_hold_mean_max_dd_pct'))} for simply holding.")
+    if cr:
+        lines.append(f"• Crypto: average worst drop {_pct(cr.get('mean_max_dd_pct'))}, versus {_pct(cr.get('buy_hold_mean_max_dd_pct'))} for holding.")
+    if pf:
+        lines.append(f"• Portfolio AI (21 markets): worst drop {_pct(pf.get('max_dd_pct'))} on 2023-onward data.")
+    lines.append("• It loses on many individual trades and trails buy-and-hold in strong bull runs; its edge is avoiding the deepest drops.")
+    lines.append("The safest way to judge it is to run it on paper money first — the AI trading page does exactly that.\n" + FOOTER)
+    return "\n".join(lines)
+
+
+def tips_answer(name: str) -> str:
+    lines = [f"I can't pick investments for you{_who(name)} — I don't know your goals, timeline or situation, and nobody can promise returns. "
+             "What I can do is show you exactly what the AI sees:"]
+    plan = _portfolio()
+    held = [p for p in (plan or {}).get("positions", []) if p.get("weight", 0) > 0]
+    if held:
+        lines.append("• Right now the Portfolio AI (paper) holds " + ", ".join(p["symbol"] for p in held[:8]) +
+                     " — markets where its trend rules currently see an uptrend.")
+    lines += ["• Ask 'what about NVDA?' (or any ticker) for the AI's live checklist on one market.",
+              "• Many people start with broad index funds and invest a fixed amount on a schedule (dollar-cost averaging), and only risk money they can afford to lose.",
+              "• Try any idea on paper money first — the AI trading page has a paper account.\n" + FOOTER]
+    return "\n".join(lines)
+
+
+def feelings_answer(name: str) -> str:
+    return (f"That's a really normal feeling{_who(name)} — markets are stressful, and losses sting. A few things that genuinely help:\n"
+            "• Size positions so a bad day can't hurt you badly — Loki's AI aims for each position to swing about 20% a year, never more than the whole account.\n"
+            "• Decide your exit before you enter (a stop), so you're not deciding in a panic.\n"
+            "• Step back from the screen; the AI only looks at finished daily candles for a reason.\n"
+            "• Practise on paper money until the process feels boring.\n"
+            "If money worries are weighing on you, talking to someone you trust or a licensed financial counsellor can help. "
+            "Want me to check how the market is doing right now?")
+
+
+PRIVACY_TEXT = ("Here's what Loki keeps:\n"
+                "• Your nickname, watchlist, alerts, chat history and paper trades are stored in your own browser (you can clear them any time).\n"
+                "• If you create an account, your email, nickname and saved workspace are stored so you can sign in on other devices — you can export or delete everything from My account.\n"
+                "• Messages in Loki's private room are kept for up to 30 days. Broker tokens are encrypted, and Loki never asks for your broker password.\n"
+                "• No advertising trackers and no selling of data. The full details are on the Privacy and Cookies pages.")
+ADVICE_TEXT = ("No — Loki is an information and research tool, not a financial adviser, and nothing here is personal financial advice. "
+               "The AI's reads describe what its rules see in the data; results shown are hypothetical. Decisions with real money are yours, "
+               "and a licensed adviser can help with your specific situation.")
+START_TEXT = ("Welcome! The quickest way in:\n"
+              "1. Ask me 'how's the market?' or name any ticker ('what about AAPL?') to see the AI's live read.\n"
+              "2. Open Live markets for candlestick charts — pick any tile, switch timeframes, hover for prices.\n"
+              "3. Go to AI trading and press 'Start Portfolio AI' to run the 21-market AI on paper money.\n"
+              "4. Explore Quant lab to test your own ideas on history, or the News tab for what's moving markets.\n"
+              "Everything uses paper money unless you deliberately connect a broker.")
+BROKER_TEXT = ("You can connect two kinds of accounts:\n"
+               "• Alpaca (paper): paste your Alpaca paper API keys on the AI trading page — they stay in your browser — to see your account and send orders you click yourself.\n"
+               "• Tradovate (futures, read-only): sign in with your Tradovate API credentials to view balances and positions; only the issued token is kept, encrypted.\n"
+               "Loki never places real-money trades on its own, and chat can't place orders.")
+GAME_TEXT = ("The 'Bored?' tab at the bottom of the menu has a quick five-letter word game and rare-answer trivia — a mental reset between market checks.")
+OFFTOPIC_TEXT = ("I stick to markets — I'd only be guessing about that. Ask me about any stock or coin, how the market's doing, "
+                 "what a trading term means, or how the AI works.")
+FALLBACK_TEXT = ("I didn't quite catch that{who}. I'm best at: a ticker or coin ('what about Tesla?'), 'how's the market?', "
+                 "'biggest movers today', a trading term ('what is a stop loss?'), or 'how does the AI work?'.")
+
+
+def order_answer(name: str, symbols: List[str]) -> str:
+    target = f" on {symbols[0]}" if symbols else ""
+    return (f"I can't place orders{_who(name)} — chat never trades, by design. I can show you the AI's live read{target}, "
+            "and you can practise the trade with paper money on the AI trading page, or place it yourself through a broker you connect.")
 
 
 HELP_TEXT = ("Here's what I can do:\n"
@@ -424,7 +647,8 @@ HELP_TEXT = ("Here's what I can do:\n"
              "I don't place orders or give personal financial advice — I explain what the data and the AI are saying.")
 
 
-def answer(text: str, name: str = "", *, allow_data: bool = True, skip: Tuple[str, ...] = ()) -> Optional[Dict[str, Any]]:
+def answer(text: str, name: str = "", *, allow_data: bool = True, skip: Tuple[str, ...] = (),
+           order_reply: bool = False, last_symbol: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Best answer for a message, or None to let the caller fall back.
 
     ``skip`` names intents the caller answers better itself (e.g. the chat
@@ -432,18 +656,51 @@ def answer(text: str, name: str = "", *, allow_data: bool = True, skip: Tuple[st
     caller's order-refusal path answers them.
     """
     msg = (text or "").strip()
-    if not msg or _ORDER.match(msg):
+    if not msg:
         return None
-    result = _answer(msg, name, allow_data)
+    if _ORDER.match(msg):
+        if not order_reply:
+            return None
+        return {"intent": "order", "text": order_answer(name, detect_symbols(msg))}
+    result = _answer(msg, name, allow_data, last_symbol)
     if result and result["intent"] in skip:
         return None
     return result
 
 
-def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
+def fallback(name: str = "") -> Dict[str, Any]:
+    """Friendly catch-all for messages nothing else could ground."""
+    return {"intent": "fallback", "text": FALLBACK_TEXT.format(who=_who(name))}
+
+
+def _answer(msg: str, name: str, allow_data: bool, last_symbol: Optional[str] = None) -> Optional[Dict[str, Any]]:
     who = f", {name}" if name else ""
     symbols = detect_symbols(msg)
     low = msg.lower()
+    read_as = ""
+    if _OFFTOPIC.search(msg) and not symbols:
+        return {"intent": "off_topic", "text": OFFTOPIC_TEXT}
+    if not symbols:
+        guesses = fuzzy_symbols(msg)
+        if guesses:
+            symbols = [sym for _, sym in guesses]
+            read_as = "(I read " + ", ".join(f"'{w}' as {LABELS.get(sym, sym)}" for w, sym in guesses) + ".)\n"
+    if not symbols and last_symbol and _FOLLOWUP.search(msg) and len(msg.split()) <= 8 and re.fullmatch(r"[A-Z0-9.^=\-]{1,12}", last_symbol):
+        symbols = [last_symbol]  # follow-up: "what about its risk?" after a ticker answer
+
+    if _SMALLTALK.search(msg) and not symbols:
+        return {"intent": "smalltalk", "text": _pick([
+            f"Doing well, thanks{who}! Markets never sleep, so neither do I. Want a quick market check?",
+            f"All good here{who} — the feeds are flowing. Name a ticker and I'll run the AI on it.",
+            f"Great, thanks for asking{who}. Want the biggest movers today or the AI's read on something?"])}
+    if _BYE.search(msg) and not symbols:
+        return {"intent": "bye", "text": _pick([f"See you{who}! The charts will be here when you're back.",
+                                                f"Bye{who} — take care, and remember: paper first, real money later."])}
+    if _LAUGH.match(msg):
+        return {"intent": "laugh", "text": _pick([f"😄 Anything you'd like me to look at{who}?",
+                                                  "Glad that landed. Want a market check or the AI's read on a ticker?"])}
+    if _JOKE.search(msg) and not symbols:
+        return {"intent": "joke", "text": _pick(JOKES) + "\nNow, want a real market check?"}
 
     if _GREETING.match(msg) and len(msg.split()) <= 4 and not symbols:
         return {"intent": "greeting", "text": _pick([
@@ -459,17 +716,41 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
                                                "I explain what the live market data and Loki's trading AI are saying, in plain English. " + HELP_TEXT.split('\n', 1)[1])}
     if _MAKER.search(msg):
         return {"intent": "identity", "text": maker_answer()}
+    if _START.search(msg) and not symbols:
+        return {"intent": "getting_started", "text": START_TEXT}
     if _HELP.search(msg) and not symbols:
         return {"intent": "help", "text": HELP_TEXT}
+    if _ADVICE_Q.search(msg):
+        return {"intent": "advice_disclaimer", "text": ADVICE_TEXT}
+    if _PRIVACY.search(msg) and not symbols:
+        return {"intent": "privacy", "text": PRIVACY_TEXT}
+    if _FEELINGS.search(msg) and not symbols:
+        return {"intent": "feelings", "text": feelings_answer(name)}
+    if _TIPS.search(msg) and not symbols:
+        return {"intent": "tips", "text": tips_answer(name)}
+    if _BROKER.search(msg) and not symbols:
+        return {"intent": "broker", "text": BROKER_TEXT}
+    if _GAME.search(msg) and not symbols and len(msg.split()) <= 8:
+        return {"intent": "game", "text": GAME_TEXT}
     if allow_data and _PORTFOLIO_Q.search(msg) and not symbols and not re.search(r"\bmy\b", low):
         return {"intent": "portfolio", "text": portfolio_answer()}
     if _EVOLVE.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
         return {"intent": "evolution", "text": evolution_answer()}
     if _HOW_AI.search(msg):
         return {"intent": "how_ai", "text": how_ai_works()}
+    if _TRUST.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it|this)\b", low):
+        return {"intent": "trust", "text": trust_answer()}
     if _TRACK.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
         return {"intent": "track_record", "text": track_record() + "\n" + FOOTER}
-    if allow_data and symbols and (_ADVICE.search(msg) or len(msg.split()) <= 4 or "?" in msg):
+    if symbols and re.match(r"^\s*(what('s| is| are)|explain|define)\b", msg, re.I) and not _ADVICE.search(msg):
+        term = _glossary(msg)
+        if term:
+            return {"intent": "glossary", "text": term}
+    if allow_data and symbols and len(symbols) == 1 and _PRICE_ONLY.search(msg) and not _ANALYSIS_WORDS.search(msg):
+        quick = quote_answer(symbols[0])
+        if quick:
+            return {"intent": "price", "symbols": symbols, "text": read_as + quick}
+    if allow_data and symbols and (_ADVICE.search(msg) or len(msg.split()) <= 4 or "?" in msg or read_as):
         pairs: List[Tuple[str, str]] = []
         for sym in symbols[:2]:
             reply = explain_symbol(sym, name)
@@ -486,7 +767,9 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
                     ". The AI judges each market on its own rules; it doesn't rank one against the other.\n\n" + body)
         if re.search(r"\bshould i\b", low):
             body = "I can't tell you what to do with your money, but here's exactly what the AI sees:\n" + body
-        return {"intent": "symbol", "symbols": symbols[:2], "text": body}
+        return {"intent": "symbol", "symbols": symbols[:2], "text": read_as + body}
+    if allow_data and _MOVERS.search(msg) and not symbols:
+        return {"intent": "movers", "text": movers_answer()}
     if allow_data and _TIMING.search(msg) and not symbols:
         return {"intent": "timing", "text": timing_answer()}
     if allow_data and _MARKET.search(msg):
@@ -496,4 +779,6 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
         return {"intent": "glossary", "text": term + "\n" + _pick(["Want me to show how the AI uses it on a real ticker?",
                                                                    "Name a ticker and I'll show it in action.",
                                                                    "Anything else you'd like explained?"])}
+    if _OFFTOPIC.search(msg) and not symbols:
+        return {"intent": "off_topic", "text": OFFTOPIC_TEXT}
     return None

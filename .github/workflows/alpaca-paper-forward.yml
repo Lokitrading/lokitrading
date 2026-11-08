@@ -1,0 +1,61 @@
+name: Portfolio AI forward test (Alpaca paper)
+
+# Once a day the Portfolio AI's latest plan is mirrored onto an Alpaca PAPER
+# account (no real money) and the account's running performance is reported in
+# the run summary. Keys live in encrypted repository secrets:
+#   APCA_API_KEY_ID, APCA_API_SECRET_KEY  (Alpaca paper keys only)
+# Without them the run skips quietly. alpaca_forward.py can only reach the
+# paper endpoint.
+
+on:
+  schedule:
+    - cron: '45 14 * * *'   # 9:45 ET in winter (10:45 in summer): after the US open; crypto every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alpaca-paper-forward
+  cancel-in-progress: false
+
+jobs:
+  rebalance:
+    name: Rebalance paper account to the AI's plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
+      APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
+    steps:
+      - name: Skip when paper keys are not configured
+        id: keys
+        run: |
+          if [ -z "$APCA_API_KEY_ID" ] || [ -z "$APCA_API_SECRET_KEY" ]; then
+            echo "::notice::Add APCA_API_KEY_ID and APCA_API_SECRET_KEY (Alpaca paper keys) as repository secrets to run the forward test."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out main
+        if: steps.keys.outputs.ready == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Set up Python 3.12
+        if: steps.keys.outputs.ready == 'true'
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        if: steps.keys.outputs.ready == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Rebalance and report
+        if: steps.keys.outputs.ready == 'true'
+        run: python alpaca_forward.py --execute

@@ -43,10 +43,17 @@ from loki.api.revenue import router as revenue_router
 from loki.api.trading_desk import router as trading_desk_router
 from loki.api.watchtower import router as watchtower_router
 
+# Interactive API docs are a map of every endpoint: useful locally, needless
+# on a public deployment. LOKI_API_DOCS=1 turns them back on deliberately.
+_PUBLIC_DEPLOY = bool(os.environ.get("VERCEL") or os.environ.get("LOKI_SITE_GATE") == "1")
+_SHOW_DOCS = os.environ.get("LOKI_API_DOCS") == "1" or not _PUBLIC_DEPLOY
 app = FastAPI(
     title="Loki Trading Platform",
     version=__version__,
     description="Loki research workspace and read-only trading copilot",
+    docs_url="/docs" if _SHOW_DOCS else None,
+    redoc_url="/redoc" if _SHOW_DOCS else None,
+    openapi_url="/openapi.json" if _SHOW_DOCS else None,
 )
 for _router in (
     fusion_router,
@@ -93,7 +100,11 @@ CONTENT_SECURITY_POLICY = "; ".join(
 @app.middleware("http")
 async def member_privacy_boundary(request: Request, call_next):
     private = request.url.path.startswith(("/api/auth/", "/api/account/", "/api/ai/chat/"))
-    protected_write = private or request.url.path == "/api/dive/score"
+    # Every state-changing API call must come from this site (or from a
+    # non-browser client, which sends no Origin and carries no visitor's
+    # cookies). Browsers always label cross-site requests, so a page on
+    # another domain can never drive a visitor's session here (CSRF).
+    protected_write = request.url.path.startswith("/api/")
     if protected_write and request.method not in {"GET", "HEAD", "OPTIONS"}:
         from urllib.parse import urlsplit
 
@@ -108,7 +119,7 @@ async def member_privacy_boundary(request: Request, call_next):
             )
         if cross_site:
             return JSONResponse(
-                {"detail": "Use this website to change your account or publish a score."},
+                {"detail": "Requests that change anything must come from this website."},
                 status_code=403,
                 headers={"Cache-Control": "no-store"},
             )
@@ -126,6 +137,7 @@ async def member_privacy_boundary(request: Request, call_next):
     response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     if site_access.cookie_secure(request):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     if private:
@@ -747,25 +759,67 @@ def copilot(payload: CopilotRequest, request: Request, response: Response):
     about_the_ai = re.search(r"\b(portfolio ai|the ai|loki)\b", payload.message, re.I) and not re.search(
         r"\b(my|mine|our|we)\b", payload.message, re.I
     )
-    if not _PERSONAL.search(payload.message) or about_the_ai:
-        from loki.api import loki_brain
+    from loki.api import loki_brain
 
-        brain = loki_brain.answer(payload.message)
+    name = _visitor_name(payload.context)
+    workspace_words = re.search(r"\b(portfolio|account|council|dataset|journal|imported)\b", payload.message, re.I)
+
+    def brain_reply(brain: Dict[str, Any]) -> Dict[str, Any]:
+        symbols = brain.get("symbols") or []
+        return {
+            "text": brain["text"],
+            "intent": f"brain:{brain['intent']}",
+            "evidence": [],
+            "suggestions": ["How's the market?", "Biggest movers today", "How did the AI do?"],
+            "conversation": {"topics": [brain["intent"]], "symbol": symbols[0] if symbols else None},
+        }
+
+    # Market questions ("should I sell my NVDA?") belong to the brain even
+    # when they say "my"; only workspace questions go to the copilot first.
+    names_a_market = bool(loki_brain.detect_symbols(payload.message)) and not workspace_words
+    if not _PERSONAL.search(payload.message) or about_the_ai or names_a_market:
+        conversation = payload.context.get("conversation") if isinstance(payload.context, dict) else None
+        last = conversation.get("symbol") if isinstance(conversation, dict) else None
+        brain = loki_brain.answer(payload.message, name, order_reply=True,
+                                  last_symbol=last if isinstance(last, str) else None)
         if brain:
-            symbols = brain.get("symbols") or []
-            return {
-                "text": brain["text"],
-                "intent": f"brain:{brain['intent']}",
-                "evidence": [],
-                "suggestions": ["How's the market?", "How did the AI do?", "What is a stop loss?"],
-                "conversation": {"topics": [brain["intent"]], "symbol": symbols[0] if symbols else None},
-            }
-    return LokiCopilot().respond(payload.message, payload.context).as_dict()
+            return brain_reply(brain)
+    else:
+        # Personal phrasing ("is my data safe?", "connect my broker", "I lost
+        # money") that is really a general question: answer it conversationally.
+        brain = loki_brain.answer(payload.message, name, allow_data=False)
+        if brain and brain["intent"] in _BRAIN_PERSONAL_SAFE:
+            return brain_reply(brain)
+    reply = LokiCopilot().respond(payload.message, payload.context).as_dict()
+    # The copilot answers questions about loaded workspace data, honestly saying
+    # when nothing is loaded. Only its generic help text is swapped for a pointer.
+    if reply.get("intent") == "help":
+        brain = loki_brain.answer(payload.message, name, order_reply=True)
+        return brain_reply(brain or loki_brain.fallback(name))
+    return reply
 
 
+_BRAIN_PERSONAL_SAFE = {
+    "privacy", "broker", "feelings", "tips", "advice_disclaimer", "getting_started", "game", "smalltalk",
+    "bye", "laugh", "joke", "off_topic", "trust", "glossary", "identity", "thanks", "greeting",
+}
+
+
+# Questions about the visitor's own workspace go to the context-aware copilot.
+# Words like "doing" or "next" used to be here, which sent "how is Tesla
+# doing?" away from the brain; the brain now answers first and returns None
+# for anything it can't ground, so the copilot still catches those.
 _PERSONAL = re.compile(
-    r"\b(my|mine|we|our|us|portfolio|account|council|dataset|journal|imported|lose|lost|doing|next)\b", re.I
+    r"\b(my|mine|we|our|us|portfolio|account|council|dataset|journal|imported|lose|lost)\b", re.I
 )
+_NAME_OK = re.compile(r"^[^\W_][\w .'-]{0,23}$")
+
+
+def _visitor_name(context: Dict[str, Any]) -> str:
+    """The browser-only nickname, if it is a plausible name (never trusted as markup)."""
+    raw = context.get("visitor_name") if isinstance(context, dict) else None
+    name = " ".join(str(raw or "").split())[:24]
+    return name if _NAME_OK.match(name) else ""
 
 
 class SizingRequest(BaseModel):
