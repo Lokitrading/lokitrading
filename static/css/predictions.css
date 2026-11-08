@@ -1,0 +1,51 @@
+/* Prediction markets view (predictions.js). Uses studio tokens where present. */
+.nav-new { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #ffd27a; color: #1a1406; font: 700 9px/1.5 var(--mono, ui-monospace, monospace); letter-spacing: .08em; vertical-align: middle; }
+
+/* Crowd vs Machine */
+.cvm-panel { border-color: #ffd27a40; background: radial-gradient(900px 300px at 85% -20%, rgba(255, 210, 122, .08), transparent 60%), var(--panel, #0f1a22); }
+.cvm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 14px; margin-top: 10px; }
+.cvm-card { border: 1px solid var(--line, #263947); border-radius: 14px; padding: 14px 16px; background: var(--surface-inset, #0a131c); display: grid; gap: 10px; min-width: 0; }
+.cvm-card.disagree { border-color: #ffd27a99; box-shadow: 0 0 0 1px #ffd27a33 inset, 0 10px 30px rgba(255, 210, 122, .06); }
+.cvm-card.agree { border-color: #a8f0c666; }
+.cvm-card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cvm-card header strong { font-size: 17px; }
+.cvm-verdict { padding: 3px 10px; border-radius: 999px; font: 700 11px/1.5 var(--mono, ui-monospace, monospace); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line, #263947); color: var(--muted, #a2b5c4); white-space: nowrap; }
+.cvm-verdict.disagree { background: #ffd27a; border-color: #ffd27a; color: #1a1406; }
+.cvm-verdict.agree { background: #a8f0c6; border-color: #a8f0c6; color: #0a1f14; }
+.cvm-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cvm-side { display: grid; gap: 3px; align-content: start; padding: 10px; border-radius: 10px; background: rgba(255, 255, 255, .025); font-size: 13px; line-height: 1.45; }
+.cvm-side .eyebrow { margin: 0; font-size: 10px; }
+.cvm-side b { font-size: 16px; }
+.cvm-side b.up { color: var(--green, #a8f0c6); } .cvm-side b.down { color: var(--red, #ffb3a7); } .cvm-side b.flat { color: #ffd27a; }
+.cvm-curve { width: 100%; height: 70px; display: block; }
+.cvm-curve .cvm-area { fill: rgba(158, 197, 255, .12); }
+.cvm-curve .cvm-line { fill: none; stroke: #9ec5ff; stroke-width: 1.8; }
+.cvm-curve .cvm-half { stroke: rgba(162, 181, 196, .35); stroke-dasharray: 3 3; }
+.cvm-curve .cvm-now { stroke: #ffd27a; stroke-width: 1.6; }
+@media (max-width: 520px) { .cvm-sides { grid-template-columns: 1fr; } }
+
+/* Odds explorer */
+.pm-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; }
+.pm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; margin-top: 12px; }
+.pm-card { border: 1px solid var(--line, #263947); border-radius: 14px; padding: 14px 16px; background: var(--surface-inset, #0a131c); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.pm-card header h3 { margin: 0 0 2px; font-size: 15.5px; line-height: 1.35; }
+.pm-card header .muted { font-size: 12px; }
+.pm-outcome { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(50px, 1fr) auto auto; gap: 8px; align-items: center; font-size: 13px; }
+.pm-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.pm-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9ec5ff, #a8f0c6); }
+.pm-prob { font: 600 12.5px var(--mono, ui-monospace, monospace); min-width: 52px; text-align: right; }
+.pm-prob em { font-style: normal; margin-left: 4px; font-size: 10.5px; } .pm-prob em.up { color: var(--green, #a8f0c6); } .pm-prob em.down { color: var(--red, #ffb3a7); }
+.pm-bet { display: inline-flex; gap: 4px; }
+.pm-bet button { border: 1px solid var(--line, #263947); background: transparent; color: var(--text, #e7f0ff); border-radius: 8px; padding: 4px 8px; font: 600 11.5px var(--mono, ui-monospace, monospace); cursor: pointer; min-height: 28px; }
+.pm-bet .pm-yes:hover { border-color: #a8f0c6; color: #a8f0c6; } .pm-bet .pm-no:hover { border-color: #ffb3a7; color: #ffb3a7; }
+.pm-ticket { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; border-radius: 10px; border: 1px dashed #ffd27a80; background: rgba(255, 210, 122, .05); font-size: 13px; }
+.pm-ticket input { width: 90px; margin-left: 6px; }
+
+/* Paper book */
+.pm-paper-summary { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 4px 0 12px; font: 13px var(--mono, ui-monospace, monospace); color: var(--muted, #a2b5c4); }
+.pm-paper-summary b { color: var(--text, #e7f0ff); font-size: 16px; }
+.pm-paper-summary .up, .pm-pos .up { color: var(--green, #a8f0c6); } .pm-paper-summary .down, .pm-pos .down { color: var(--red, #ffb3a7); }
+.pm-pos { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line, #263947); font-size: 13px; }
+.pm-pos.settled { opacity: .75; }
+@media (max-width: 560px) { .pm-pos { grid-template-columns: 1fr auto; } .pm-outcome { grid-template-columns: minmax(0, 1fr) auto auto; } .pm-bar { display: none; } }
