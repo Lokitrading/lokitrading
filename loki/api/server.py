@@ -10,7 +10,7 @@ import urllib.request
 from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -787,9 +787,35 @@ def risk_preview(payload: SizingRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+def deployment_warnings() -> List[str]:
+    """Settings a public deployment is missing (names only, never values)."""
+    public = bool(os.environ.get("VERCEL") or site_access.gate_enabled())
+    if not public:
+        return []
+    warnings = []
+    if not site_access.secret_is_configured():
+        warnings.append("LOKI_GATE_SECRET is not set: each server instance signs logins with its own random key, "
+                        "so visitors are sent back to the access code page at random (Talk to Loki, trading desk).")
+    if not site_access.accounts_available():
+        warnings.append("SUPABASE_URL and a Supabase key are not set: sign-up, login and saved workspaces are off.")
+    if not os.environ.get("LOKI_BROKER_ENCRYPTION_KEY"):
+        warnings.append("LOKI_BROKER_ENCRYPTION_KEY is not set: connecting a Tradovate account is unavailable.")
+    return warnings
+
+
+# Logged once per cold start, so a misconfigured deployment shows up in the host's logs.
+for _warning in deployment_warnings():
+    logging.getLogger(__name__).warning("deployment configuration: %s", _warning)
+
+
 @app.get("/health")
 async def health():
-    return JSONResponse({"status": "ok", "service": "loki", "version": __version__})
+    body: Dict[str, Any] = {"status": "ok", "service": "loki", "version": __version__}
+    warnings = deployment_warnings()
+    if warnings:
+        body["status"] = "degraded"
+        body["configuration_warnings"] = warnings
+    return JSONResponse(body)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
