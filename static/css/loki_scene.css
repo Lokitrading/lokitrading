@@ -180,3 +180,18 @@ body.loki-workspace::before { content: ''; position: fixed; inset: -20vmax; z-in
 .brief-hold { border-top: 1px dashed var(--line, #263947); padding-top: 6px; margin-top: 2px; }
 .tag.brief-good { color: #a8f0c6; border-color: rgba(168,240,198,.4); } .tag.brief-warn { color: #f0c98b; border-color: rgba(240,201,139,.45); } .tag.brief-info { color: #8bdad4; }
 @media (max-width: 900px) { .brief-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* First-visit nickname card (welcome_name.js) */
+.welcome-name { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(4, 8, 14, .66); backdrop-filter: blur(6px); animation: welcome-fade .35s ease both; }
+.welcome-name-card { width: min(440px, 100%); padding: 26px 24px 22px; border-radius: 18px; border: 1px solid rgba(168, 240, 198, .3); background: linear-gradient(160deg, rgba(168, 240, 198, .08), transparent 45%), #0e1822; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); animation: welcome-rise .45s cubic-bezier(.2, .8, .2, 1) both; }
+.welcome-name-card h2 { margin: 4px 0 8px; font-size: 24px; }
+.welcome-name-card input { width: 100%; margin-top: 14px; padding: 12px 14px; font-size: 16px; border-radius: 12px; border: 1px solid rgba(168, 240, 198, .35); background: #0a131c; color: #e7f0ff; }
+.welcome-name-card input:focus { outline: 2px solid #c9ffe2; outline-offset: 2px; }
+.welcome-name-card .form-message { min-height: 18px; margin: 8px 0 4px; }
+.hero-name-change { margin-left: 6px; padding: 0 2px; border: 0; background: none; color: #8bdad4; font: inherit; font-size: .85em; letter-spacing: .04em; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.hero-name-change:focus-visible { outline: 2px solid #c9ffe2; outline-offset: 2px; border-radius: 4px; }
+@keyframes welcome-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes welcome-rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .welcome-name, .welcome-name-card { animation: none; } }
+/* The visitor's name reads as a real greeting, not a tiny label. */
+.hero-copy .hero-greeting { margin-bottom: 10px; color: #c9ffe2; font: 600 clamp(17px, 1.6vw, 21px)/1.35 Inter, system-ui, sans-serif; letter-spacing: 0; text-transform: none; }

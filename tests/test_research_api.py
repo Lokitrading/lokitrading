@@ -73,9 +73,11 @@ def test_copilot_answers_followups_without_shared_session_state():
     ).json()
     assert first["intent"] == followup["intent"] == "strategy"
     separate = client.post("/api/copilot", json={"message": "why?"}).json()
-    assert separate["intent"] == "help"
+    # A bare follow-up with no history gets the brain's friendly pointer, and
+    # order requests a clear refusal — chat never trades.
+    assert separate["intent"] == "brain:fallback"
     action = client.post("/api/copilot", json={"message": "buy 10 BTC now"}).json()
-    assert action["intent"] == "action"
+    assert action["intent"] == "brain:order" and "can't place orders" in action["text"]
     assert client.post("/api/copilot", json={"message": ""}).status_code == 422
 
 

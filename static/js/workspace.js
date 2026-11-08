@@ -80,6 +80,7 @@ const post=(url,payload)=>{
   if(url==='/api/copilot'&&window.lokiBrokerWorkspace?.summary())payload={...payload,context:{...payload.context,broker_connection:window.lokiBrokerWorkspace.summary()}};
   if(url==='/api/copilot'&&window.lokiCloudResearch?.summary())payload={...payload,context:{...payload.context,cloud_research:window.lokiCloudResearch.summary()}};
   if(url==='/api/copilot'&&learningResult)payload={...payload,context:{...payload.context,market_learning:learningResult}};
+  if(url==='/api/copilot'&&window.LokiVisitor?.name())payload={...payload,context:{...payload.context,visitor_name:window.LokiVisitor.name()}};
   if(url==='/api/copilot'&&pullbackResult&&pullbackDataRevision===datasetRevision)payload={...payload,context:{...payload.context,pullback_research:pullbackResult}};
   return request(url,payload,url==='/api/copilot');
 };

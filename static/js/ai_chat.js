@@ -50,7 +50,13 @@
   }
 
   function rememberedName() {
-    try { return String(window.localStorage.getItem(NAME_KEY) || '').slice(0, 24); } catch { return ''; }
+    try {
+      const own = String(window.localStorage.getItem(NAME_KEY) || '').slice(0, 24);
+      if (own) return own;
+      // Fall back to the nickname given on first visit to the workspace.
+      const visitor = JSON.parse(window.localStorage.getItem('loki_visitor_name_v1') || 'null');
+      return visitor && typeof visitor.name === 'string' ? visitor.name.slice(0, 24) : '';
+    } catch { return ''; }
   }
   function rememberName(value) {
     try { if (value) window.localStorage.setItem(NAME_KEY, String(value).slice(0, 24)); } catch { /* private mode */ }

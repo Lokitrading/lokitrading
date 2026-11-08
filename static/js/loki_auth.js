@@ -35,6 +35,7 @@
     if (greeting) {
       const nick = session.nickname || (session.email || '').split('@')[0];
       greeting.textContent = `WELCOME BACK, ${String(nick).toUpperCase().slice(0, 24)}.`;
+      greeting.dataset.member = '1'; // the account nickname wins over the browser-only one
       greeting.hidden = false;
     }
     const pill = document.createElement('div');
