@@ -169,6 +169,28 @@ def _secret() -> bytes:
     return hashlib.sha256(_COOKIE_SALT + b"loki-local-dev-gate").digest()
 
 
+def gate_secret() -> bytes:
+    """Key for the gate and terms cookies.
+
+    Operator-configured material wins. Without it, a public deployment derives
+    the key from the access code itself: every serverless instance computes the
+    same key (so a visitor is not bounced back to the gate on each request, as
+    happened with a random per-instance key), and forging a gate cookie needs
+    the code, which is exactly what the gate asks for anyway. Changing
+    LOKI_SITE_CODE re-locks every browser. Account sessions never use this key.
+    """
+    if secret_is_configured():
+        return hashlib.sha256(_secret() + b"\0gate").digest()
+    if os.environ.get("VERCEL") or gate_enabled():
+        scope = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL") or os.environ.get("VERCEL_ENV") or ""
+        return hashlib.sha256(_COOKIE_SALT + b"\0gate-code\0" + expected_code().encode() + b"\0" + scope.encode()).digest()
+    return hashlib.sha256(_COOKIE_SALT + b"loki-local-dev-gate").digest()
+
+
+def _gate_sign(payload: str) -> str:
+    return hmac.new(gate_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def secret_is_configured() -> bool:
     """True when cookies are signed with operator-supplied secret material."""
     return bool((os.environ.get("LOKI_GATE_SECRET") or "").strip() or _supabase_key())
@@ -195,14 +217,14 @@ def _sign(payload: str) -> str:
 
 def issue_gate_cookie_value() -> str:
     payload = str(int(time.time()) + GATE_MAX_AGE)
-    return f"{payload}.{_sign(payload)}"
+    return f"{payload}.{_gate_sign(payload)}"
 
 
 def verify_gate_cookie_value(value: Optional[str]) -> bool:
     if not value or "." not in value:
         return False
     payload, signature = value.rsplit(".", 1)
-    if not hmac.compare_digest(_sign(payload).encode("ascii"), signature.encode("utf-8")):
+    if not hmac.compare_digest(_gate_sign(payload).encode("ascii"), signature.encode("utf-8")):
         return False
     try:
         return float(payload) >= time.time()
@@ -218,7 +240,7 @@ def issue_terms_cookie_value() -> str:
     mis-quoted blob would silently fail. Dots and digits survive every jar.
     """
     payload = f"{TERMS_VERSION}.{int(time.time())}"
-    return f"{payload}.{_sign(payload)}"
+    return f"{payload}.{_gate_sign(payload)}"
 
 
 def read_terms_cookie_value(value: Optional[str]) -> int:
@@ -229,7 +251,7 @@ def read_terms_cookie_value(value: Optional[str]) -> int:
     if "." not in cleaned:
         return 0
     payload, signature = cleaned.rsplit(".", 1)
-    if not hmac.compare_digest(_sign(payload).encode("ascii"), signature.encode("utf-8")):
+    if not hmac.compare_digest(_gate_sign(payload).encode("ascii"), signature.encode("utf-8")):
         return 0
     parts = payload.split(".")
     if len(parts) != 2:
