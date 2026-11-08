@@ -7,6 +7,7 @@ import os
 import re
 import time
 import urllib.request
+from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -175,6 +176,15 @@ async def root(request: Request):
 _GATED_PAGES = {"/", "/account", "/paper-tools", "/paper-tools/", "/indicator", "/ai-chat"}
 
 
+def _safe_next(value: Optional[str]) -> str:
+    """Only ever return to one of our own gated pages: never an outside URL."""
+    candidate = (value or "").strip()
+    low = candidate.lower().rstrip("/") or "/"
+    if low in _GATED_PAGES and candidate.startswith("/") and not candidate.startswith("//"):
+        return low
+    return "/"
+
+
 @app.middleware("http")
 async def site_access_gate(request: Request, call_next):
     if not site_access.gate_enabled():
@@ -209,7 +219,11 @@ async def site_access_gate(request: Request, call_next):
     if has_gate and has_terms:
         return await call_next(request)
     if request.method == "GET":
-        return RedirectResponse("/gate", status_code=303)
+        # Remember where the visitor was going so the gate can send them back
+        # there (e.g. Talk to Loki) instead of always landing on the front page.
+        target = _safe_next(path)
+        location = "/gate" if target == "/" else f"/gate?next={quote(target, safe='/')}"
+        return RedirectResponse(location, status_code=303)
     return JSONResponse(
         {"detail": "Enter the access code and tick the terms first."},
         status_code=403,
@@ -224,7 +238,7 @@ async def access_gate_page(request: Request):
         >= site_access.TERMS_VERSION
     )
     if has_gate and has_terms:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(_safe_next(request.query_params.get("next")), status_code=303)
     return templates.TemplateResponse(
         request=request,
         name="gate.html",

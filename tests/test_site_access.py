@@ -43,13 +43,48 @@ class TestAccessCode:
 class TestGateFlow:
     def test_locked_pages_redirect_without_cookie(self, monkeypatch):
         monkeypatch.setenv("VERCEL", "1")
-        for path in ("/", "/paper-tools", "/login"):
+        expected = {"/": "/gate", "/paper-tools": "/gate?next=/paper-tools", "/login": "/gate"}
+        for path, location in expected.items():
             response = client_nofollow.get(path)
             assert response.status_code == 303, path
-            assert response.headers["location"] == "/gate", path
+            assert response.headers["location"] == location, path
         # The advanced terminal was removed; the route honestly answers 404.
         response = client_nofollow.get("/terminal/")
         assert response.status_code == 404
+
+    def test_gate_remembers_where_the_visitor_was_going(self, monkeypatch):
+        """Talk to Loki must not dump a signed-out visitor on the front page."""
+        monkeypatch.setenv("VERCEL", "1")
+        fresh = TestClient(app, follow_redirects=False)
+        response = fresh.get("/ai-chat")
+        assert response.status_code == 303
+        assert response.headers["location"] == "/gate?next=/ai-chat"
+        assert fresh.get("/indicator").headers["location"] == "/gate?next=/indicator"
+
+        accepted = fresh.post(
+            "/api/gate", json={"code": "flathead", "accepted_terms": True, "confirmed_age": True}
+        )
+        assert accepted.status_code == 200
+        for name in (site_access.GATE_COOKIE, site_access.TERMS_COOKIE):
+            fresh.cookies.set(name, accepted.cookies.get(name))
+        # Already signed in: the gate forwards to the requested page.
+        back = fresh.get("/gate?next=/ai-chat")
+        assert back.status_code == 303
+        assert back.headers["location"] == "/ai-chat"
+        assert fresh.get("/ai-chat").status_code == 200
+
+    def test_gate_never_forwards_off_site(self, monkeypatch):
+        monkeypatch.setenv("VERCEL", "1")
+        fresh = TestClient(app, follow_redirects=False)
+        accepted = fresh.post(
+            "/api/gate", json={"code": "flathead", "accepted_terms": True, "confirmed_age": True}
+        )
+        for name in (site_access.GATE_COOKIE, site_access.TERMS_COOKIE):
+            fresh.cookies.set(name, accepted.cookies.get(name))
+        for target in ("https://evil.example", "//evil.example", "/api/account/export", "/gate", ""):
+            response = fresh.get("/gate", params={"next": target})
+            assert response.status_code == 303, target
+            assert response.headers["location"] == "/", target
 
     def test_gate_endpoints_stay_open_without_cookie(self, monkeypatch):
         monkeypatch.setenv("VERCEL", "1")
@@ -69,12 +104,14 @@ class TestGateFlow:
         terms = accepted.cookies.get(site_access.TERMS_COOKIE)
         assert terms and site_access.read_terms_cookie_value(terms) >= site_access.TERMS_VERSION
 
-        client_nofollow.cookies.set(site_access.GATE_COOKIE, cookie)
-        client_nofollow.cookies.set(site_access.TERMS_COOKIE, terms)
-        opened = client_nofollow.get("/")
+        # A fresh client so these cookies never leak into other tests.
+        signed_in = TestClient(app, follow_redirects=False)
+        signed_in.cookies.set(site_access.GATE_COOKIE, cookie)
+        signed_in.cookies.set(site_access.TERMS_COOKIE, terms)
+        opened = signed_in.get("/")
         assert opened.status_code == 200
 
-        still_locked_for_login = client_nofollow.get("/login")
+        still_locked_for_login = signed_in.get("/login")
         assert still_locked_for_login.status_code == 200
 
     def test_gate_disabled_locally(self, monkeypatch):

@@ -34,7 +34,7 @@ def test_indicator_page_is_gated_on_remote_deployments(monkeypatch):
     monkeypatch.setenv("VERCEL", "1")
     blocked = client_nofollow.get("/indicator")
     assert blocked.status_code == 303
-    assert blocked.headers["location"] == "/gate"
+    assert blocked.headers["location"] == "/gate?next=/indicator"
     in_page = client.get("/gate")
     assert in_page.status_code == 200
 

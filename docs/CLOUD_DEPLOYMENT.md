@@ -11,9 +11,11 @@ Verified application revision: `d961b65`.
   project. Existing `loki_*` and `member_*` tables were retained.
 - Both production apps have the shared server-only bridge configuration.
 - The verified Joshua Auth account has the research operator role.
-- GitHub Actions has the worker origin and scheduler secret configured.
-  Manual run [41298952787](https://github.com/eleven-official/tradingbot/actions/runs/41298952787)
-  completed successfully and received the authenticated worker's `idle` response.
+- GitHub Actions needs the worker origin (repository variable
+  `LOKI_CLOUD_WORKER_URL`) and scheduler secret (`LOKI_CLOUD_CRON_SECRET`).
+  Until both are set in `Lokitrading/lokitrading`, the scheduled tick skips
+  with a notice instead of failing. (The earlier verified run was in the
+  previous repository, which is no longer available.)
 
 ## Checks completed
 
