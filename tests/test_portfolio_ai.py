@@ -71,8 +71,41 @@ def test_portfolio_endpoint_caches_and_reports(monkeypatch):
     first = client.get("/api/fusion/ai/portfolio").json()
     client.get("/api/fusion/ai/portfolio")
     assert first["positions"][0]["symbol"] == "SPY" and len(calls) == 1
+    # A refresh straight after a build reuses it: refresh cannot force rebuilds.
+    client.get("/api/fusion/ai/portfolio?refresh=true")
+    assert len(calls) == 1
+    # Once the plan is older than the refresh floor, refresh rebuilds it.
+    stamp, plan = ai_paper._PORTFOLIO_CACHE["plan"]
+    ai_paper._PORTFOLIO_CACHE["plan"] = (stamp - ai_paper._PORTFOLIO_MIN_REFRESH_SECONDS - 1, plan)
     client.get("/api/fusion/ai/portfolio?refresh=true")
     assert len(calls) == 2
+
+
+def test_concurrent_portfolio_requests_share_one_build(monkeypatch):
+    import threading
+    import time as _time
+
+    calls = []
+
+    def slow_plan():
+        calls.append(1)
+        _time.sleep(0.3)
+        return {"target_vol_pct": 10.0, "positions": [], "gross": 0.0, "cash": 1.0}
+
+    monkeypatch.setattr(ai_paper, "_portfolio_plan", slow_plan)
+    monkeypatch.setattr(ai_paper, "_PORTFOLIO_CACHE", {})
+    client = TestClient(app)
+    codes = []
+    threads = [
+        threading.Thread(target=lambda: codes.append(client.get("/api/fusion/ai/portfolio").status_code))
+        for _ in range(5)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert codes == [200] * 5
+    assert len(calls) == 1
 
 
 def test_shipped_portfolio_block_is_verified_and_unleveraged():

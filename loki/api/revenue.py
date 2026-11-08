@@ -312,7 +312,7 @@ def build_statement(events: List[Dict[str, Any]]) -> Dict[str, Any]:
             "operator records real ones."
             if empty else
             "Figures are server-computed: the house cut is exactly "
-            f"30% of recorded profits, built from every event below."
+            "30% of recorded profits, built from every event below."
         ),
     }
 

@@ -32,6 +32,12 @@ NAMES: Dict[str, str] = {
     "s&p": "SPY", "s&p 500": "SPY", "sp500": "SPY", "the s&p": "SPY", "nasdaq": "QQQ", "dow": "DIA",
     "russell": "IWM", "small caps": "IWM",
 }
+# Well-known tickers people type in lowercase ("nvda vs amd"). Only symbols
+# that are not ordinary English words, so "coin" or "arm" never become tickers.
+LOWER_TICKERS = {
+    "nvda", "aapl", "msft", "amzn", "googl", "goog", "tsla", "nflx", "avgo", "intc", "pltr", "smci",
+    "spy", "qqq", "iwm", "gld", "tlt", "jpm", "xom", "btc", "eth", "uber", "shop", "crwd", "mstr",
+}
 NOT_TICKERS = {
     "I", "A", "AI", "OK", "US", "USA", "CEO", "IPO", "ETF", "ETFS", "ATR", "RSI", "MACD", "SMA", "EMA", "PNL",
     "THE", "AND", "FOR", "YOU", "ARE", "IS", "IT", "ME", "MY", "DO", "TO", "IN", "ON", "AT", "OF", "OR", "BE",
@@ -62,6 +68,17 @@ def detect_symbols(text: str) -> List[str]:
     for token in _UPPER.findall(text):
         if token not in NOT_TICKERS and not any(token in f for f in found):
             add(NAMES.get(token.lower(), token))
+    for word in re.findall(r"(?<![a-z$])[a-z]{2,5}(?![a-z])", text):
+        if word in LOWER_TICKERS:
+            sym = NAMES.get(word, word.upper())
+            if not any(sym in f or f in sym for f in found):
+                add(sym)
+    # Keep the order the user wrote them in ("nvda vs amd" -> NVDA, AMD).
+    def position(sym: str) -> int:
+        keys = [sym.lower()] + [n for n, s in NAMES.items() if s == sym]
+        hits = [m.start() for k in keys for m in re.finditer(re.escape(k), low)]
+        return min(hits) if hits else len(low)
+    found.sort(key=position)
     return found[:3]
 
 
@@ -88,6 +105,10 @@ GLOSSARY: Dict[Tuple[str, ...], str] = {
     ("short", "shorting", "short selling"): "Shorting means borrowing and selling an asset to profit if it falls. Loki's paper AI is long-only: in a downtrend it simply sits in cash.",
     ("leverage", "margin"): "Leverage means trading with borrowed money, magnifying both gains and losses. Loki's AI never uses leverage — exposure is capped at 100% of the account.",
     ("diversification", "diversify"): "Diversification is spreading money across assets that don't move together, so one bad bet can't sink the account. Holding several uncorrelated trend positions smooths returns far more than any single one.",
+    ("s&p 500", "s&p", "sp500", "the s&p"): "The S&P 500 is an index of about 500 of the largest US companies, weighted by size — the standard yardstick for 'the stock market'. You can't buy the index itself, but funds like SPY track it. Ask 'what about SPY?' and I'll run the AI on it.",
+    ("nasdaq", "nasdaq 100", "nasdaq-100"): "The Nasdaq-100 is an index of the 100 largest non-financial companies on the Nasdaq exchange, heavy in tech (Apple, Microsoft, Nvidia…). QQQ is the fund that tracks it. Ask 'what about QQQ?' for the AI's read.",
+    ("dow", "dow jones"): "The Dow Jones Industrial Average follows 30 large US companies, weighted by share price rather than size, so it's a narrower gauge than the S&P 500. DIA is the fund that tracks it.",
+    ("index fund", "index"): "An index fund simply holds everything in an index (like the S&P 500) instead of picking stocks, which keeps costs low. It's the usual benchmark Loki's AI is compared against: 'buy and hold'.",
     ("etf",): "An ETF (exchange-traded fund) is a basket of assets that trades like one stock — SPY holds the S&P 500, QQQ the Nasdaq-100, GLD gold. Loki's stock AI was trained on 13 major ETFs and stocks.",
     ("bull market", "bear market", "bull", "bear", "regime"): "A bull market is a sustained uptrend, a bear market a sustained downtrend (often −20% or more). Loki classifies every day into STRONG_BULL, BULL, RANGING, BEAR or CRISIS from its trend and volatility, and blocks new buys in bear regimes.",
     ("crypto", "cryptocurrency"): "Crypto trades 24/7 and is roughly 3-4× as volatile as stocks. Loki trains a separate rulebook for it; in its 2023-26 simulation it averaged about +9% a year with a −29% average worst drop, against −71% for just holding coins (hypothetical results).",
@@ -113,11 +134,15 @@ _GREETING = re.compile(r"^\s*(hi|hey|hello|yo|sup|gm|good (morning|afternoon|eve
 _THANKS = re.compile(r"\b(thanks|thank you|thx|cheers|appreciate it)\b", re.I)
 _HELP = re.compile(r"\b(help|what can you do|how do i use|commands|what do you do)\b", re.I)
 _IDENTITY = re.compile(r"\b(who are you|what are you|are you (an? )?(ai|bot|human|real))\b", re.I)
+_MAKER = re.compile(r"\bwho (made|built|created|makes|owns|runs|designed|coded) (you|loki|this( site| app)?)\b", re.I)
+_TIMING = re.compile(r"\b(good time to (invest|buy|get in)|right time to (invest|buy)|time the market|should i (invest|buy|get in) (now|today|yet)|"
+                     r"is (it|now) (a )?good (time|moment)|crash (coming|soon)|is (this|it) a bubble|recession (coming|soon))\b", re.I)
 _TRACK = re.compile(r"\b(track record|historic\w*|history|backtest(ed|s)?|profitab\w*|how (good|well)|how did|performance|results?|win rate|returns?|proof|make money|making money)\b", re.I)
 _HOW_AI = re.compile(r"\b(how (does|do) (the |your )?(ai|you|loki|model) (work|trade|decide|think|learn)|learn(s|ing)? from (its |your )?mistakes|explain (the |your )?(ai|model))\b", re.I)
 _ORDER = re.compile(r"^\s*(please\s+)?(buy|sell|short|close|place|submit|execute)\b", re.I)
 _MARKET = re.compile(r"\b(market(s)? (today|now|doing|look)|how('s| is) the market|what('s| is) moving|movers|market overview|market update|the tape)\b", re.I)
-_ADVICE = re.compile(r"\b(should i|can i|is it (a )?good (time|idea)|worth (buying|it)|buy|sell|invest|entry|enter|think of|thoughts on|opinion|analy[sz]e|read on|outlook|what about|look(s|ing)? (at|good)|forecast|predict)\b", re.I)
+_ADVICE = re.compile(r"\b(should i|can i|is it (a )?good (time|idea)|worth (buying|it)|buy|sell|invest|entry|enter|think of|thoughts on|opinion|analy[sz]e|read on|outlook|what about|look(s|ing)? (at|good)|forecast|predict|"
+                     r"tell me about|how('s| is) .{1,20} doing|price|news on|update on|vs\.?|versus|compare)\b", re.I)
 _ASK_AI_DEFINE = re.compile(r"\b(what('s| is| are)|explain|define|meaning of|tell me about)\b", re.I)
 
 
@@ -209,6 +234,10 @@ def explain_symbol(symbol: str, name: str = "") -> Optional[str]:
     else:
         score, thr = plan.get("score"), plan.get("threshold")
         lines.append(f"• Market regime: {regime}. Trend score {score:+.0f} against an entry bar of {thr:.0f}.")
+        if "bull" in regime and score is not None and score < 0:
+            lines.append("  (The longer-term regime is still up, but short-term momentum has turned down.)")
+        elif regime in ("bear", "crisis") and score is not None and score > 0:
+            lines.append("  (Short-term momentum is improving, but the longer-term regime is still down.)")
         passed = [GATE_TEXT.get(g["name"], (g["name"], g["name"]))[0] for g in plan.get("gates", []) if g["passed"]]
         failed = [GATE_TEXT.get(g["name"], (g["name"], g["name"]))[1] for g in plan.get("gates", []) if not g["passed"]]
         if plan.get("action") == "SELL":
@@ -325,11 +354,33 @@ def portfolio_answer() -> str:
     return "\n".join(lines)
 
 
+def timing_answer() -> str:
+    """'Is now a good time to invest?' — no prediction, just what the data and the AI show."""
+    lines = ["Nobody can reliably time the market, and I won't pretend to. Here's what the data and the AI show right now:",
+             market_overview().replace("\n" + FOOTER, "")]
+    plan = _portfolio()
+    if plan and isinstance(plan.get("cash"), (int, float)):
+        invested = max(0.0, 1.0 - float(plan["cash"])) * 100
+        lines.append(f"The Portfolio AI, which follows trends across 21 markets, currently has about {invested:.0f}% invested and "
+                     f"{float(plan['cash']) * 100:.0f}% in cash — " +
+                     ("it sees plenty of markets in uptrends." if invested >= 60 else
+                      "it sees a mixed picture." if invested >= 25 else "few markets are in uptrends, so it's mostly waiting."))
+    lines.append("Many long-term investors skip timing altogether and invest a fixed amount on a schedule. Name any ticker for the AI's live read.\n" + FOOTER)
+    return "\n".join(lines)
+
+
+def maker_answer() -> str:
+    from loki.api import site_access
+
+    return (f"Loki was built and is run by {site_access.operator_name()}. I'm the workspace's built-in assistant: I explain live market data "
+            "and the trading AI's decisions. I'm not a general chatbot and I never place orders. The Transparency page has contact details.")
+
+
 _PORTFOLIO_Q = re.compile(r"\b(portfolio ai|portfolio|diversif\w*|all (the )?markets|what (is|are) (the ai|you|it) (holding|buying|in)|holdings|allocation|what changed|this week|how is the ai doing|ai doing|self.?check|health)\b", re.I)
 
 
 HELP_TEXT = ("Here's what I can do:\n"
-             "• Name any ticker or coin — 'what about NVDA?', 'should I buy bitcoin?' — and I'll run the live AI on it and explain its decision.\n"
+             "• Name any ticker or coin — 'what about NVDA?', 'should I buy bitcoin?' — and I'll run the live AI on it and explain its decision. Compare two with 'NVDA vs AMD'.\n"
              "• 'How's the market?' for a quick live check across stocks, crypto, gold and the fear gauge.\n"
              "• 'How did the AI do?' for its honest 20-year track record, or 'how does the AI work?'.\n"
              "• 'What is the Portfolio AI holding?' — the 21-market book and its unseen-data record.\n"
@@ -370,6 +421,8 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
     if _IDENTITY.search(msg):
         return {"intent": "identity", "text": ("I'm Loki — the assistant for this trading workspace. I'm not a person and I'm not a general chatbot: "
                                                "I explain what the live market data and Loki's trading AI are saying, in plain English. " + HELP_TEXT.split('\n', 1)[1])}
+    if _MAKER.search(msg):
+        return {"intent": "identity", "text": maker_answer()}
     if _HELP.search(msg) and not symbols:
         return {"intent": "help", "text": HELP_TEXT}
     if allow_data and _PORTFOLIO_Q.search(msg) and not symbols and not re.search(r"\bmy\b", low):
@@ -379,13 +432,25 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
     if _TRACK.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
         return {"intent": "track_record", "text": track_record() + "\n" + FOOTER}
     if allow_data and symbols and (_ADVICE.search(msg) or len(msg.split()) <= 4 or "?" in msg):
-        replies = [r for r in (explain_symbol(s, name) for s in symbols[:2]) if r]
-        if not replies:
+        pairs: List[Tuple[str, str]] = []
+        for sym in symbols[:2]:
+            reply = explain_symbol(sym, name)
+            if reply:
+                pairs.append((sym, reply))
+        if not pairs:
             return None
-        body = "\n\n".join(replies)
+        body = "\n\n".join(r for _, r in pairs)
+        if len(pairs) == 2 and re.search(r"\b(vs\.?|versus|compare|or|better)\b", low):
+            def verdict(reply: str) -> str:
+                m = re.search(r"Verdict: ([A-Z ]+?)(?: —| setup|,)", reply)
+                return m.group(1).strip().title() if m else "no read"
+            body = ("Side by side: " + " · ".join(f"{s} — {verdict(r)}" for s, r in pairs) +
+                    ". The AI judges each market on its own rules; it doesn't rank one against the other.\n\n" + body)
         if re.search(r"\bshould i\b", low):
             body = "I can't tell you what to do with your money, but here's exactly what the AI sees:\n" + body
         return {"intent": "symbol", "symbols": symbols[:2], "text": body}
+    if allow_data and _TIMING.search(msg) and not symbols:
+        return {"intent": "timing", "text": timing_answer()}
     if allow_data and _MARKET.search(msg):
         return {"intent": "market", "text": market_overview()}
     term = _glossary(msg)

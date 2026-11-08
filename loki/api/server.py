@@ -286,8 +286,6 @@ async def cookies_page(request: Request):
 @app.get("/transparency", response_class=HTMLResponse)
 async def transparency_page(request: Request):
     """Who runs Loki, how to reach them, and the plain-language privacy/data summary."""
-    import os
-
     import html
 
     name = site_access.operator_name()

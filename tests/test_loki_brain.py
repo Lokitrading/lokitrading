@@ -33,6 +33,10 @@ class TestDetection:
         ("$NVDA looks hot", ["NVDA"]),
         ("what is a stop loss?", []),
         ("I think AI is cool", []),
+        ("nvda vs amd", ["NVDA", "AMD"]),
+        ("compare aapl and msft", ["AAPL", "MSFT"]),
+        ("which coin should I look at", []),
+        ("costs an arm and a leg", []),
     ])
     def test_symbols(self, text, expected):
         assert loki_brain.detect_symbols(text) == expected
@@ -138,3 +142,39 @@ def test_portfolio_answer_reports_health_moves_and_uncertainty(monkeypatch):
 def test_questions_about_the_ai_reach_the_brain_even_with_personal_words():
     assert client.post("/api/copilot", json={"message": "how is the AI doing this week?"}).json()["intent"] == "brain:portfolio"
     assert not client.post("/api/copilot", json={"message": "how am I doing?"}).json()["intent"].startswith("brain:")
+
+
+class TestEverydayQuestions:
+    def test_who_made_you_names_the_operator(self):
+        reply = loki_brain.answer("who made you?")
+        assert reply["intent"] == "identity" and "built and is run by" in reply["text"]
+
+    def test_index_questions_are_explained(self):
+        reply = loki_brain.answer("what is the s&p 500")
+        assert reply["intent"] == "glossary" and "500 of the largest" in reply["text"]
+
+    def test_timing_question_gets_an_honest_answer_not_a_prediction(self):
+        reply = loki_brain.answer("is now a good time to invest?")
+        assert reply["intent"] == "timing"
+        assert "Nobody can reliably time the market" in reply["text"]
+        assert loki_brain.FOOTER in reply["text"]
+
+    def test_comparison_reads_both_and_summarises(self, monkeypatch):
+        monkeypatch.setattr(loki_brain, "_ai_read", fake_read(allowed=True))
+        monkeypatch.setattr(loki_brain, "_symbol_record", lambda symbol: None)
+        reply = loki_brain.answer("nvda vs amd")
+        assert reply["intent"] == "symbol" and reply["symbols"] == ["NVDA", "AMD"]
+        assert reply["text"].startswith("Side by side: NVDA — Buy · AMD — Buy")
+
+    def test_regime_and_momentum_disagreement_is_explained(self, monkeypatch):
+        read = fake_read(allowed=False)
+
+        def falling(symbol):
+            data = read(symbol)
+            data["analysis"]["plan"] = dict(data["analysis"]["plan"], score=-20.0, action="SELL")
+            return data
+
+        monkeypatch.setattr(loki_brain, "_ai_read", falling)
+        monkeypatch.setattr(loki_brain, "_symbol_record", lambda symbol: None)
+        text = loki_brain.answer("what about SPY?")["text"]
+        assert "regime is still up, but short-term momentum has turned down" in text

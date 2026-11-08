@@ -113,7 +113,11 @@ def forward(method: str, resource: str, body: bytes, owner: str) -> tuple[int, d
         ) from exc
 
 
-@router.api_route("/{resource}", methods=["GET", "POST", "PATCH"])
+# One handler, three methods: each gets its own operation id so the OpenAPI
+# schema (and /docs) has no duplicate-id warning.
+@router.get("/{resource}", operation_id="research_bridge_get")
+@router.post("/{resource}", operation_id="research_bridge_post")
+@router.patch("/{resource}", operation_id="research_bridge_patch")
 async def research_bridge(resource: str, request: Request) -> JSONResponse:
     member = require_member(request)
     if request.headers.get("x-workspace-owner", member["uid"]) != member["uid"]:
