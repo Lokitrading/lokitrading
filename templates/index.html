@@ -5,7 +5,7 @@
   <meta name="description" content="Loki brings strategy research, structured agent reviews, paper portfolios, and scenario analysis into one evidence-led workspace.">
   <title>Loki · Trading intelligence</title>
   <script src="/api/account/storage-context.js" defer></script><script src="/static/js/scoped_storage.js?v={{ version }}" defer></script><script src="/static/js/cloud_sync.js?v={{ version }}" defer></script>
-  <link rel="icon" href="/favicon.ico?v={{ version }}"><link rel="apple-touch-icon" href="/favicon.png?v={{ version }}"><link rel="stylesheet" href="/static/css/style.css?v={{ version }}"><link rel="stylesheet" href="/static/css/market.css?v={{ version }}"><script src="/static/js/workspace.js?v={{ version }}" defer></script><script src="/static/js/currency.js?v={{ version }}" defer></script><script src="/static/js/simulated_market.js?v={{ version }}" defer></script><script src="/static/js/practice.js?v={{ version }}" defer></script><script src="/static/js/proof_engine.js?v={{ version }}" defer></script><script src="/static/js/real_account.js?v={{ version }}" defer></script><script src="/static/js/alpaca_keys.js?v={{ version }}" defer></script><script src="/static/js/desk.js?v={{ version }}" defer></script><script src="/static/js/broker_workspace.js?v={{ version }}" defer></script><script src="/static/js/trained_book.js?v={{ version }}" defer></script><script src="/static/js/game_data.js?v={{ version }}" defer></script><script src="/static/js/game.js?v={{ version }}" defer></script><script src="/static/js/dive_board.js?v={{ version }}" defer></script><script src="/static/js/ai_trading.js?v={{ version }}" defer></script><script src="/static/js/portfolio_ai.js?v={{ version }}" defer></script><script src="/static/js/visit_note.js?v={{ version }}" defer></script><script src="/static/js/next_steps.js?v={{ version }}" defer></script><script src="/static/js/watchtower.js?v={{ version }}" defer></script><script src="/static/js/news_view.js?v={{ version }}" defer></script><script src="/static/js/live_markets.js?v={{ version }}" defer></script><script src="/static/js/backup.js?v={{ version }}" defer></script><script src="/static/js/loki_auth.js?v={{ version }}" defer></script><script src="/static/js/palette.js?v={{ version }}" defer></script><script src="/static/js/aurora.js?v={{ version }}" defer></script>
+  <link rel="icon" href="/favicon.ico?v={{ version }}"><link rel="apple-touch-icon" href="/favicon.png?v={{ version }}"><link rel="stylesheet" href="/static/css/style.css?v={{ version }}"><link rel="stylesheet" href="/static/css/market.css?v={{ version }}"><script src="/static/js/workspace.js?v={{ version }}" defer></script><script src="/static/js/currency.js?v={{ version }}" defer></script><script src="/static/js/simulated_market.js?v={{ version }}" defer></script><script src="/static/js/practice.js?v={{ version }}" defer></script><script src="/static/js/proof_engine.js?v={{ version }}" defer></script><script src="/static/js/real_account.js?v={{ version }}" defer></script><script src="/static/js/alpaca_keys.js?v={{ version }}" defer></script><script src="/static/js/desk.js?v={{ version }}" defer></script><script src="/static/js/broker_workspace.js?v={{ version }}" defer></script><script src="/static/js/trained_book.js?v={{ version }}" defer></script><script src="/static/js/game_data.js?v={{ version }}" defer></script><script src="/static/js/game.js?v={{ version }}" defer></script><script src="/static/js/dive_board.js?v={{ version }}" defer></script><script src="/static/js/ai_trading.js?v={{ version }}" defer></script><script src="/static/js/portfolio_ai.js?v={{ version }}" defer></script><script src="/static/js/ai_evolution.js?v={{ version }}" defer></script><script src="/static/js/visit_note.js?v={{ version }}" defer></script><script src="/static/js/next_steps.js?v={{ version }}" defer></script><script src="/static/js/watchtower.js?v={{ version }}" defer></script><script src="/static/js/news_view.js?v={{ version }}" defer></script><script src="/static/js/live_markets.js?v={{ version }}" defer></script><script src="/static/js/backup.js?v={{ version }}" defer></script><script src="/static/js/loki_auth.js?v={{ version }}" defer></script><script src="/static/js/palette.js?v={{ version }}" defer></script><script src="/static/js/aurora.js?v={{ version }}" defer></script>
   <link rel="stylesheet" href="/static/css/trading.css?v={{ version }}">
   <link rel="stylesheet" href="/static/css/workspace-polish.css?v={{ version }}">
   <link rel="stylesheet" href="/static/css/studio.css?v={{ version }}"><link rel="stylesheet" href="/static/css/live_markets.css?v={{ version }}"><link rel="stylesheet" href="/static/css/loki_scene.css?v={{ version }}"><script src="/static/js/loki_scene.js?v={{ version }}" defer></script><script src="/static/js/loki_radar.js?v={{ version }}" defer></script><script src="/static/js/ai_briefing.js?v={{ version }}" defer></script>
@@ -130,7 +130,7 @@
       <div class="goal-note"><span aria-hidden="true">◎</span><div><strong>Judge a strategy by more than its win rate.</strong><p>Loki tracks sample size, uncertainty, costs, expectancy, and drawdown alongside win rate. A historical win rate cannot guarantee the next trade.</p></div><a href="#copilot" class="text-link" data-ask="What is a drawdown?">Ask Loki ↗</a></div>
     </section>
     <section id="live-markets" class="workspace-view" aria-label="Live markets" hidden>
-      <div class="page-heading"><p class="eyebrow">LOKI / LIVE MARKETS</p><h1>Live markets.</h1><p class="muted">Crypto, stocks, indices, commodities and FX on one board — updating on its own while this view is open. Click any tile for its chart and the AI's current read.</p></div>
+      <div class="page-heading"><p class="eyebrow">LOKI / LIVE MARKETS</p><h1>Live markets.</h1><p class="muted">Crypto, stocks, indices, commodities and FX on one board — updating on its own while this view is open. Candlestick charts up top — pick any tile to chart it and get the AI's current read.</p></div>
       <section class="panel lm-head">
         <div class="lm-status-row">
           <div class="lm-sessions" id="lm-sessions" aria-label="Market sessions"></div>
@@ -142,6 +142,24 @@
         </div>
         <div class="lm-movers" id="lm-movers" aria-label="Top movers"></div>
       </section>
+      <section class="panel lm-detail" id="lm-detail" hidden>
+        <div class="lm-chart-head">
+          <div class="lm-chart-title"><p class="eyebrow" id="lm-detail-eyebrow">SELECTED</p><h2 id="lm-detail-title">—</h2><p class="lm-chart-stats" id="lm-chart-stats" aria-live="polite"></p></div>
+          <div class="lm-chart-controls">
+            <div class="lm-seg" id="lm-tf" role="group" aria-label="Chart timeframe"><button type="button" class="lm-seg-btn" data-tf="1m">1m</button><button type="button" class="lm-seg-btn" data-tf="5m">5m</button><button type="button" class="lm-seg-btn" data-tf="15m">15m</button><button type="button" class="lm-seg-btn" data-tf="1h">1h</button><button type="button" class="lm-seg-btn active" data-tf="1d">1D</button><button type="button" class="lm-seg-btn" data-tf="1wk">1W</button></div>
+            <div class="lm-seg" id="lm-type" role="group" aria-label="Chart type"><button type="button" class="lm-seg-btn active" data-type="candles">Candles</button><button type="button" class="lm-seg-btn" data-type="line">Line</button></div>
+            <div class="lm-seg" id="lm-overlays" role="group" aria-label="Chart indicators"><button type="button" class="lm-seg-btn active" data-ov="ma20" aria-pressed="true">MA 20</button><button type="button" class="lm-seg-btn active" data-ov="ma50" aria-pressed="true">MA 50</button><button type="button" class="lm-seg-btn active" data-ov="vol" aria-pressed="true">Volume</button></div>
+          </div>
+        </div>
+        <div class="lm-chart-wrap" id="lm-chart-wrap"><canvas id="lm-chart" height="380" role="img" aria-label="Candlestick price chart"></canvas><div class="lm-readout" id="lm-readout" hidden></div><p class="muted lm-chart-empty" id="lm-chart-empty" hidden></p></div>
+        <p class="caption lm-chart-note" id="lm-chart-note">Hover or touch the chart for each candle's open, high, low, close and volume. The newest candle moves with the live board price.</p>
+        <form class="lm-alert-form" id="lm-alert-form" autocomplete="off"><span class="eyebrow">PRICE ALERT</span><label>Alert me when the price is<select id="lm-alert-op"><option value="above">above</option><option value="below">below</option></select></label><input id="lm-alert-price" type="number" step="any" min="0" placeholder="price" aria-label="Alert price"><button class="button secondary" type="submit">Set alert 🔔</button></form>
+        <div class="lm-alerts" id="lm-alerts" aria-live="polite"></div>
+        <div class="lm-ai">
+          <div class="section-title"><div><p class="eyebrow">AI READ · SAME ENGINE AS AI TRADING</p><h3>What would the AI do right now?</h3></div><div class="button-row"><button type="button" class="button primary" id="lm-ask-ai">Ask the AI →</button><a class="button secondary" id="lm-trade-link" href="#ai-trading">Open AI trading</a></div></div>
+          <div id="lm-ai-out"><p class="caption">Runs the trained strategy's entry checklist on the last completed daily bar. Review only — nothing is bought.</p></div>
+        </div>
+      </section>
       <section class="panel">
         <div class="lm-toolbar">
           <div class="lm-tabs" role="tablist" aria-label="Market category" id="lm-tabs"></div>
@@ -151,16 +169,6 @@
         <div class="lm-alerts lm-alerts-top" id="lm-alerts-all" aria-live="polite"></div>
         <div class="lm-grid" id="lm-grid" aria-live="polite"><p class="muted">Loading the board…</p></div>
         <p class="caption" id="lm-note">Crypto via Binance Spot (live). Stocks, indices, commodities and FX via Yahoo Finance (near-live, can lag by minutes). Your watchlist is saved in this browser. Market context only — never advice.</p>
-      </section>
-      <section class="panel lm-detail" id="lm-detail" hidden>
-        <div class="section-title"><div><p class="eyebrow" id="lm-detail-eyebrow">SELECTED</p><h2 id="lm-detail-title">—</h2></div><div class="button-row" id="lm-tf" role="group" aria-label="Chart timeframe"><button type="button" class="button secondary" data-tf="5m">5m</button><button type="button" class="button secondary" data-tf="1h">1h</button><button type="button" class="button secondary active" data-tf="1d">1D</button></div></div>
-        <div class="lm-chart-wrap"><canvas id="lm-chart" height="300" aria-label="Price chart"></canvas><p class="muted lm-chart-empty" id="lm-chart-empty" hidden></p></div>
-        <form class="lm-alert-form" id="lm-alert-form" autocomplete="off"><span class="eyebrow">PRICE ALERT</span><label>Alert me when the price is<select id="lm-alert-op"><option value="above">above</option><option value="below">below</option></select></label><input id="lm-alert-price" type="number" step="any" min="0" placeholder="price" aria-label="Alert price"><button class="button secondary" type="submit">Set alert 🔔</button></form>
-        <div class="lm-alerts" id="lm-alerts" aria-live="polite"></div>
-        <div class="lm-ai">
-          <div class="section-title"><div><p class="eyebrow">AI READ · SAME ENGINE AS AI TRADING</p><h3>What would the AI do right now?</h3></div><div class="button-row"><button type="button" class="button primary" id="lm-ask-ai">Ask the AI →</button><a class="button secondary" id="lm-trade-link" href="#ai-trading">Open AI trading</a></div></div>
-          <div id="lm-ai-out"><p class="caption">Runs the trained strategy's entry checklist on the last completed daily bar. Review only — nothing is bought.</p></div>
-        </div>
       </section>
     </section>
     <section id="cloud-research" class="workspace-view" aria-label="Cloud research" hidden>
@@ -266,6 +274,13 @@
         </div>
         <details class="pf-log-box"><summary>Rebalance log</summary><ul id="pf-log" class="pf-log"></ul></details>
         <p class="caption" id="pf-note">Rebalances when a market's target moves by more than 2% of equity, with 10 bps fees and 5 bps slippage on paper fills. Hypothetical performance: simulated on historical data with assumed fees and slippage — not actual trading. Simulated results have inherent limits (no real orders or liquidity, rules designed with knowledge of the past) and do not predict future results. Not financial advice.</p>
+      </section>
+      <section class="panel ai-evolution" id="ai-evolution" aria-label="How the AI evolves">
+        <div class="section-title"><div><p class="eyebrow">SELF-EVOLVING · CHAMPION VS CHALLENGERS · EVERY WEEK</p><h2>The AI re-tests itself every week.</h2></div><span class="tag" id="evo-status">Loading…</span></div>
+        <p class="muted">Each week the live AI (the champion) competes against challenger versions of itself on the latest 20 years of data. A challenger only takes over if it is clearly better on the same tests and no worse on recent markets, and the learn-from-mistakes filter is retrained on every closed trade — including the newest. Nothing changes silently: every generation is logged here.</p>
+        <div id="evo-latest" class="evo-latest"><p class="muted">Loading the evolution log…</p></div>
+        <details class="pf-log-box"><summary>Generation history</summary><ol id="evo-timeline" class="evo-timeline"></ol></details>
+        <p class="caption">Hypothetical backtests with fees and slippage — not actual trading, and not a prediction. A higher score is better (average Sharpe ratio with a penalty for deep drops).</p>
       </section>
       <section class="panel">
         <div class="section-title" id="ai-paper-controls"><div><p class="eyebrow">PAPER SIMULATOR · NO REAL MONEY</p><h2>Start, pause, inspect.</h2></div><span class="tag ai-next" id="ai-next-tick" hidden></span><span class="tag" id="ai-status-tag">Idle</span></div>

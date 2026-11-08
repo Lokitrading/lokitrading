@@ -22,11 +22,13 @@ so polling it dedupes against the step analysis fetch.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -331,7 +333,7 @@ def _profile_summary(cfg: Any) -> Dict[str, Any]:
 def ai_bars(
     response: Response,
     symbol: str = Query(min_length=1, max_length=12, pattern=r"^[A-Za-z0-9.^=\-]+$"),
-    limit: int = Query(default=60, ge=10, le=120),
+    limit: int = Query(default=60, ge=10, le=300),
     timeframe: Literal["1m", "5m", "15m", "1h", "1d"] = "1d",
 ) -> Dict[str, Any]:
     """Bounded provider candles, sorted oldest first; newest may be forming.
@@ -402,6 +404,37 @@ def ai_bars(
         ),
         "candles": candles,
     }
+
+
+# --- Self-evolution log -------------------------------------------------------
+_EVOLUTION_LOG = Path(__file__).resolve().parents[2] / "loki_v8" / "evolution_log.json"
+
+
+def evolution_summary() -> Dict[str, Any]:
+    """The weekly champion-vs-challenger record (see evolve.py)."""
+    from loki_v8 import evolution
+
+    try:
+        log = json.loads(_EVOLUTION_LOG.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        log = {}
+    except (OSError, ValueError) as exc:
+        logger.warning("evolution log unreadable: %s", exc.__class__.__name__)
+        log = {}
+    return evolution.summary(log)
+
+
+@router.get("/evolution")
+def ai_evolution(response: Response) -> Dict[str, Any]:
+    _private_response(response)
+    out = evolution_summary()
+    out["how_it_works"] = (
+        "Every week the live AI (the champion) is re-tested against challenger versions of itself on the latest "
+        "20 years of data. A challenger only replaces it if it is clearly better on the same tests the champion was "
+        "chosen with and no worse on recent data; the learn-from-mistakes filter is refitted on every closed trade. "
+        "Each generation is reviewed before it goes live. Results are hypothetical backtests."
+    )
+    return out
 
 
 # --- Portfolio AI ---------------------------------------------------------------

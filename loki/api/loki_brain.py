@@ -376,6 +376,42 @@ def maker_answer() -> str:
             "and the trading AI's decisions. I'm not a general chatbot and I never place orders. The Transparency page has contact details.")
 
 
+_EVOLVE = re.compile(r"\b(evolv\w*|self.?(improv\w*|learn\w*|evolv\w*)|improv\w* (itself|over time|on its own)|get(ting)? (better|smarter)|"
+                     r"re-?train\w*|generations?|champion|challengers?|adapt\w*|upgrad\w* itself)\b", re.I)
+
+
+def _evolution() -> Dict[str, Any]:
+    from loki.api import ai_paper
+
+    try:
+        return ai_paper.evolution_summary()
+    except Exception as exc:  # noqa: BLE001 - chat must never 500
+        logger.warning("brain evolution read failed: %s", exc.__class__.__name__)
+        return {}
+
+
+def evolution_answer() -> str:
+    data = _evolution()
+    latest = data.get("latest")
+    lines = ["Yes — the AI re-tests itself every week. The live version (the champion) competes against challenger versions of "
+             "itself on the latest 20 years of data. A challenger only takes over if it's clearly better on the same tests the "
+             "champion was chosen with and no worse on recent markets, so it can't 'improve' by fitting last month's noise. "
+             "Its learn-from-mistakes filter is also retrained on every closed trade, including the newest."]
+    if latest:
+        for kind, label in (("equity", "Stocks/ETFs"), ("crypto", "Crypto")):
+            k = latest.get(kind) or {}
+            m = k.get("mistakes") or {}
+            outcome = "a challenger was promoted" if k.get("promoted") else "the champion kept its place"
+            filt = (f"; its mistake filter retrained on {m.get('lessons')} closed trades" if m.get("kept") and m.get("lessons") else "")
+            lines.append(f"• {label}: {outcome} after {k.get('challengers_tested', 0)} challengers{filt}.")
+        lines.append(f"That was generation {latest.get('generation')} ({latest.get('date')}); {data.get('promotions', 0)} promotions so far. "
+                     "The full log is on the AI trading page. Results are hypothetical backtests.")
+    else:
+        lines.append("The first weekly generation hasn't been recorded on this server yet.")
+    lines.append(FOOTER)
+    return "\n".join(lines)
+
+
 _PORTFOLIO_Q = re.compile(r"\b(portfolio ai|portfolio|diversif\w*|all (the )?markets|what (is|are) (the ai|you|it) (holding|buying|in)|holdings|allocation|what changed|this week|how is the ai doing|ai doing|self.?check|health)\b", re.I)
 
 
@@ -427,6 +463,8 @@ def _answer(msg: str, name: str, allow_data: bool) -> Optional[Dict[str, Any]]:
         return {"intent": "help", "text": HELP_TEXT}
     if allow_data and _PORTFOLIO_Q.search(msg) and not symbols and not re.search(r"\bmy\b", low):
         return {"intent": "portfolio", "text": portfolio_answer()}
+    if _EVOLVE.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
+        return {"intent": "evolution", "text": evolution_answer()}
     if _HOW_AI.search(msg):
         return {"intent": "how_ai", "text": how_ai_works()}
     if _TRACK.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
