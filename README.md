@@ -1,6 +1,6 @@
 # Loki Trading Workspace
 
-One FastAPI application plus an on-device engine: the information workspace at the gate, a Supabase-gated sign-in, a real-money-capable trade terminal (Alpaca and Tradovate), a six-bot self-learning AI council, AI paper trading, prediction-market engines, a replay sandbox, a quant lab, news desk, watchtower, and the "Bored?" game — Loki Dive, a nova-deep trivia ride with seven 25-second rounds per dive, streak combos, typo forgiveness, and example answers after every miss — plus a browser-held Alpaca paper order rail and an in-page autopilot with published, hand-railed rules.
+One FastAPI application plus an on-device engine: the information workspace at the gate, a Supabase-gated sign-in, a real-money-capable trade terminal (Alpaca and Tradovate), a six-bot self-learning AI council, AI paper trading, prediction-market engines, a Red Team lab, a 3D engine map, a replay sandbox, a quant lab, news, watchtower, and the "Bored?" game — Loki Dive, a nova-deep trivia ride with seven 25-second rounds per dive, streak combos, typo forgiveness, and example answers after every miss — plus a browser-held Alpaca paper order rail and an in-page autopilot with published, hand-railed rules.
 
 Everything ships over Vercel: every push to `main` reaches https://lokitrading.vercel.app through the connected Vercel project. Access is code-gated; the gate code lives in the deployment env, not in this repository.
 
@@ -15,9 +15,25 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Monte Carlo** (`engine/mc_core.js`, run in a Web Worker). 5,000 paths per order: log-normal network delay, price drift during the delay, fills walking a randomly thinned book (or spread + impact), fees and on-chain gas spikes, block-bootstrapped horizon returns or a fair-probability draw for binaries. Confidence = share of profitable paths after costs, plus VaR/CVaR and p99 slippage.
 - **Predictive arbitrage engine** (predictions page, `engine/arb.js`, paper only). Prices Polymarket's 5-minute "Up or Down" crypto contracts exactly as they settle (Chainlink 60-second TWAP vs start price) from Binance 1-second candles, compares both books after the market's fee (rate × p(1−p)), and paper-fills only if the edge survives the measured round trip plus signing time. It records signal-vs-fill edge decay and book lag. No real orders are ever sent.
 - **Replay lab** (`/#replay`, `engine/replay.js`). FTX, LUNA, Black Thursday, the yen unwind, election night 2024, tariff shocks, COVID, DeepSeek and the 2022 bear market, played bar by bar with the council (learning inside the replay), a volatility alarm, the risk matrix and the co-pilot's stops, against buy-and-hold.
-- **Holographic execution map** (`/#execution-map`, `engine/execmap.js`, Three.js r170 vendored under `static/vendor/three`, MIT). A 3D topology of every venue the device talks to; real requests (from a fetch tap that records host, status and timing only) and orders animate along the edges.
+- **3D engine map** (`/#execution-map`, `engine/execmap.js`, Three.js r170 vendored under `static/vendor/three`, MIT). A 3D topology of every venue the device talks to; real requests (from a fetch tap that records host, status and timing only) and orders animate along the edges. See the 2.56 notes below.
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
+
+## 2.56: leaner workspace, cooler 3D map
+
+- **Retired:** the Trading desk, the Scenarios page and the Research review (the AI-council review form, the narrative/MiroFish scenario engine and the Fincept bridge). Their pages, sidebar links, server endpoints (`/api/desk/*`, `/api/fusion/council`, `/api/fusion/scenario`, `/api/fusion/narrative`, `/api/fusion/*mirofish*`, `/api/fusion/fincept/*`), modules and tests are gone. Use the **Red Team lab** to review a trade before you place it; stress tests live there too.
+- **Sidebar:** the "Your research" card is gone, NEW badges stay only on the newest page (Red Team lab), and the 3D engine map moved into the main navigation.
+- **3D engine map, rebuilt:**
+  - starfield, nebula and polar-grid backdrop with tone mapping and fog;
+  - a reactor core whose heartbeat follows the real request rate;
+  - glowing curved arcs to each venue;
+  - an agent ring wired to the core;
+  - comets coloured by outcome (sent / ok / slow / failed), plus scan waves that turn red on a failure.
+- **Map controls and HUD:**
+  - drag to orbit, wheel or pinch to zoom, hover for a tooltip, click to fly to a node, double-click to reset;
+  - auto-orbit toggle and fullscreen (left automatically when you switch pages);
+  - a live HUD with requests/min, average latency, errors/min and active agents.
+- **Honest by design:** the bright comets are real requests only; the faint particles on the arcs are decorative. Reduced-motion settings slow everything down and turn off auto-orbit.
 
 ## Red Team lab (2.55)
 
@@ -259,7 +275,7 @@ Both the workspace "Talk to Loki" panel and the `/ai-chat` room share `loki/api/
 
 ## Layout
 
-- `main.py` — Vercel/uvicorn entry point; `loki/api/` — the HTTP surface (server, gate, Supabase auth, news desk, market feed, Alpaca relay, fusion research, watchtower, terminal).
+- `main.py` — Vercel/uvicorn entry point; `loki/api/` — the HTTP surface (server, gate, Supabase auth, news desk, market feed, Alpaca relay, fusion (quant lab, portfolio, real account), watchtower, terminal).
 - `core/` + `core_engine` history reduced to what the app imports; `loki_v8/` — the strategy engine behind the terminal; `components/` + `third_party/` — vendored originals pinned by hash-guards (`tests/test_fusion_provenance.py` fails on byte changes, on purpose).
 - `templates/`, `static/` — the served pages and their assets; `tests/` — the regression suite.
 

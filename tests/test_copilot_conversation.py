@@ -104,7 +104,7 @@ def test_stress_percentage_points_and_currency_are_kept_distinct_from_mirofish()
     assert reply.intent == "scenario"
     assert "shock is -10.00%" in reply.text
     assert "USDT -220.00 (-2.16%)" in reply.text
-    assert "not a forecast" in reply.text and "MiroFish agent simulation" in reply.text
+    assert "not a forecast" in reply.text and "agent simulation" in reply.text
     assert "journal was not changed" in reply.text
 
 

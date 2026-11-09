@@ -21,15 +21,17 @@ def test_workspace_and_assets_resolve_outside_repo_cwd(tmp_path, monkeypatch):
     for view in (
         "overview",
         "strategy-lab",
-        "agent-council",
         "portfolio",
         "simulated-market",
         "real-market",
-        "scenarios",
         "live-markets",
         "copilot",
+        "redteam",
+        "execution-map",
     ):
         assert f'id="{view}"' in response.text
+    for retired in ("agent-council", "scenarios", "trading-desk"):
+        assert f'id="{retired}"' not in response.text  # removed on purpose
     assert client.get("/static/css/style.css").status_code == 200
     assert client.get("/static/js/workspace.js").status_code == 200
     assert client.get("/static/js/simulated_market.js").status_code == 200

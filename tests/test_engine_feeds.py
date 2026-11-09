@@ -175,3 +175,10 @@ def test_calendar_endpoint(monkeypatch):
     res = client.get("/api/calendar/macro")
     assert res.status_code == 200 and "CPI" in res.json()["note"]
     assert rule_for("GET", "/api/calendar/macro")
+
+
+def test_retired_desk_scenario_and_research_endpoints_are_gone():
+    for method, path in (("post", "/api/desk/run"), ("post", "/api/fusion/council"), ("post", "/api/fusion/scenario"),
+                         ("post", "/api/fusion/narrative"), ("get", "/api/fusion/native-mirofish/reports"), ("get", "/api/fusion/mirofish/status")):
+        res = client.post(path, json={}) if method == "post" else client.get(path)
+        assert res.status_code in (404, 405), path

@@ -1003,7 +1003,7 @@ class LokiCopilot:
         if not result or result.get("mode") != "hypothetical_stress":
             return (
                 "No hypothetical portfolio stress result was supplied. Record paper positions and run a shock in Scenario lab. "
-                "The calculation changes supplied marks and keeps cash fixed; it does not predict market behavior or run MiroFish.",
+                "The calculation changes supplied marks and keeps cash fixed; it does not predict market behavior or run an agent simulation.",
                 [],
                 ["Show my portfolio", "Explain my risk"],
             )
@@ -1032,7 +1032,7 @@ class LokiCopilot:
             lines.extend(_label(item) for item in assumptions[:4])
         lines.append(
             "This is a sensitivity calculation on manual paper marks, not a forecast, "
-            "a probability estimate, a stop fill or a MiroFish agent simulation. The journal was not changed."
+            "a probability estimate, a stop fill or an agent simulation. The journal was not changed."
         )
         return (
             "\n".join(lines),

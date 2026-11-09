@@ -8,7 +8,6 @@ from core.fusion.portfolio import (
     apply_portfolio_action,
     new_portfolio,
     portfolio_metrics,
-    stress_portfolio,
 )
 
 
@@ -148,23 +147,6 @@ def test_price_marks_do_not_claim_guaranteed_stop_execution():
     assert "BTC/USD" in marked["state"]["positions"]
     assert marked["metrics"]["total_pnl"] < -20
     assert any("not automatic" in item for item in marked["assumptions"])
-
-
-def test_hypothetical_stress_keeps_cash_fixed_and_scales_shock_explicitly():
-    account = action(action="buy", symbol="BTC/USD", price=100, quantity=10)
-    result = stress_portfolio(account["state"], -10, 2)
-    assert result["effective_shock_pct"] == -20
-    assert result["pnl"] == pytest.approx(-200)
-    assert result["stressed_equity"] == pytest.approx(result["baseline_equity"] - 200)
-    assert result["mode"] == "hypothetical_stress"
-    assert any("not a MiroFish simulation" in item for item in result["assumptions"])
-
-
-def test_stress_rejects_negative_prices_and_nonfinite_inputs():
-    with pytest.raises(ValueError):
-        stress_portfolio(None, -99, 2)
-    with pytest.raises(ValueError):
-        stress_portfolio(None, float("nan"))
 
 
 def test_import_validation_rejects_missing_completed_pnl_and_overflowing_positions():

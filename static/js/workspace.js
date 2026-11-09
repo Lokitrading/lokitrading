@@ -10,11 +10,10 @@ $('#signal-motion-toggle')?.addEventListener('click', event => {
 });
 let report=null, reportTime=null, sizing=null, riskRevision=0, previousIntent='help';
 let currentBars=null, currentSymbol='', currentFile='', currentConfig=null;
-let quantResult=null, councilResult=null, portfolio=null, scenarioResult=null, capabilities=null;
+let quantResult=null, portfolio=null, capabilities=null;
 let previousConversation=null;
 let pullbackResult=null, pullbackDataRevision=-1;
 let learningResult=null;
-let liveEvidence=null;
 let portfolioBusy=false, datasetRevision=0, portfolioRevision=0, toastTimer=null, finceptStatus=null, pendingImportFile=null;
 const storageKey='loki-fusion-paper-v1';
 const pct = value => value==null || !Number.isFinite(Number(value)) ? '—' : `${(Number(value)*100).toFixed(2)}%`;
@@ -25,45 +24,6 @@ const numericForm = form => Object.fromEntries([...new FormData(form)].map(([key
 const human = value => String(value??'').replaceAll('_',' ').replaceAll('-',' ');
 function element(tag,text,className){const node=document.createElement(tag);if(text!=null)node.textContent=text;if(className)node.className=className;return node;}
 function message(selector,text,error=false){const target=$(selector);target.textContent=text;target.classList.toggle('error',error);}
-function newsPacket(read){
-  // The desk news agent's read, reduced to the council's bounded JSON
-  // contract: score, count, scored headlines, method. Inspection evidence
-  // only — the council validates it strictly and no gate consults it.
-  if(!read||read.status!=='ok'||typeof read.score!=='number')return null;
-  const rows=(Array.isArray(read.top)?read.top:[])
-    .filter(row=>row&&typeof row.title==='string'&&row.title.length>=3&&typeof row.score==='number')
-    .slice(0,30)
-    .map(row=>({title:row.title,publisher:String(row.publisher||''),score:row.score}));
-  if(!rows.length)return null;
-  const counted=Number.isInteger(read.headlines_read)?read.headlines_read:rows.length;
-  return {status:'ok',score:read.score,headlines_read:Math.min(50,Math.max(1,counted)),top:rows,method:String(read.method||'')};
-}
-const COUNCIL_HISTORY_KEY='loki_council_history_v1',COUNCIL_HISTORY_MAX=12;
-function readCouncilHistory(){
-  // The day's verdicts, kept in this browser only. Old or malformed rows
-  // are skipped, never guessed at: a broken record is simply not history.
-  try{const raw=JSON.parse(localStorage.getItem(COUNCIL_HISTORY_KEY)||'[]');return Array.isArray(raw)?raw.filter(row=>row&&typeof row.at==='number'&&typeof row.symbol==='string'&&typeof row.decision==='string').slice(0,COUNCIL_HISTORY_MAX):[];}catch(_e){return[];}
-}
-function pushCouncilHistory(row){
-  // Newest first, capped; a refused write skips the feature, nothing else.
-  try{const list=readCouncilHistory();list.unshift(Object.assign({at:Date.now()},row));localStorage.setItem(COUNCIL_HISTORY_KEY,JSON.stringify(list.slice(0,COUNCIL_HISTORY_MAX)));}catch(_e){}
-}
-function renderCouncilHistory(selector){
-  const target=$(selector);if(!target)return;
-  const rows=readCouncilHistory();
-  if(!rows.length){target.replaceChildren();const empty=element('p','No reviews recorded in this browser yet — convene one above; it lands here the moment it answers.','muted');empty.style.margin='0';target.append(empty);return;}
-  target.replaceChildren(...rows.map(row=>{
-    const li=element('li',null,'council-history-row');
-    li.append(element('small',new Date(row.at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),'council-history-at'));
-    li.append(element('strong',row.symbol+(row.source?' · '+human(row.source):''),'council-history-symbol'));
-    li.append(element('span',human(row.decision)+(row.blocked?' · '+row.blocked+' blocked check'+(row.blocked===1?'':'s'):' · every gate passed'),'council-history-detail'));
-    return li;
-  }));
-}
-function clearCouncilHistory(){
-  try{localStorage.removeItem(COUNCIL_HISTORY_KEY);}catch(_e){}
-  renderCouncilHistory('#council-history');renderCouncilHistory('#desk-council-history');
-}
 function toast(text){$('#toast').textContent=text;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{$('#toast').hidden=true;},4500);}
 async function request(url,payload,privileged=false){
   const headers={'Accept':'application/json'};if(payload!==undefined)headers['Content-Type']='application/json';
@@ -76,22 +36,19 @@ async function request(url,payload,privileged=false){
 }
 const post=(url,payload)=>{
   if(url==='/api/copilot'&&window.lokiSimulatedMarket?.snapshot()){const sim=window.lokiSimulatedMarket.snapshot();payload={...payload,context:{...payload.context,simulated_market:{quotes:sim.quotes,metrics:sim.metrics,step:sim.state.step,scenario:sim.state.scenario,synthetic:true}}};}
-  if(url==='/api/fusion/council'){const miroId=$('#miro-native-id').value.trim(),reviewed=$('#miro-native-reviewed').checked;if(miroId){if(!/^report_[A-Za-z0-9_-]+$/.test(miroId)||!reviewed)throw new Error('The native MiroFish report is not ready to travel with this review: inspect a valid report_ id and tick the reviewed confirmation first.');return request(url,{...payload,miro_report_id:miroId,miro_reviewed:true},true);}}
   if(url==='/api/copilot'&&window.lokiBrokerWorkspace?.summary())payload={...payload,context:{...payload.context,broker_connection:window.lokiBrokerWorkspace.summary()}};
   if(url==='/api/copilot'&&learningResult)payload={...payload,context:{...payload.context,market_learning:learningResult}};
   if(url==='/api/copilot'&&window.LokiVisitor?.name())payload={...payload,context:{...payload.context,visitor_name:window.LokiVisitor.name()}};
   if(url==='/api/copilot'&&pullbackResult&&pullbackDataRevision===datasetRevision)payload={...payload,context:{...payload.context,pullback_research:pullbackResult}};
   return request(url,payload,url==='/api/copilot');
 };
-$('#miro-native-id').addEventListener('input',()=>{$('#miro-native-reviewed').checked=false;$('#miro-native-preview').replaceChildren();message('#miro-native-message','');});
-$('#inspect-native-report').addEventListener('click',async()=>{const id=$('#miro-native-id').value.trim();if(!/^report_[A-Za-z0-9_-]+$/.test(id)){message('#miro-native-message','Enter a native report_ identifier.',true);return;}const button=$('#inspect-native-report');button.disabled=true;try{const result=await request(`/api/fusion/native-mirofish/report/${encodeURIComponent(id)}?symbol=${encodeURIComponent(currentSymbol||'BTC/USDT')}`,undefined,true),report=result.report,target=$('#miro-native-preview');target.replaceChildren(element('h3',report.outline.title),element('p',report.outline.summary),bulletList(report.outline.sections.slice(0,8).map(s=>`${s.title}: ${(s.content||'').slice(0,800)}`)),detailsJSON(result,'Inspect complete native report & provenance'));message('#miro-native-message',`Read directly through MiroFish code · ${report.simulation_id} · ${report.graph_id} · ${result.artifact_sha256.slice(0,12)}. ${result.timestamp_note}`);}catch(error){message('#miro-native-message',error.message,true);}finally{button.disabled=false;}});
 function table(headers,rows){const result=element('table'),head=element('thead'),headRow=element('tr');for(const title of headers)headRow.append(element('th',title));head.append(headRow);result.append(head);const body=element('tbody');for(const values of rows){const row=element('tr');for(const value of values){const td=element('td');if(value instanceof Node)td.append(value);else td.textContent=value??'—';row.append(td);}body.append(row);}result.append(body);return result;}
 function bulletList(items){const list=element('ul');for(const text of items||[])list.append(element('li',String(text)));return list;}
 function inlineMetrics(items){const container=element('div',null,'inline-metrics');for(const [label,value,note]of items){const node=element('div',null,'inline-metric');node.append(element('span',label),element('strong',value));if(note)node.append(element('small',note));container.append(node);}return container;}
 function badge(text,status){return element('span',human(text),'tag '+(status||''));}
 function detailsJSON(data,label='Inspect complete result'){const details=element('details',null,'source-details');details.append(element('summary',label),element('pre',JSON.stringify(data,null,2)));return details;}
 function exportJSON(data,filename){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=element('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function exportWorkspace(){exportJSON({application:'Loki Fusion',exported_at:new Date().toISOString(),mode:'paper_research',dataset:currentBars?{symbol:currentSymbol,file:currentFile,bars:currentBars}:null,research:report,quant:quantResult,pullback:pullbackResult,market_learning:learningResult,council:councilResult,portfolio,scenario:scenarioResult,synthetic_practice:window.lokiSimulatedMarket?.snapshot()||null},`loki-workspace-${new Date().toISOString().slice(0,10)}.json`);}
+function exportWorkspace(){exportJSON({application:'Loki Fusion',exported_at:new Date().toISOString(),mode:'paper_research',dataset:currentBars?{symbol:currentSymbol,file:currentFile,bars:currentBars}:null,research:report,quant:quantResult,pullback:pullbackResult,market_learning:learningResult,portfolio,synthetic_practice:window.lokiSimulatedMarket?.snapshot()||null},`loki-workspace-${new Date().toISOString().slice(0,10)}.json`);}
 
 $('#train-history').addEventListener('click',async()=>{
   const button=$('#train-history');button.disabled=true;message('#learning-message','Fetching public history and fitting training dates only…');
@@ -133,11 +90,8 @@ window.addEventListener('hashchange',navigate);
 function syncContext(){
   if(pullbackDataRevision!==datasetRevision){pullbackResult=null;$('#pullback-results').hidden=true;message('#pullback-message','Uses the active imported history. New datasets clear the previous candidate result.');}
   $('#workspace-context').hidden=!currentBars;$('#context-status').textContent=currentBars?`${currentSymbol} · ${currentBars.length.toLocaleString()} bars`:'No dataset';
-  $('#sidebar-symbol').textContent=currentSymbol||'No asset loaded';$('#sidebar-data').textContent=currentBars?`${currentBars.length.toLocaleString()} bars · ${report?.status==='paper_candidate'?'paper candidate':'research loaded'}`:'Import history in Quant lab';
   $('#context-symbol').textContent=currentSymbol;$('#context-detail').textContent=currentBars?`${currentBars[0].timestamp.slice(0,10)} → ${currentBars.at(-1).timestamp.slice(0,10)} · imported history · not live`:'';
   $('#chat-context-status').textContent=report?`${currentSymbol} · research loaded`:'No research loaded';
-  $('#council-context').textContent=currentBars?`${currentSymbol} · ${currentBars.length.toLocaleString()} bars`:'Your research is the starting point.';
-  $('#council-context-detail').textContent=report?`Walk-forward report ${report.data_fingerprint?.slice(0,12)||''} · ${report.summary.total_trades} closed trades · ${report.status==='paper_candidate'?'paper candidate':'further evidence needed'}`:'Import a dataset in Quant lab. The council evaluates that history and your current paper portfolio.';
 }
 function csvRows(text){const rows=[];let row=[],value='',quoted=false;for(let i=0;i<text.length;i++){const char=text[i];if(char==='"'){if(quoted&&text[i+1]==='"'){value+='"';i++;}else quoted=!quoted;}else if(char===','&&!quoted){row.push(value.trim());value='';}else if((char==='\n'||char==='\r')&&!quoted){if(char==='\r'&&text[i+1]==='\n')i++;row.push(value.trim());if(row.some(Boolean))rows.push(row);row=[];value='';}else value+=char;}if(quoted)throw new Error('CSV has an unclosed quoted field.');row.push(value.trim());if(row.some(Boolean))rows.push(row);return rows;}
 function parseBars(text,maxRows=5000){const rows=csvRows(text.replace(/^\uFEFF/,''));const headers=(rows.shift()||[]).map(value=>value.toLowerCase());const required=['timestamp','open','high','low','close','volume'];if(required.some(key=>!headers.includes(key))||new Set(headers).size!==headers.length)throw new Error('Use unique CSV columns: timestamp, open, high, low, close, volume.');if(rows.length<161||rows.length>maxRows)throw new Error(`Upload between 161 and ${maxRows.toLocaleString()} bars from one asset.`);return rows.map((row,index)=>{if(row.length!==headers.length)throw new Error(`CSV row ${index+2} has the wrong number of columns.`);const bar={};for(const key of required){const raw=row[headers.indexOf(key)];if(!raw)throw new Error(`CSV row ${index+2}: ${key} is empty.`);if(key==='timestamp')bar[key]=raw;else{const value=Number(raw);if(!Number.isFinite(value))throw new Error(`CSV row ${index+2}: ${key} must be a number.`);bar[key]=value;}}return bar;});}
@@ -302,7 +256,7 @@ function renderCsvPreview(stats,name){const preview=$('#quant-csv-preview');if(!
   notes.push('OHLCV files carry no currency column, so values are treated in the file’s quote currency — assumed USD unless your headline inputs say otherwise.');
   $('#preview-notes').textContent=notes.join(' ');}
 async function applyImport(file){const button=$('#run-research');button.disabled=true;message('#research-message','Validating history and evaluating unseen windows…');
-  try{const bars=parseBars(await file.text()),form=new FormData($('#research-form')),config=Object.fromEntries(['initial_capital','fee_bps','slippage_bps','periods_per_year'].map(key=>[key,Number(form.get(key))]));const symbol=String(form.get('symbol')).trim().toUpperCase();if(!symbol)throw new Error('Enter an asset or pair label.');const nextReport=await post('/api/research/evaluate',{bars,config});report=nextReport;reportTime=new Date().toISOString();currentBars=bars;currentConfig=config;currentSymbol=symbol;currentFile=file.name;datasetRevision++;quantResult=null;councilResult=null;$('#quant-results').hidden=true;$('#council-results').replaceChildren(element('div','Dataset changed. Convene the council to review this research.','empty-inline'));message('#council-message','');message('#quant-message','Research loaded. Run factor diagnostics and shadow replay on this history.');$('#paper-symbol').value=currentSymbol;renderReport();syncContext();message('#research-message',practiceDataset?'Practice run complete on synthetic bars. Use it to learn the workflow — the next honest step is a real dataset, then a fresh review.':'Research complete. The result is shared with Overview, the council, and Loki chat. Review costs and limitations below.');pendingImportFile=null;$('#quant-csv-preview')&&($('#quant-csv-preview').hidden=true);if(!practiceDataset)try{localStorage.setItem('loki_steps_data',JSON.stringify({at:Date.now()}))}catch(_e){}}
+  try{const bars=parseBars(await file.text()),form=new FormData($('#research-form')),config=Object.fromEntries(['initial_capital','fee_bps','slippage_bps','periods_per_year'].map(key=>[key,Number(form.get(key))]));const symbol=String(form.get('symbol')).trim().toUpperCase();if(!symbol)throw new Error('Enter an asset or pair label.');const nextReport=await post('/api/research/evaluate',{bars,config});report=nextReport;reportTime=new Date().toISOString();currentBars=bars;currentConfig=config;currentSymbol=symbol;currentFile=file.name;datasetRevision++;quantResult=null;$('#quant-results').hidden=true;message('#quant-message','Research loaded. Run factor diagnostics and shadow replay on this history.');$('#paper-symbol').value=currentSymbol;renderReport();syncContext();message('#research-message',practiceDataset?'Practice run complete on synthetic bars. Use it to learn the workflow — the next honest step is a real dataset, then a fresh review.':'Research complete. The result is shared with Overview, the council, and Loki chat. Review costs and limitations below.');pendingImportFile=null;$('#quant-csv-preview')&&($('#quant-csv-preview').hidden=true);if(!practiceDataset)try{localStorage.setItem('loki_steps_data',JSON.stringify({at:Date.now()}))}catch(_e){}}
   catch(error){message('#research-message',`${error.message}${report?' Previous successful report remains displayed.':''}`,true);}finally{button.disabled=false;}
 }
 $('#preview-apply').addEventListener('click',()=>{if(pendingImportFile)applyImport(pendingImportFile);});
@@ -328,13 +282,6 @@ $('#run-pullback').addEventListener('click',async()=>{
   }catch(error){message('#pullback-message',error.message,true);}finally{button.disabled=false;}
 });
 function portfolioContext(){if(!portfolio)return{};return {equity:portfolio.metrics?.equity,cash:portfolio.metrics?.cash??portfolio.state?.cash,positions:positionsArray().map(position=>({symbol:position.symbol,quantity:position.quantity,market_value:position.quantity*position.mark_price})),currency:portfolio.state?.quote_currency};}
-function renderCouncil(){const result=councilResult,target=$('#council-results');target.replaceChildren();const decision=element('div',null,'council-decision'+(result.director.decision==='paper_proposal'?'':' wait'));decision.append(element('p','DIRECTOR / '+human(result.director.decision).toUpperCase(),'eyebrow'),element('h3',result.director.decision==='paper_proposal'?'A proposal to review on paper.':'Wait for a stronger case.'),element('p',result.director.summary));if(Array.isArray(result.director.blocked_by)&&result.director.blocked_by.length){const chips=element('div',null,'council-blocked');result.director.blocked_by.forEach(name=>chips.append(badge(name,'bad')));decision.append(chips);}target.append(decision);const analysts=element('div',null,'analyst-grid');for(const analyst of result.analysts||[]){const card=element('article',null,'analyst-card'),heading=element('div',null,'analyst-heading');heading.append(element('h3',analyst.title||human(analyst.role)),badge(analyst.status,analyst.status==='ready'?'good':analyst.status==='blocked'?'bad':'warning'));card.append(heading,element('p',analyst.summary));if(analyst.concerns?.length)card.append(bulletList(analyst.concerns));if(analyst.evidence&&Object.keys(analyst.evidence).length)card.append(detailsJSON(analyst.evidence,'Inspect supporting evidence'));analysts.append(card);}const unsure=(result.analysts||[]).filter(a=>a.status&&a.status!=='ready');if(unsure.length)analysts.append(element('p',`${unsure.map(a=>a.title||human(a.role)).join(', ')} did not clear this review — each card above holds their exact evidence and concerns, and the director weighed them before the decision.`,'council-disagree caption'));target.append(analysts,element('h3','Risk checks','result-subheading'));const checks=element('div',null,'check-list');for(const check of result.risk_checks||[])checks.append(checkRow(check.name,check.passed,check.detail));target.append(checks);if(result.proposal){const p=result.proposal,proposal=element('div',null,'proposal-card');proposal.append(element('h3',`${p.symbol} · ${p.blocked_by?.length?'blocked sizing draft':'paper proposal only'}`),inlineMetrics([['Reference entry',number(p.entry_reference,8)],['Quantity',number(p.quantity,8)],['Reference stop',number(p.stop_reference,8)]]),element('p',`Planned stop loss: ${number(p.planned_loss_at_stop)} · Cash required: ${number(p.cash_required)} · Reward / risk after costs: ${number(p.reward_risk_after_costs)}`,'caption'));if(p.blocked_by?.length)proposal.append(element('p','Blocked by: '+p.blocked_by.join('; ')+'. This draft has not passed the council checks.','caption'));const button=element('button',p.blocked_by?.length?'Inspect draft in paper form →':'Review in paper journal →','button secondary');button.type='button';button.addEventListener('click',()=>{prefillPaper({symbol:p.symbol,price:p.entry_reference,quantity:p.quantity,stop_loss:p.stop_reference});location.hash='portfolio';toast('Proposal copied to the paper form. Review the values before recording.');});proposal.append(button);target.append(proposal);}const targetInfo=result.performance_target||{};target.append(element('div',`70% trade-win target · observed ${pct(targetInfo.observed_win_rate)} · 95% lower bound ${pct(targetInfo.lower_confidence_bound)} · ${targetInfo.supported?'historically supported by this report':'not statistically supported by this evidence'}. Future performance is not guaranteed.`,'council-target'),bulletList(result.limitations),detailsJSON(result,'Inspect complete council review'));}
-function renderEvidenceStrip(){const target=$('#live-evidence-strip');if(!target)return;if(!liveEvidence){target.replaceChildren();return;}const strip=element('div',null,'metrics');const newsOk=liveEvidence.news?.status==='ok',techOk=liveEvidence.technical?.status==='ok',fundOk=liveEvidence.fundamentals?.status==='ok';strip.append(metricCard('Public bars',`${liveEvidence.bars.length} × 5m`,`From ${liveEvidence.bars_source}`),metricCard('News lexicon',newsOk?String(liveEvidence.news.score):'abstained',newsOk?`${liveEvidence.news.headlines_read} public headlines, open word weights`:'No usable headlines — named, not guessed'),metricCard('Technicals',techOk?String(liveEvidence.technical.score):'abstained',techOk?`last ${liveEvidence.technical.facts.last} · SMA25 ${liveEvidence.technical.facts.sma25} · RSI ${liveEvidence.technical.facts.rsi14}`:'Bars arrived, averages did not compute'),metricCard('Fundamentals',fundOk?String(liveEvidence.fundamentals.score):'abstained',fundOk?(liveEvidence.fundamentals.verdict||'banded'):(liveEvidence.fundamentals?.reason||'no usable read')));target.replaceChildren(strip);}
-async function runLiveEvidence(){const button=$('#live-evidence-run'),symbol=($('#live-evidence-symbol').value||'').trim().toUpperCase();if(!symbol){message('#live-evidence-message','Type a symbol first — live evidence rides on it.',true);return;}button.disabled=true;message('#live-evidence-message','Reading public bars and the desk agents in one fetch, so the council and the desk quote the same numbers…');try{const evidence=await request('/api/desk/evidence',{symbol});if(evidence.status&&evidence.status!=='ok'){liveEvidence=null;renderEvidenceStrip();message('#live-evidence-message',evidence.error||evidence.note||'The public feeds answered nothing usable; nothing will be invented.',true);return;}liveEvidence=evidence;renderEvidenceStrip();$('#council-context').textContent=`${evidence.symbol} · live public evidence`;$('#council-context-detail').textContent=`${evidence.bars.length} five-minute bars cached from ${evidence.bars_source}; the desk agents quoted this same fetch above.`;message('#live-evidence-message','Live evidence cached — convene the council to review it. The imported-dataset path stays untouched.');}catch(error){message('#live-evidence-message',error.message,true);}finally{button.disabled=false;}}
-$('#live-evidence-run').addEventListener('click',runLiveEvidence);
-renderCouncilHistory('#council-history');
-$('#council-history-clear').addEventListener('click',clearCouncilHistory);
-$('#run-council').addEventListener('click',async()=>{const liveView=!!liveEvidence&&!currentBars;if(!currentBars&&!liveView){message('#council-message','Import and evaluate a dataset in Quant lab first, or fetch live evidence above.',true);return;}if(liveView&&$('#miro-native-id').value.trim()){message('#council-message','The native MiroFish report is bound to imported dataset scenarios. Leave that field empty for a live-bars review — this side of the panel does not replay it.',true);return;}const button=$('#run-council'),revision=datasetRevision,paperRevision=portfolioRevision;button.disabled=true;message('#council-message','Research, signal, risk, and execution reviewers are checking the shared evidence…');try{const answer=await (liveView?(()=>{const body={bars:liveEvidence.bars,symbol:liveEvidence.symbol,portfolio:portfolioContext(),config:{periods_per_year:liveEvidence.periods_per_year}};const news=newsPacket(liveEvidence.news);if(news)body.news_evidence=news;return request('/api/fusion/council',body);})():post('/api/fusion/council',{bars:currentBars,symbol:currentSymbol,portfolio:portfolioContext(),research:report,config:currentConfig||{}}));if(revision!==datasetRevision||paperRevision!==portfolioRevision){message('#council-message','Research or paper portfolio changed during review. Convene the council again.');return;}councilResult=answer;renderCouncil();pushCouncilHistory({symbol:answer.symbol,decision:answer.director&&answer.director.decision||'wait',blocked:(answer.director&&Array.isArray(answer.director.blocked_by)?answer.director.blocked_by.length:0),source:liveView?'overview':'dataset'});renderCouncilHistory('#council-history');message('#council-message',`Review complete · ${answer.engine==='deterministic_role_pipeline'?'local rules-based role pipeline':human(answer.engine)} · evidence as of ${answer.as_of}${liveView?' · live public evidence':''}${liveView&&newsPacket(liveEvidence.news)?' · desk news read attached as bounded context':''}`);try{localStorage.setItem('loki_steps_council',JSON.stringify({at:Date.now()}))}catch(_e){}}catch(error){message('#council-message',error.message,true);}finally{button.disabled=false;}});
 
 function positionsArray(){const positions=portfolio?.state?.positions||[];return Array.isArray(positions)?positions:Object.entries(positions).map(([symbol,value])=>({...value,symbol:value.symbol||symbol}));}
 function metricCard(label,value,note){const card=element('article',null,'metric');card.append(element('p',label),element('strong',value),element('small',note));return card;}
@@ -353,7 +300,7 @@ function renderPortfolio(){const m=portfolio.metrics||{},s=portfolio.state||{},p
   const ledger=s.ledger||s.trades||s.transactions||[];const researchLink=(fp)=>{if(!fp)return'—';if(report&&report.data_fingerprint===fp){const anchor=element('a','this run ↗','research-link');anchor.href='#strategy-lab';return anchor;}return`run ${String(fp).slice(0,10)}…`;};
   $('#portfolio-ledger').replaceChildren(ledger.length?table(['Action','Asset','Quantity','Price','Fees / costs','Recorded','Research link'],[...ledger].reverse().slice(0,100).map(item=>[human(item.action||item.side||item.type),item.symbol,number(item.quantity,8),displayMoney(item.price),displayMoney(item.fee??item.fees??item.costs),String(item.timestamp||item.recorded_at||item.as_of||'—'),researchLink(item.report_fingerprint)])):element('p','No paper activity recorded yet.','caption'));savePortfolio();
 }
-async function updatePortfolio(payload={action:'snapshot'}){if(portfolioBusy)throw new Error('A paper journal update is already running.');portfolioBusy=true;try{const result=await post('/api/fusion/portfolio',{...payload,state:payload.action==='reset'?null:portfolio?.state||null});portfolio=result;portfolioRevision++;renderPortfolio();if(payload.action!=='snapshot'){if(councilResult){councilResult=null;$('#council-results').replaceChildren(element('div','The paper portfolio changed. Convene the council again for current risk checks.','empty-inline'));message('#council-message','Previous review cleared because the paper portfolio changed.');}if(scenarioResult){scenarioResult=null;$('#scenario-results').hidden=true;$('#scenario-results').replaceChildren();message('#scenario-message','Previous stress result cleared because the paper portfolio changed. Run it again for current positions.');}}return result;}finally{portfolioBusy=false;}}
+async function updatePortfolio(payload={action:'snapshot'}){if(portfolioBusy)throw new Error('A paper journal update is already running.');portfolioBusy=true;try{const result=await post('/api/fusion/portfolio',{...payload,state:payload.action==='reset'?null:portfolio?.state||null});portfolio=result;portfolioRevision++;renderPortfolio();if(payload.action!=='snapshot'){}return result;}finally{portfolioBusy=false;}}
 async function loadPortfolio(){try{let stored=null;try{const raw=localStorage.getItem(storageKey);if(raw)stored=JSON.parse(raw);}catch{}if(stored){portfolio={state:stored,metrics:{}};await updatePortfolio();}else{portfolio=await request('/api/fusion/portfolio');renderPortfolio();}message('#portfolio-message','');}catch(error){message('#portfolio-message',`The saved paper journal could not be loaded: ${error.message} Export the workspace to preserve it, or reset the local journal.`,true);$('#portfolio-metrics').replaceChildren(metricCard('Paper journal unavailable','—','Refresh or reset after reviewing the error.'));}}
 function updatePaperAction(){const action=$('#portfolio-form [name="action"]').value,isMark=action==='mark';$('#quantity-label').hidden=isMark;$('#portfolio-form [name="quantity"]').required=!isMark;$('#paper-stop-label').hidden=action!=='buy';}
 function prefillPaper(values){for(const[key,value]of Object.entries(values)){const input=$(`#portfolio-form [name="${key}"]`);if(input&&value!=null)input.value=value;}if(!values.action)$('#portfolio-form [name="action"]').value='buy';updatePaperAction();}
@@ -367,114 +314,13 @@ $('#risk-form').addEventListener('input',()=>{riskRevision++;sizing=null;$('#use
 $('#risk-form').addEventListener('submit',async event=>{event.preventDefault();sizing=null;$('#use-sizing').disabled=true;const revision=riskRevision,button=event.target.querySelector('[type="submit"]');button.disabled=true;try{const result=await post('/api/risk/preview',numericForm(event.target));if(revision!==riskRevision)return;sizing=result;$('#risk-result').textContent=`Quantity: ${number(sizing.quantity,8)} units\nCash required: ${number(sizing.cash_required)}\nPlanned loss at stop: ${number(sizing.planned_loss_at_stop)} / ${number(sizing.risk_budget)} budget\nBinding limit: ${sizing.binding_limit}. Preview only; no order submitted.`;$('#use-sizing').disabled=false;}catch(error){if(revision===riskRevision)$('#risk-result').textContent=error.message;}finally{button.disabled=false;}});
 $('#use-sizing').addEventListener('click',()=>{if(!sizing)return;const form=new FormData($('#risk-form'));prefillPaper({symbol:currentSymbol||$('#paper-symbol').value,price:form.get('entry'),quantity:sizing.quantity,stop_loss:form.get('stop')});$('#portfolio-form').scrollIntoView({block:'center'});toast('Position preview copied. Review the paper entry before recording.');});
 
-$('#scenario-compare').addEventListener('click',async()=>{if(!portfolio){message('#scenario-message','Load or reset the paper journal first, then run the comparison.',true);return;}
-  const form=new FormData($('#scenario-form')),multiplier=Number(form.get('volatility_multiplier')),shocks=[-15,-10,-5,-2.5,2.5,5];
-  const button=$('#scenario-compare'),revision=portfolioRevision;button.disabled=true;message('#scenario-message','Running the same stress at several shock sizes…');
-  try{const rows=[];
-    for(const shock of shocks){if(revision!==portfolioRevision)throw new Error('Paper portfolio changed during the comparison. Run the comparison again.');rows.push({shock,...await post('/api/fusion/scenario',{portfolio:portfolio.state,shock_pct:shock,volatility_multiplier:multiplier})});}
-    if(revision!==portfolioRevision)throw new Error('Paper portfolio changed during the comparison. Run the comparison again.');
-    const worst=rows.reduce((a,b)=>Math.abs(b.pnl)>Math.abs(a.pnl)?b:a);
-    $('#scenario-results').hidden=false;
-    $('#scenario-compare-out').replaceChildren(
-      table(['Shock','Stressed equity','P&L','Return'],rows.map(row=>[`${row.shock>0?'+':''}${row.shock}%`,number(row.stressed_equity),number(row.pnl),pctSigned(row.return_pct)])),
-      element('p',`Every row uses your same positions and marks, the ${multiplier}× volatility multiplier and the account's own fees and slippage. Largest swing: ${worst.shock>0?'+':''}${worst.shock}% (${number(worst.pnl)}). The table compares shock size only — it never estimates how likely each shock is.`,'caption'));
-    message('#scenario-message','Shock comparison complete — read the side-by-side table below.');
-  }catch(error){message('#scenario-message',error.message,true);}finally{button.disabled=false;}});
-$('#scenario-form').addEventListener('submit',async event=>{event.preventDefault();if(!portfolio){message('#scenario-message','Load or reset the paper journal first.',true);return;}const revision=portfolioRevision,button=event.target.querySelector('button');button.disabled=true;message('#scenario-message','Applying the shock to current paper marks…');try{const result=await post('/api/fusion/scenario',{portfolio:portfolio.state,...numericForm(event.target)});if(revision!==portfolioRevision){message('#scenario-message','Paper portfolio changed during this calculation. Run again for current positions.');return;}scenarioResult=result;const target=$('#scenario-results');target.hidden=false;target.replaceChildren(inlineMetrics([['Baseline equity',number(result.baseline_equity)],['Stressed equity',number(result.stressed_equity)],['Stress P&L',number(result.pnl),pctPoints(result.return_pct)]]));if(result.positions?.length)target.append(table(['Asset','Current mark','Stressed price','P&L'],result.positions.map(p=>[p.symbol,number(p.current_price,8),number(p.stressed_price,8),number(p.pnl)])));else target.append(element('p','The paper journal has no open positions, so the price shock leaves cash unchanged.','caption'));target.append(bulletList(result.assumptions),detailsJSON(result));message('#scenario-message','Stress calculation complete. This is a sensitivity scenario, not a forecast.');}catch(error){message('#scenario-message',error.message,true);}finally{button.disabled=false;}});
 
 
 // Integrations view removed: capabilities still load for privileged local requests.
-async function loadCapabilities(){try{capabilities=await request('/api/fusion/capabilities');}catch{capabilities=null;}await Promise.allSettled([loadNarrativeStatus()]);}
-async function loadNarrativeStatus(){
-  const local=Boolean(capabilities?.local_actions_enabled);
-  $('#narrative-status').textContent=local?'Local engine ready':'Engine ready · reports save only with the local launcher';
-  const saveBox=$('#narrative-form [name="save"]');
-  if(saveBox){saveBox.disabled=!local;if(!local)saveBox.checked=false;}
-}
-function renderNarrative(data){
-  const target=$('#narrative-results');target.hidden=false;target.replaceChildren();
-  target.append(element('p',`Aggregate stance ${data.lean} · ${String(data.aggregate_stance)} of [-100, +100]`,'narrative-lean'));
-  const traj=element('div',null,'narrative-trajectory');
-  traj.append(element('p','STANCE TRAJECTORY','eyebrow'));
-  for(const item of (data.trajectory||[]))traj.append(element('p',`Round ${item.round}: ${item.stance} · bullish ${item.shares.bullish}% / neutral ${item.shares.neutral}% / bearish ${item.shares.bearish}%`,'narrative-round'));
-  target.append(traj);
-  const agents=element('div',null,'narrative-agents');
-  agents.append(element('p','PERSONA FAMILIES AT THE FINAL ROUND','eyebrow'));
-  const byFamily={};
-  for(const agent of (data.agents||[]))(byFamily[agent.family]=byFamily[agent.family]||[]).push(Number(agent.stance));
-  for(const family of Object.keys(byFamily)){const stances=byFamily[family];const mean=stances.reduce((a,b)=>a+b,0)/stances.length;agents.append(element('p',`${family} · final ${mean.toFixed(1)}`,'narrative-agent'));}
-  target.append(agents);
-  const eventsBlock=element('div',null,'narrative-events');
-  eventsBlock.append(element('p','PARSED STANCE EVENTS'+(Number(data.events_skipped)?` · ${data.events_skipped} sentence(s) skipped (no directional language)`:''),'eyebrow'));
-  if(!(data.events||[]).length)eventsBlock.append(element('p','No directional sentences were parsed — nothing was invented to fill the gap.','integration-note'));
-  for(const event of (data.events||[]).slice(0,12))eventsBlock.append(element('p',`${event.direction>0?'+':'−'}${event.hedged?' (hedged)':''} ${event.text}${event.tickers&&event.tickers.length?' ['+event.tickers.join(', ')+']':''}`,'narrative-event'));
-  target.append(eventsBlock);
-  if(data.saved&&data.saved.report_id){
-    const row=element('p',null,'narrative-saved');
-    row.append(element('span',`Saved as native report ${data.saved.report_id}. `,'caption'));
-    const send=document.createElement('button');send.type='button';send.className='button secondary';send.textContent='Send to the Defence Council →';
-    send.addEventListener('click',()=>{
-      $('#miro-native-id').value=data.saved.report_id;
-      const review=$('#miro-native-reviewed');if(review)review.checked=false;
-      location.hash='#agent-council';
-      message('#council-message','The native narrative report id is filled in. Read the report, then tick the reviewed confirmation yourself.');
-    });
-    row.append(send);target.append(row);
-  }
-  target.append(detailsJSON(data,'Inspect full simulation result'));
-  target.append(element('p','Deterministic text statistics — not a forecast, not a probability, and not verified trading evidence.','caption'));
-}
-$('#narrative-form').addEventListener('submit',async event=>{
-  event.preventDefault();
-  const form=new FormData(event.target);
-  const seedText=String(form.get('seed_text')||'').trim();
-  if(!seedText)message('#narrative-message','Paste source material for the simulation to read.',true);
-  const payload={seed_text:seedText,rounds:Number(form.get('rounds'))||6,save:form.get('save')!==null};
-  const question=String(form.get('question')||'').trim();if(question)payload.question=question;
-  const title=String(form.get('title')||'').trim();if(title)payload.title=title;
-  const button=event.target.querySelector('[type="submit"]');
-  if(!seedText)return;
-  button.disabled=true;
-  message('#narrative-message','Running the deterministic local simulation…');
-  try{renderNarrative(await request('/api/fusion/narrative',payload,true));message('#narrative-message','Simulation complete. Every stance movement traces back to the parsed events above.');}
-  catch(error){message('#narrative-message',error.message,true);}
-  finally{button.disabled=false;}
-});
-async function miroNativeLibrary(){
-  const button=$('#miro-native-library');
-  if(!button)return;
-  button.disabled=true;
-  message('#miro-native-library-message','Reading saved reports from the local launcher…');
-  try{
-    const result=await request('/api/fusion/native-mirofish/reports',undefined,true),rows=Array.isArray(result.reports)?result.reports:[],target=$('#miro-native-library-list');
-    if(!rows.length){target.replaceChildren(element('p','No saved narrative reports in the local launcher data yet — run one in Scenarios with save ticked.','caption'));message('#miro-native-library-message','');return;}
-    target.replaceChildren(...rows.map(row=>{
-      const rowNode=element('p',null,'native-report-row');
-      const use=element('button','Use →','button secondary');
-      use.type='button';
-      if(row.unreadable){rowNode.append(element('strong',row.report_id),element('span',' · unreadable local artifact — kept visible, no fields invented for it','caption'));use.disabled=true;}
-      else{
-        rowNode.append(element('strong',row.title||'Untitled simulation'));
-        rowNode.append(element('span',` · ${row.created_at?String(row.created_at).slice(0,19).replace('T',' '):'creation time not recorded'} · ${row.status||'status not recorded'} · ${row.report_id}`,'caption'));
-      }
-      use.addEventListener('click',()=>{
-        $('#miro-native-id').value=row.report_id;
-        $('#miro-native-reviewed').checked=false;
-        $('#miro-native-preview').replaceChildren();
-        message('#miro-native-message',`Loaded ${row.report_id} from the saved reports. Inspect it, then tick the reviewed confirmation yourself.`);
-        $('#miro-native-id').focus();
-      });
-      rowNode.append(use);
-      return rowNode;
-    }));
-    message('#miro-native-library-message',`Listed ${rows.length} saved report${rows.length===1?'':'s'} from the launcher's local data — newest first, echo of what was saved.`);
-  }catch(error){message('#miro-native-library-message',error.message,true);}
-  finally{button.disabled=false;}
-}
-$('#miro-native-library').addEventListener('click',miroNativeLibrary);
+async function loadCapabilities(){try{capabilities=await request('/api/fusion/capabilities');}catch{capabilities=null;}}
 
 function addChat(text,role,links){const div=element('div',null,`chat-message ${role}`);div.append(element('span',role==='user'?'YOU':'LOKI'),element('p',text));if(role==='assistant'&&links&&links.length){const row=element('p',null,'chat-context-row');const lead=element('span','EVIDENCE: ','chat-evidence-label');row.append(lead);for(const link of links){const a=document.createElement('a');a.textContent=link[0];a.href=link[1];a.className='text-link';row.append(a);}div.append(row);}const log=$('#chat-messages');log.append(div);while(log.children.length>40)log.firstElementChild.remove();log.scrollTop=log.scrollHeight;}
-async function sendChat(text){const button=$('#chat-form button'),input=$('#chat-input');if(button.disabled)return;button.disabled=true;input.disabled=true;addChat(text,'user');input.value='';try{const context={data_mode:report?'uploaded historical CSV (unverified)':'no dataset supplied',trading_mode:'paper research only',as_of:reportTime||'no research run yet',previous_intent:previousIntent,conversation:previousConversation,symbol:currentSymbol||null,portfolio:portfolioContext(),metrics:portfolio?.metrics||{},positions:positionsArray(),recent_trades:portfolio?.state?.trades?.slice(-30)||[],current_prices:Object.fromEntries(positionsArray().map(p=>[p.symbol,p.mark_price]))};if(report){context.latest_backtest=report;context.strategy=report.strategy;}if(sizing)context.position_preview=sizing;if(councilResult)context.council=councilResult;if(quantResult)context.factor_analysis=quantResult.analysis;if(scenarioResult)context.scenario=scenarioResult;const reply=await post('/api/copilot',{message:text,context});previousIntent=reply.intent;previousConversation=reply.conversation||null;addChat(reply.text,'assistant',(()=>{const links=[];if(report)links.push(['Quant lab result →','#strategy-lab']);if(councilResult)links.push(['Council review →','#agent-council']);if(positionsArray().length||portfolio?.state?.trades?.length)links.push(['Paper journal →','#portfolio']);return links;})());const prompts=$('#chat-prompts');prompts.replaceChildren();for(const suggestion of(reply.suggestions||[]).slice(0,3)){const b=element('button',suggestion);b.type='button';b.dataset.prompt=suggestion;prompts.append(b);}}catch(error){addChat(`I couldn't complete that request. ${error.message}`,'assistant');}finally{button.disabled=false;input.disabled=false;input.focus();}}
+async function sendChat(text){const button=$('#chat-form button'),input=$('#chat-input');if(button.disabled)return;button.disabled=true;input.disabled=true;addChat(text,'user');input.value='';try{const context={data_mode:report?'uploaded historical CSV (unverified)':'no dataset supplied',trading_mode:'paper research only',as_of:reportTime||'no research run yet',previous_intent:previousIntent,conversation:previousConversation,symbol:currentSymbol||null,portfolio:portfolioContext(),metrics:portfolio?.metrics||{},positions:positionsArray(),recent_trades:portfolio?.state?.trades?.slice(-30)||[],current_prices:Object.fromEntries(positionsArray().map(p=>[p.symbol,p.mark_price]))};if(report){context.latest_backtest=report;context.strategy=report.strategy;}if(sizing)context.position_preview=sizing;if(quantResult)context.factor_analysis=quantResult.analysis;const reply=await post('/api/copilot',{message:text,context});previousIntent=reply.intent;previousConversation=reply.conversation||null;addChat(reply.text,'assistant',(()=>{const links=[];if(report)links.push(['Quant lab result →','#strategy-lab']);if(positionsArray().length||portfolio?.state?.trades?.length)links.push(['Paper journal →','#portfolio']);return links;})());const prompts=$('#chat-prompts');prompts.replaceChildren();for(const suggestion of(reply.suggestions||[]).slice(0,3)){const b=element('button',suggestion);b.type='button';b.dataset.prompt=suggestion;prompts.append(b);}}catch(error){addChat(`I couldn't complete that request. ${error.message}`,'assistant');}finally{button.disabled=false;input.disabled=false;input.focus();}}
 $('#chat-form').addEventListener('submit',event=>{event.preventDefault();const text=$('#chat-input').value.trim();if(text)sendChat(text);});
 $('#chat-prompts').addEventListener('click',event=>{const button=event.target.closest('[data-prompt]');if(button)sendChat(button.dataset.prompt);});
 $$('[data-ask]').forEach(link=>link.addEventListener('click',()=>{sendChat(link.dataset.ask);}));

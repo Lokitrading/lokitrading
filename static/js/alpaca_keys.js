@@ -258,8 +258,7 @@
   }
 
   async function railSendOrder(body) {
-    /** One shared send through the busy-flagged lane; used by the panel's
-     * own form and (via the handle below) by the trading desk. */
+    /** One shared send through the busy-flagged lane used by the panel's order form. */
     busy = true;
     controls();
     try {
@@ -566,11 +565,6 @@
     start: startAutopilot,
     stop: stopAutopilot,
     tick: autopilotTick,
-    // The trading desk reuses the same busy-flagged send lane; the rail
-    // alone decides what Alpaca accepts, so these two helpers still cannot
-    // move an order by themselves — real keys verified through /test gate it.
-    sendRailOrder: railSendOrder,
-    railReady: () => !!(connected && load()),
     _debug: { setConnected(value) { connected = !!value; } },
   };
 })();
