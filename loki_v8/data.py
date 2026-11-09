@@ -12,7 +12,6 @@ import logging
 import os
 import re
 import time
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -75,10 +74,6 @@ def is_crypto(symbol: str) -> bool:
     return symbol.endswith("-USD") or symbol.endswith("USDT")
 
 
-def is_nse(symbol: str) -> bool:
-    return symbol.endswith(".NS") or symbol.startswith("^")
-
-
 class MarketDataProvider:
     """Fetches historical bars and live quotes with a small cache."""
 
@@ -115,22 +110,6 @@ class MarketDataProvider:
         self._cache[cache_key] = df
         self._cached_at[cache_key] = time.monotonic()
         return df.copy()
-
-    # ------------------------------------------------------------------
-    # Live quote (polled; upgraded to streaming when keys are added)
-    # ------------------------------------------------------------------
-    def get_latest_price(self, symbol: str) -> float:
-        """Return the most recent close/price for a symbol."""
-        ticker = normalize_symbol(symbol)
-        try:
-            import yfinance as yf
-
-            data = yf.Ticker(ticker).history(period="5d", interval="1d", auto_adjust=False)
-            if data is not None and not data.empty:
-                return float(data["Close"].iloc[-1])
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Latest-price fetch failed for %s: %s", ticker, exc)
-        return 0.0
 
     def get_quotes(self, symbols: List[str]) -> Dict[str, float]:
         """Batch-fetch latest prices for many symbols."""

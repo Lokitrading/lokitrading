@@ -6,7 +6,7 @@ No synthetic balance, chat content, or client-supplied model drives these orders
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 import hashlib
 import json

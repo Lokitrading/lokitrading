@@ -296,12 +296,17 @@
           || (rules.exit.length && (rules.exitAny ? rules.exit.some((x) => Loki.strategy.check(x, i, closed, c, cache, ctx)) : rules.exit.every((x) => Loki.strategy.check(x, i, closed, c, cache, ctx))));
         if (hit) {
           const out = px * 0.999, pnl = runner.pos.qty * out - runner.pos.cost;
-          runner.cash += runner.pos.qty * out; runner.trades.push({ t: Date.now(), side: 'sell', px: out, pnl }); runner.pos = null;
+          if (Loki.guard) Loki.guard.record(`nl:${rules.symbol}`, { pnl, ret: out / runner.pos.entry - 1, exit: rules.stop != null && bar.l <= runner.pos.entry * (1 - rules.stop / 100) ? 'stop' : 'rule', maxLossPct: rules.stop || undefined });
+          runner.cash += runner.pos.qty * out; runner.peak = Math.max(runner.peak || runner.start, runner.cash); runner.trades.push({ t: Date.now(), side: 'sell', px: out, pnl }); runner.pos = null;
           Loki.audit.append({ kind: 'paper', venue: 'nl-strategy', action: 'sell', symbol: rules.symbol, price: out, pnl });
           signal(`SELL ${rules.symbol} @ ${F.num(out)} (paper, NL strategy) · P&L ${F.usd(pnl, true)}`, 'strategy');
         }
       } else if (rules.entry.every((x) => Loki.strategy.check(x, i, closed, c, cache, { held: 0 }))) {
-        const inPx = px * 1.001, spend = runner.cash * rules.size, qty = spend / inPx;
+        const sid = `nl:${rules.symbol}`, gate = Loki.guard ? Loki.guard.canEnter(sid) : { ok: true };
+        if (!gate.ok) { msg('cc-run-msg', `Entry signal skipped: ${gate.why}`, true); Loki.store.set('loki_nl_runner_v1', runner); renderRunner(); return; }
+        const eqNow = runner.cash, ddNow = Math.max(0, 1 - eqNow / Math.max(runner.start, runner.peak || runner.start));
+        const scale = (Loki.guard ? Loki.guard.sizeScale(ddNow) : 1) * (Loki.quant ? Loki.quant.regime(c).sizeMult : 1);
+        const inPx = px * 1.001, spend = runner.cash * rules.size * scale, qty = spend / inPx;
         runner.cash -= spend; runner.pos = { qty, entry: inPx, cost: spend, peak: inPx, held: 0 };
         runner.trades.push({ t: Date.now(), side: 'buy', px: inPx });
         Loki.audit.append({ kind: 'paper', venue: 'nl-strategy', action: 'buy', symbol: rules.symbol, price: inPx, qty });

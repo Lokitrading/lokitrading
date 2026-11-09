@@ -12,10 +12,9 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from .config import LokiConfig
 
@@ -197,41 +196,12 @@ class PaperBroker:
             self.positions[symbol] = Position(symbol=symbol, qty=-qty, avg_entry=fill)
         return True
 
-    def buy_to_cover(self, symbol: str, qty: float, price: float) -> bool:
-        """Close/reduce a short position."""
-        pos = self.positions.get(symbol)
-        if not pos or pos.qty >= 0 or qty <= 0 or price <= 0:
-            return False
-        qty = min(qty, -pos.qty)
-        fill = self._fill_price(price, "buy")
-        self._record_trade(symbol, "short", qty, pos.avg_entry, fill)
-        self.cash -= qty * fill + self.cfg.commission_per_trade
-        pos.qty += qty
-        if abs(pos.qty) < 1e-12:
-            del self.positions[symbol]
-        return True
-
     # ------------------------------------------------------------------
     def equity(self, prices: Dict[str, float]) -> float:
         total = self.cash
         for sym, pos in self.positions.items():
             total += pos.market_value(prices.get(sym, pos.avg_entry))
         return total
-
-    def save_state(self, prices: Dict[str, float]):
-        try:
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
-            payload = {
-                "cash": self.cash,
-                "equity": self.equity(prices),
-                "positions": {s: asdict(p) for s, p in self.positions.items()},
-                "num_trades": len(self.trades),
-                "saved_at": datetime.now().isoformat(),
-            }
-            self.state_file.write_text(json.dumps(payload, indent=2))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("State save failed: %s", exc)
-
 
 # ---------------------------------------------------------------------------
 # Broker factory (live adapters plug in here later)

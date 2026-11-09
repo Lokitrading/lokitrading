@@ -396,7 +396,7 @@ def _supa_request(method: str, path: str, *, json_body: Optional[dict] = None) -
 
 async def create_account(email: str, password: str, nickname: str) -> Dict[str, Any]:
     """Create a confirmed account with the nickname in user_metadata."""
-    user = await run_in_threadpool(
+    user: Dict[str, Any] = await run_in_threadpool(
         _supa_request,
         "POST",
         "/auth/v1/admin/users",
@@ -418,15 +418,17 @@ async def sign_in_with_password(email: str, password: str) -> Dict[str, Any]:
         "/auth/v1/token?grant_type=password",
         json_body={"email": email, "password": password},
     )
-    return grant.get("user") or {}
+    user: Dict[str, Any] = grant.get("user") or {}
+    return user
 
 
 async def update_nickname(uid: str, nickname: str) -> Dict[str, Any]:
     # Supabase's admin update endpoint answers 405 to PATCH (verified live):
     # it takes PUT /auth/v1/admin/users/{uid}.
-    return await run_in_threadpool(
+    updated: Dict[str, Any] = await run_in_threadpool(
         _supa_request,
         "PUT",
         f"/auth/v1/admin/users/{uid}",
         json_body={"user_metadata": {"nickname": nickname}},
     )
+    return updated

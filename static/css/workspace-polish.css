@@ -49,20 +49,7 @@
 .loki-workspace .hero .muted { color: #b3c2d1; font-size: 14px; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 28px; }
 .hero-actions .text-link { font-size: 12px; color: #b8c9d8; }
-.hero-visual { position: relative; flex: 0 0 290px; height: 290px; color: #8bbaa9; }
 .orbit { position: absolute; border: 1px solid #44685f; border-radius: 50%; }
-.orbit-outer { inset: 20px; border-style: dashed; opacity: .65; }
-.orbit-inner { inset: 61px; border-color: #3a6058; box-shadow: 0 0 50px #6edab412; }
-.orbit-axis { position: absolute; inset: 0; background: linear-gradient(90deg, transparent calc(50% - .5px), #44685f66 50%, transparent calc(50% + .5px)), linear-gradient(transparent calc(50% - .5px), #44685f66 50%, transparent calc(50% + .5px)); }
-.orbit-core { position: absolute; inset: 103px; display: grid; place-items: center; border: 1px solid #6a9a87; border-radius: 22px; background: #1c3a34; color: #c0f4df; font: italic 48px Georgia, serif; box-shadow: 0 0 60px #70d7ac17; }
-.orbit-label { position: absolute; padding: 5px 9px; background: #13232c; font-size: 8px; letter-spacing: 2px; }
-.orbit-label-top { top: 10px; left: 110px; }
-.orbit-label-right { right: 0; top: 133px; }
-.orbit-label-bottom { bottom: 10px; left: 114px; }
-.orbit-node { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #9debd0; box-shadow: 0 0 0 5px #9debd015; }
-.node-one { top: 64px; left: 43px; }
-.node-two { bottom: 72px; right: 37px; }
-.orbit-caption { position: absolute; bottom: -16px; width: 100%; text-align: center; font-size: 8px; letter-spacing: 2px; color: #7f9d9d; }
 .workspace-launchers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 28px; }
 .workspace-launchers > a { display: flex; gap: 13px; align-items: center; padding: 19px; border: 1px solid #293c4c; border-radius: 13px; background: #111c29; transition: border-color .18s, background .18s; }
 .workspace-launchers > a:hover { background: #192a37; border-color: #568579; }
@@ -94,12 +81,10 @@
 .decision-stages strong { display: block; font-size: 12px; font-weight: 550; margin-top: 5px; }
 .decision-stages small { display: block; color: #9eb1c6; font-size: 10px; margin-top: 4px; }
 @media (max-width: 1200px) {
-  .hero-visual { flex-basis: 230px; transform: scale(.85); transform-origin: center; margin-left: -30px; margin-right: -20px; }
   .workspace-launchers { grid-template-columns: 1fr; gap: 9px; }
   .workspace-launchers > a { padding: 14px 18px; }
 }
 @media (max-width: 1000px) {
-  .hero-visual { display: none; }
   .loki-workspace .hero { padding: 30px; }
 }
 @media (max-width: 760px) {
@@ -126,17 +111,8 @@
 .instrument-heading, .instrument-footer { display: flex; justify-content: space-between; gap: 10px; padding: 15px; font: 9px "Consolas", monospace; letter-spacing: 1.2px; color: #9cb9b0; }
 .instrument-heading { border-bottom: 1px solid #2b413c; }
 .instrument-footer { border-top: 1px solid #2b413c; font-size: 8px; letter-spacing: 0; }
-.signal-drawing { display: block; width: 100%; height: auto; }
 .instrument-heading button { padding: 0; border: 0; background: none; color: #b6d7ca; font: inherit; cursor: pointer; }
-.signal-instrument[data-paused="true"] .signal-trace, .signal-instrument[data-paused="true"] .signal-reference { animation-play-state: paused; }
 .instrument-key::before { content: ""; display: inline-block; width: 12px; height: 2px; margin-right: 5px; background: #a8ead2; vertical-align: middle; }
-@keyframes signal-write { 0% { stroke-dashoffset: 100; } 45%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -100; } }
-@keyframes signal-reference-flow { to { stroke-dashoffset: -36; } }
-@media (prefers-reduced-motion: no-preference) {
-  .signal-trace { stroke-dasharray: 100; animation: signal-write 12s ease-in-out infinite; }
-  .signal-reference { animation: signal-reference-flow 8s linear infinite; }
-  .signal-instrument:hover .signal-trace, .signal-instrument:hover .signal-reference { animation-play-state: paused; }
-}
 @media (max-width: 1200px) { .signal-instrument { flex-basis: 280px; } }
 @media (max-width: 1000px) { .loki-workspace .hero { flex-wrap: wrap; } .signal-instrument { flex: 1 1 100%; max-width: 480px; } }
 @media (max-width: 760px) { .signal-instrument { max-width: none; } }
@@ -155,12 +131,6 @@
   background-image: linear-gradient(#a3b8bb08 1px, transparent 1px), linear-gradient(90deg, #a3b8bb08 1px, transparent 1px);
   background-size: 24px 24px;
 }
-.loki-workspace .orbit-core { border-radius: 6px; box-shadow: none; background: #142722; }
-.loki-workspace .orbit-inner { box-shadow: none; }
-.loki-workspace .orbit-outer::after {
-  content: ""; position: absolute; top: -3px; left: calc(50% - 3px);
-  width: 6px; height: 6px; background: #b8e6d7; border-radius: 50%;
-}
 .loki-workspace .workspace-launchers > a { border-radius: 8px; background: #101923; }
 .loki-workspace .launcher-icon { background: transparent; border: 1px solid #32483f; border-radius: 6px; }
 .loki-workspace .launcher-arrow { transition: transform 180ms ease; }
@@ -172,12 +142,9 @@
 .loki-workspace #alpaca-account, .loki-workspace #broker-paper-account, .loki-workspace #broker-live-account { overflow-x: auto; }
 .loki-workspace #ai-trading > .page-heading { background: #101a23; border-radius: 10px; }
 .loki-workspace #ai-candles { border-radius: 6px; }
-@keyframes instrument-orbit { to { transform: rotate(360deg); } }
 @keyframes workspace-arrive { from { opacity: .5; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: no-preference) {
-  .loki-workspace .orbit-outer { animation: instrument-orbit 48s linear infinite; }
   .loki-workspace .workspace-view:not([hidden]) { animation: workspace-arrive 240ms ease-out; }
-  .loki-workspace .hero-visual:hover .orbit-outer { animation-play-state: paused; }
 }
 @media (max-width: 760px) {
   .loki-workspace .hero { padding: 26px 22px; }

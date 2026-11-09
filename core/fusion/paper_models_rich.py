@@ -14,13 +14,11 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
-import os
 import re
-import sqlite3
 import statistics
 
 from core.fusion.learning import _sigmoid, _solve
-from core.fusion.paper_models import POLICY, replay, _win_interval
+from core.fusion.paper_models import POLICY, replay
 from core.fusion.instrument_history import HISTORY_YEARS, MAX_HISTORY_BARS
 from core.strategy_lab import validate_bars
 

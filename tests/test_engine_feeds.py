@@ -104,10 +104,11 @@ def test_new_endpoints_are_rate_limited_and_device_hosts_allowed():
 def test_workspace_has_command_center_and_new_scripts():
     from pathlib import Path
     html = (Path(__file__).resolve().parents[1] / "templates" / "index.html").read_text(encoding="utf-8")
-    for needle in ('id="command"', 'data-view="command"', "command_center.js", "strategy_nl.js", "consensus.js", "mcrisk.js", "execq.js", "evolve.js", "pm_lab.js", 'id="pm-mm"'):
+    for needle in ('id="command"', 'data-view="command"', "command_center.js", "strategy_nl.js", "consensus.js", "mcrisk.js", "execq.js", "evolve.js", "pm_lab.js", 'id="pm-mm"', 'id="redteam"', "jury.js", "redteam.js", "fillsim.js", "redteam_view.js"):
         assert needle in html
     # Engine modules load before the views that use them.
     assert html.index("engine/consensus.js") < html.index("js/trade.js") < html.index("command_center.js")
+    assert html.index("engine/quant.js") < html.index("engine/fillsim.js") < html.index("engine/redteam.js") < html.index("engine/jury.js") < html.index("redteam_view.js")
 
 
 def test_share_class_tickers_map_to_yahoo_and_exchange_suffixes_do_not():
@@ -143,3 +144,34 @@ def test_unknown_symbol_is_a_404_with_a_hint_not_a_retry_later(monkeypatch):
     Pipe.provider = Down()
     res = client.get("/api/fusion/ai/bars?symbol=SPY&timeframe=1d&limit=60")
     assert res.status_code == 503
+
+
+FOMC_HTML = """<h4>2026 FOMC Meetings</h4>
+<div class="fomc-meeting__month"><strong>January</strong></div><div class="fomc-meeting__date">27-28</div>
+<div class="fomc-meeting__month"><strong>March</strong></div><div class="fomc-meeting__date">17-18*</div>
+<h4>2025 FOMC Meetings</h4>
+<div class="fomc-meeting__month"><strong>Apr/May</strong></div><div class="fomc-meeting__date">30-1</div>"""
+
+
+def test_fomc_calendar_parses_decision_days_at_2pm_eastern():
+    events = ef.parse_fomc(FOMC_HTML)
+    times = [e["time"] for e in events]
+    assert "2026-01-28T14:00:00-05:00" in times and "2026-03-18T14:00:00-04:00" in times  # DST handled
+    assert any(e["projections"] for e in events) and all(not e["estimated"] for e in events)
+    assert "2025-05-01T14:00:00-04:00" in times  # meetings spanning two months use the later month
+
+
+def test_jobs_report_estimates_skip_holidays():
+    from datetime import datetime, timezone
+    jan = ef.jobs_reports(datetime(2027, 1, 1, tzinfo=timezone.utc), 0)[0]
+    assert jan["time"].startswith("2027-01-08T08:30") and jan["estimated"] is True
+    jul = ef.jobs_reports(datetime(2025, 7, 1, tzinfo=timezone.utc), 0)[0]
+    assert jul["time"].startswith("2025-07-03")
+
+
+def test_calendar_endpoint(monkeypatch):
+    monkeypatch.setattr(ef, "_fetch", lambda url, timeout=8.0: FOMC_HTML.encode())
+    ef._cache.pop("calendar", None)
+    res = client.get("/api/calendar/macro")
+    assert res.status_code == 200 and "CPI" in res.json()["note"]
+    assert rule_for("GET", "/api/calendar/macro")

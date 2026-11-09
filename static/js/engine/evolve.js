@@ -7,7 +7,10 @@
  * the two best survive unchanged (elitism).
  *
  * Overfitting guard: strains are scored only on the first 70% of the data
- * (training). The champion is promoted only if it ALSO beats the currently
+ * (training), 60% of the score coming from four rolling walk-forward windows
+ * inside it (consistency across windows is rewarded, a single lucky window is not).
+ * Every champion carries a scorecard (Sharpe, Sortino, Calmar vs buy-and-hold on
+ * the unseen 30%); a deployed strain that falls below its baseline is sunset. The champion is promoted only if it ALSO beats the currently
  * deployed settings on the last 30% it never trained on (validation). Paper
  * auto-deploy is opt-in; live trading is never changed automatically.
  * The council's probabilities are computed once per dataset (they don't
@@ -29,9 +32,9 @@
   const fromConfig = (cfg) => ({ entry: 0.5 + cfg.min_council_confidence / 400, exit: 0.44, trailing: cfg.trailing_stop_pct, stop: cfg.stop_loss_pct, take: cfg.take_profit_pct, size: clamp(cfg.max_invested_pct / 50, 0.1, 1) });
 
   /** Long-only execution of a strain over bars[from..to) using precomputed council probabilities. */
-  function simulate(g, from, to) {
-    const b = S.bars, p = S.probs;
-    let cash = 1, qty = 0, entry = 0, peak = 0, equityPeak = 1, maxDD = 0, trades = 0, wins = 0;
+  function simulate(g, from, to, withReturns = false) {
+    const b = S.bars, p = S.probs, rets = withReturns ? [] : null;
+    let cash = 1, qty = 0, entry = 0, peak = 0, equityPeak = 1, maxDD = 0, trades = 0, wins = 0, prevEq = 1;
     for (let i = from; i < to - 1; i++) {
       const bar = b[i], next = b[i + 1];
       if (qty > 0) {
@@ -43,10 +46,30 @@
         qty = spend / px; cash -= spend; entry = px; peak = px; trades += 1;
       }
       const eq = cash + qty * next.c;
+      if (rets) rets.push(eq / prevEq - 1); prevEq = eq;
       equityPeak = Math.max(equityPeak, eq); maxDD = Math.max(maxDD, 1 - eq / equityPeak);
     }
     const final = cash + qty * b[to - 1].c;
-    return { ret: final - 1, maxDD, trades, winRate: trades ? wins / trades : 0 };
+    return { ret: final - 1, maxDD, trades, winRate: trades ? wins / trades : 0, rets };
+  }
+
+  /** Walk-forward: rolling out-of-sample windows across the training span; fitness = mean OOS fitness minus inconsistency. */
+  const FOLDS = 4;
+  function walkForward(g) {
+    const cut = Math.floor(S.bars.length * 0.7), start = 60, step = Math.floor((cut - start) / (FOLDS + 1));
+    const oos = [];
+    for (let k = 1; k <= FOLDS; k++) { const a = start + k * step, z = Math.min(cut, a + step); if (z - a > 10) oos.push(simulate(g, a, z)); }
+    const fits = oos.map(fitness), m = fits.reduce((x, y) => x + y, 0) / Math.max(1, fits.length);
+    const positive = oos.filter((r) => r.ret > 0).length;
+    return { fit: m - 0.5 * (Loki.quant ? Loki.quant.std(fits) : 0), folds: oos.map((r) => ({ ret: r.ret, maxDD: r.maxDD, trades: r.trades })), consistency: oos.length ? positive / oos.length : 0 };
+  }
+  /** Sharpe / Sortino / Calmar on unseen data, against buy-and-hold over the same bars. */
+  function scorecard(g) {
+    const cut = Math.floor(S.bars.length * 0.7), r = simulate(g, cut, S.bars.length, true);
+    const per = S.interval === '1d' ? 252 : S.interval === '1h' ? 24 * 365 : 365;
+    const perf = Loki.quant ? Loki.quant.performance(r.rets, per) : {};
+    const bh = S.bars[S.bars.length - 1].c / S.bars[cut].o - 1;
+    return { ...perf, ret: r.ret, trades: r.trades, buyHold: bh, beatsBaseline: r.ret > Math.min(0, bh) && (perf.sharpe == null || perf.sharpe > 0) };
   }
   const fitness = (r) => r.ret - 0.6 * r.maxDD - (r.trades < 3 ? 0.05 : 0);
 
@@ -63,12 +86,18 @@
 
   function generation() {
     const cut = Math.floor(S.bars.length * 0.7), start = 60;
-    const scored = S.pop.map((g) => { const train = simulate(g, start, cut); return { g, train, fit: fitness(train) }; }).sort((x, z) => z.fit - x.fit);
+    const scored = S.pop.map((g) => { const train = simulate(g, start, cut), wf = walkForward(g); return { g, train, wf, fit: 0.4 * fitness(train) + 0.6 * wf.fit }; }).sort((x, z) => z.fit - x.fit);
     const pick = () => { let best = null; for (let k = 0; k < 3; k++) { const c = scored[Math.floor(rand() * scored.length)]; if (!best || c.fit > best.fit) best = c; } return best.g; };
     S.pop = scored.slice(0, ELITE).map((s) => s.g).concat(Array.from({ length: POP - ELITE }, () => breed(pick(), pick())));
     S.gen += 1;
     const top = scored[0], val = simulate(top.g, cut, S.bars.length), deployedVal = S.deployed ? simulate(S.deployed.g, cut, S.bars.length) : null;
-    S.champion = { g: top.g, train: top.train, val, fit: top.fit };
+    S.champion = { g: top.g, train: top.train, val, fit: top.fit, walkForward: top.wf, scorecard: scorecard(top.g) };
+    // Sunset: a deployed strain that no longer beats its baseline on unseen data is retired to quarantine.
+    if (S.deployed && S.deployed.gen > 0 && S.gen % 10 === 0) {
+      const sc = scorecard(S.deployed.g);
+      S.deployed.scorecard = sc;
+      if (!sc.beatsBaseline && !S.deployed.sunset) { S.deployed.sunset = true; S.status = `Deployed strain (generation ${S.deployed.gen}) sunset: it no longer beats its baseline on unseen data.`; Loki.emit('evolve:sunset', { gen: S.deployed.gen, scorecard: sc }); }
+    }
     S.history.push({ gen: S.gen, best: top.fit, median: scored[Math.floor(scored.length / 2)].fit, val: fitness(val) });
     S.history = S.history.slice(-200);
     if (deployedVal && fitness(val) > fitness(deployedVal) + 0.005) {
@@ -118,5 +147,5 @@
   function stop() { S.running = false; clearInterval(timer); timer = null; S.status = `Paused at generation ${S.gen}.`; Loki.emit('evolve:gen', snapshot()); }
   function snapshot() { return { running: S.running, symbol: S.symbol, interval: S.interval, gen: S.gen, champion: S.champion, deployed: S.deployed, history: S.history, status: S.status, autoDeploy: S.autoDeploy, bars: S.bars.length }; }
 
-  Loki.evolve = { start, stop, deploy, snapshot, simulate, fitness, GENES, setAutoDeploy(v) { S.autoDeploy = Boolean(v); Loki.emit('evolve:gen', snapshot()); }, _state: S, _generation: generation };
+  Loki.evolve = { start, stop, deploy, snapshot, simulate, fitness, walkForward, scorecard, GENES, setAutoDeploy(v) { S.autoDeploy = Boolean(v); Loki.emit('evolve:gen', snapshot()); }, _state: S, _generation: generation };
 })();
