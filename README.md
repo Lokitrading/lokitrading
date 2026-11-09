@@ -19,6 +19,12 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## Games (Bored?)
+
+- **Market Word** (`static/js/market_word.js`): a five-letter trading-vocabulary puzzle with a definition for every answer. Daily (same word for everyone, by date) and unlimited Practice; hint, hard mode, colour-blind palette, streaks, guess distribution and a copyable result grid.
+- **Beat the Bots** (`static/js/beat_bots.js`): ten rounds of real daily crypto history (Binance, device-direct) at a random date with the name hidden. You and the six-bot council each call the next five days; sure calls pay double and cost points when wrong; "Ask a bot" reveals one bot's view. Name and date are revealed after each call.
+- **Loki Dive** (`static/js/game.js`): rare-answer trivia, now 69 hand-picked prompts including markets topics (crypto, exchanges, S&P 500 members, investors, candlesticks, indicators, central banks, crashes). Daily runs stay server-verified because the server reads the same bank.
+
 ## Trade terminal
 
 `/#trade` (`static/js/trade.js`) sends real orders to **Alpaca paper or live** (browser → Alpaca directly; paper keys saved in the browser, live keys kept only for the tab) and **Tradovate demo or live** (`loki/api/broker_tradovate.py`, a stateless relay that stores nothing: credentials → token once, then token per request; contracts capped at 10 per ticket). Guardrails:

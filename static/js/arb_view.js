@@ -26,10 +26,11 @@
     const cell = (label, value, cls = '') => `<div><span>${label}</span><b class="${cls}">${value}</b></div>`;
     $('arb-live').innerHTML = !s.running ? '<p class="muted">Engine stopped. It runs only while this page is open, on your device.</p>' : `
       <p class="caption">${m ? `<a href="${F.esc(m.url)}" target="_blank" rel="noopener noreferrer">${F.esc(m.question)} ↗</a> · ${left}s left` : 'Finding the live market…'}${s.error ? ` · <span class="bad">${F.esc(s.error)}</span>` : ''}</p>
+      ${s.warning ? `<p class="form-message">${F.esc(s.warning)}</p>` : ''}
       <div class="arb-cells">
         ${cell('Start price', s.s0 ? F.num(s.s0) : '…')}${cell('Spot now', s.fair ? F.num(s.fair.spot) : '…')}${cell('TWAP so far', s.fair && s.fair.twap ? F.num(s.fair.twap) : 'not yet')}
         ${cell('Model P(Up)', s.fair ? F.pct(s.fair.p) : '…')}${cell('Up ask', e.upAsk != null ? e.upAsk.toFixed(2) : '—')}${cell('Down ask', e.downAsk != null ? e.downAsk.toFixed(2) : '—')}
-        ${cell('Edge Up', e.up != null ? `${(e.up * 100).toFixed(1)}pt` : '—', e.up > 0 ? 'up' : 'down')}${cell('Edge Down', e.down != null ? `${(e.down * 100).toFixed(1)}pt` : '—', e.down > 0 ? 'up' : 'down')}${cell('Book round trip', s.rtt ? `${Math.round(s.rtt)}ms` : '…')}
+        ${cell('Edge Up', s.stale ? 'paused' : e.up != null ? `${(e.up * 100).toFixed(1)}pt` : '—', e.up > 0 && !s.stale ? 'up' : 'down')}${cell('Edge Down', s.stale ? 'paused' : e.down != null ? `${(e.down * 100).toFixed(1)}pt` : '—', e.down > 0 && !s.stale ? 'up' : 'down')}${cell('Book round trip', s.rtt ? `${Math.round(s.rtt)}ms` : '…')}
         ${cell('Market lag', s.lag == null ? 'measuring' : `${s.lag}s behind the model`)}
       </div>${chart(s.series || [])}`;
     const p = s.paper;

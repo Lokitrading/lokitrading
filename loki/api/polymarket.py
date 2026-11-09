@@ -140,7 +140,35 @@ def _clean_event(e: Dict[str, Any], top: int = 6) -> Optional[Dict[str, Any]]:
     }
 
 
+def _trending_events(limit: int) -> List[Dict[str, Any]]:
+    """Top markets by 24h volume, regrouped into their events.
+
+    The untagged /events feed can exceed 10 MB (one sports event alone carries
+    hundreds of markets), so trending is built from the much smaller /markets
+    list instead, keeping only the busiest markets of each event.
+    """
+    rows = _get("/markets", {"active": "true", "closed": "false", "limit": 100,
+                             "order": "volume24hr", "ascending": "false"})
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for m in rows if isinstance(rows, list) else []:
+        evs = m.get("events") if isinstance(m, dict) else None
+        ev = evs[0] if isinstance(evs, list) and evs and isinstance(evs[0], dict) else None
+        if not ev or not ev.get("id"):
+            continue
+        entry = grouped.setdefault(str(ev["id"]), {
+            "id": ev.get("id"), "title": ev.get("title") or m.get("question"), "slug": ev.get("slug"),
+            "endDate": ev.get("endDate") or m.get("endDate"), "volume24hr": 0.0, "volume": ev.get("volume"),
+            "liquidity": ev.get("liquidity"), "closed": ev.get("closed"), "markets": []})
+        entry["markets"].append(m)
+        entry["volume24hr"] += _num(m.get("volume24hr")) or 0.0
+    ranked = sorted(grouped.values(), key=lambda e: e["volume24hr"], reverse=True)
+    out = [ev for ev in (_clean_event(e) for e in ranked) if ev]
+    return out[:limit]
+
+
 def events(category: str = "finance", limit: int = 24) -> List[Dict[str, Any]]:
+    if category == "trending":
+        return _trending_events(limit)
     tag = CATEGORIES.get(category)
     params: Dict[str, Any] = {"active": "true", "closed": "false", "limit": min(60, limit * 2),
                               "order": "volume24hr", "ascending": "false"}

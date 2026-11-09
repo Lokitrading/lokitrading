@@ -321,6 +321,9 @@
   $('tradovate-cred').addEventListener('submit', async (e) => {
     e.preventDefault();
     const v = VENUES[state.venue];
+    const missing = [['tv-name', 'username'], ['tv-pass', 'password'], ['tv-cid', 'API CID'], ['tv-sec', 'API secret']].filter(([id]) => !$(id).value.trim()).map(([, label]) => label);
+    if (missing.length) { setMsg('trade-msg', `Fill in your Tradovate ${missing.join(', ')} first (API access is set up in Tradovate → Application Settings → API Access).`, true); return; }
+    if ($('tv-sec').value.trim().length < 8) { setMsg('trade-msg', 'That API secret looks too short — copy the whole secret from Tradovate.', true); return; }
     try {
       setMsg('trade-msg', 'Asking Tradovate for a token…');
       const r = await Loki.postJSON('/api/broker/tradovate/token', { environment: v.env, name: $('tv-name').value.trim(), password: $('tv-pass').value, cid: Number($('tv-cid').value), sec: $('tv-sec').value.trim() });

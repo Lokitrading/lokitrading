@@ -32,6 +32,12 @@
     return clamp(s / 3, -1, 1);
   };
 
+  /** Binance's public mirror occasionally freezes; frozen bars carry zero volume. */
+  const assertLive = (bars) => {
+    const recent = bars.slice(-3);
+    if (!recent.length || recent.every((b) => !(b.v > 0)) || Date.now() - bars[bars.length - 1].t > 3 * 60000) throw new Error('Binance feed stalled (no trades in the latest minutes)');
+  };
+
   const agents = [
     { id: 'pulse', name: 'Price Pulse', family: 'market', every: 15000 },
     { id: 'volburst', name: 'Vol Burst', family: 'market', every: 30000 },
@@ -47,6 +53,7 @@
   const reads = {
     async pulse() {
       const k = await Loki.data.binanceKlines(state.pair, '1m', 121);
+      assertLive(k);
       const r = logReturns(k.map((b) => b.c));
       const last = r[r.length - 1], base = r.slice(0, -1), sd = std(base) || 1e-9;
       const z = (last - mean(base)) / sd;
@@ -54,6 +61,7 @@
     },
     async volburst() {
       const k = await Loki.data.binanceKlines(state.pair, '1m', 240);
+      assertLive(k);
       const r = logReturns(k.map((b) => b.c));
       const ratio = (std(r.slice(-15)) || 1e-9) / (std(r) || 1e-9);
       const drift = r.slice(-15).reduce((a, x) => a + x, 0);
