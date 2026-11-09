@@ -10,6 +10,13 @@
  * Performance figures on the badge are recomputed from the signed entries
  * alone. Broker orders also store the broker's order id, so they can be
  * reconciled against Alpaca/Tradovate, an independent third party.
+ * Strategy commitments (commit-reveal): the current rules are hashed with a
+ * secret random salt and the hash is logged BEFORE any trade; every later
+ * entry carries that hash. Revealing rules + salt later proves the trades
+ * followed rules fixed in advance. This is a hash commitment, NOT a
+ * zero-knowledge proof: verifying it means revealing the rules.
+ * Scorecards: the badge figures plus the chain head are signed with the same
+ * device key and packed into a link anyone can verify in their browser.
  * Limits, stated plainly: a device owner can wipe the log and start a new
  * chain (it would show a new genesis date and key), and the log proves what
  * this device recorded, not what happened elsewhere.
@@ -60,6 +67,8 @@
   }
 
   const read = () => Loki.store.get(LOG_KEY, []);
+  const COMMIT_KEY = 'loki_strategy_commit_v1';
+  const currentCommit = () => Loki.store.get(COMMIT_KEY, null);
   let queue = Promise.resolve();
 
   /** Append one execution. Resolves to the stored entry. */
@@ -67,6 +76,8 @@
     queue = queue.then(async () => {
       const keys = await deviceKeys();
       const log = read(), prev = log.length ? log[log.length - 1].hash : 'genesis';
+      const c = currentCommit();
+      if (c && data && data.action !== 'commit' && !data.commitment) data = { ...data, commitment: c.hash };
       const body = { seq: log.length + 1, ts: new Date().toISOString(), data, prev, key: keys.fingerprint };
       const hash = await sha(canon(body));
       const sig = b64(await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, keys.pair.privateKey, enc.encode(hash)));
@@ -115,5 +126,48 @@
     return { format: 'loki-proof-of-strategy/1', exported_at: new Date().toISOString(), public_key: keys.publicJwk, fingerprint: keys.fingerprint, entries: read() };
   }
 
-  Loki.audit = { append, verify, metrics, export: exportLog, entries: () => read().slice().reverse(), fingerprint: async () => (await deviceKeys()).fingerprint };
+  const b64url = (text) => btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64url = (s) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
+
+  /** Commit to a rule set: logs sha256(canon(rules) + salt) before trading with it. */
+  async function commit(rules, label = 'strategy') {
+    const salt = hex(window.crypto.getRandomValues(new Uint8Array(16)));
+    const hash = await sha(canon(rules) + salt);
+    const record = { hash, salt, rules, label, at: new Date().toISOString() };
+    Loki.store.set(COMMIT_KEY, record);
+    const history = Loki.store.get(COMMIT_KEY + '_history', []);
+    history.push(record); Loki.store.set(COMMIT_KEY + '_history', history.slice(-50));
+    await append({ kind: 'paper', action: 'commit', label, commitment: hash });
+    return { hash, label };
+  }
+  /** Reveal the rules and salt behind a commitment (yours, from this device). */
+  function reveal(hash) {
+    const all = Loki.store.get(COMMIT_KEY + '_history', []);
+    const r = hash ? all.find((x) => x.hash === hash) : currentCommit();
+    return r ? { format: 'loki-commitment-reveal/1', hash: r.hash, salt: r.salt, rules: r.rules, label: r.label, committed_at: r.at } : null;
+  }
+  async function checkReveal(rev) {
+    if (!rev || !rev.salt || !rev.hash) return { ok: false, why: 'not a reveal file' };
+    const ok = (await sha(canon(rev.rules) + rev.salt)) === rev.hash;
+    const logged = read().find((e) => e.data && e.data.action === 'commit' && e.data.commitment === rev.hash);
+    const trades = read().filter((e) => e.data && e.data.commitment === rev.hash && e.data.action !== 'commit').length;
+    return { ok, why: ok ? 'rules + salt reproduce the committed hash' : 'rules or salt do not match the hash', logged_at: logged ? logged.ts : null, trades };
+  }
+
+  /** A signed scorecard link fragment: metrics + chain head, signed with the device key. */
+  async function scorecard() {
+    const keys = await deviceKeys(), log = read();
+    const card = { v: 1, metrics: metrics(log), count: log.length, head: log.length ? log[log.length - 1].hash : 'genesis',
+      genesis: log.length ? log[0].ts : null, issued: new Date().toISOString(), key: keys.publicJwk, commitment: (currentCommit() || {}).hash || null };
+    const sig = b64(await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, keys.pair.privateKey, enc.encode(canon(card))));
+    return b64url(JSON.stringify({ card, sig }));
+  }
+  async function verifyScorecard(token) {
+    const { card, sig } = JSON.parse(unb64url(String(token).replace(/^#?scorecard=/, '')));
+    const pub = await subtle.importKey('jwk', { ...card.key, ext: true }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+    const ok = await subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, unb64(sig), enc.encode(canon(card)));
+    return { ok, card, fingerprint: (await sha(card.key.x + card.key.y)).slice(0, 16) };
+  }
+
+  Loki.audit = { append, verify, metrics, export: exportLog, commit, reveal, checkReveal, currentCommit, scorecard, verifyScorecard, entries: () => read().slice().reverse(), fingerprint: async () => (await deviceKeys()).fingerprint };
 })();

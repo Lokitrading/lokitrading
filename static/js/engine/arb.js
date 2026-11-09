@@ -77,6 +77,27 @@
     for (const b of k) merged.set(b.t, b);
     S.secs = [...merged.values()].sort((a, z) => a.t - z.t).slice(-600);
     S.stale = feedStale(S.secs, Date.now());
+    S.source = 'binance';
+    // Second venue: Coinbase. Used as a live backup when Binance stalls, and
+    // every few seconds as a cross-check (the Binance–Coinbase basis).
+    if (S.stale || Date.now() - (S.cbAt || 0) > 3000) {
+      try {
+        const t = await Loki.getJSON(`https://api.exchange.coinbase.com/products/${S.asset}-USD/ticker`, { timeout: 4000 });
+        const price = Number(t.price), at = Date.parse(t.time) || Date.now();
+        S.cbAt = Date.now();
+        if (price > 0) {
+          const last = S.secs[S.secs.length - 1];
+          S.basisBps = last && !S.stale ? (last.c / price - 1) * 1e4 : null;
+          if (S.stale && Date.now() - at < 10000) {
+            const sec = Math.floor(Date.now() / 1000) * 1000;
+            S.secs.push({ t: sec, o: price, h: price, l: price, c: price, v: Number(t.size) || 1, src: 'coinbase' });
+            S.secs = S.secs.filter((b, i, a) => i === a.length - 1 || b.t !== a[a.length - 1].t).slice(-600);
+            S.stale = feedStale(S.secs, Date.now());
+            if (!S.stale) S.source = 'coinbase';
+          }
+        }
+      } catch { /* Coinbase unreachable: Binance-only this tick */ }
+    }
     if (S.market && S.s0 == null) {
       const atStart = k.find((b) => b.t === S.market.start * 1000);
       if (atStart) S.s0 = atStart.o;
@@ -201,7 +222,7 @@
       S.book = await readBooks();
       const fair = S.stale ? null : fairUp(Date.now() / 1000);
       S.fair = fair;
-      if (S.stale) S.warning = 'Binance’s 1-second feed has stalled (no trades for 20s or old data): no signals until it moves again.';
+      if (S.stale) S.warning = 'Binance’s 1-second feed has stalled and Coinbase could not stand in: no signals until a spot feed moves again.';
       if (fair) {
         const e = edges(S.book, fair.p);
         S.edges = e;
@@ -211,7 +232,8 @@
         const remaining = S.market.end - nowSec;
         const best = [['up', e.up, e.upAsk], ['down', e.down, e.downAsk]].filter((x) => x[1] != null).sort((a, z) => z[1] - a[1])[0];
         const holding = paper.trades.some((t) => t.slug === S.market.slug);
-        S.warning = best && best[1] > MAX_PLAUSIBLE_EDGE ? `The model and the market disagree by ${(best[1] * 100).toFixed(0)} points: that is a data problem (stale spot feed or the oracle's price differs), not an edge, so nothing is traded.` : (S.stale ? S.warning : null);
+        S.warning = best && best[1] > MAX_PLAUSIBLE_EDGE ? `The model and the market disagree by ${(best[1] * 100).toFixed(0)} points: that is a data problem (stale spot feed or the oracle's price differs), not an edge, so nothing is traded.`
+          : S.source === 'coinbase' ? 'Binance stalled: running on Coinbase’s ticker as the backup spot feed.' : null;
         if (best && best[1] >= S.minEdge && best[1] <= MAX_PLAUSIBLE_EDGE && remaining > 15 && !holding && !S.signalOpen) {
           S.signalOpen = true;
           tryFill(best[0], best[1], best[2]).finally(() => { S.signalOpen = false; });
@@ -229,7 +251,7 @@
 
   function snapshot() {
     const st = paper.stats, closed = paper.trades.filter((t) => t.status !== 'open');
-    return { running: S.running, asset: S.asset, market: S.market, s0: S.s0, fair: S.fair, edges: S.edges, rtt: mean(S.rtt), lag: S.lag, error: S.error, warning: S.warning, stale: S.stale, series: S.series,
+    return { running: S.running, asset: S.asset, market: S.market, s0: S.s0, fair: S.fair, edges: S.edges, rtt: mean(S.rtt), lag: S.lag, error: S.error, warning: S.warning, stale: S.stale, series: S.series, source: S.source || 'binance', basisBps: S.basisBps ?? null,
       paper: { cash: paper.cash, start: paper.start, trades: paper.trades.slice(-15).reverse(), open: paper.trades.filter((t) => t.status === 'open').length,
         pnl: closed.reduce((a, t) => a + (t.pnl || 0), 0), wins: closed.filter((t) => t.status === 'won').length, closed: closed.length,
         signals: st.signals, fills: st.fills, missed: st.missed, edgeSignal: mean(st.edge_signal), edgeFill: mean(st.edge_fill) },

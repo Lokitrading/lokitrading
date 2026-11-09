@@ -31,7 +31,7 @@
         ${cell('Start price', s.s0 ? F.num(s.s0) : '…')}${cell('Spot now', s.fair ? F.num(s.fair.spot) : '…')}${cell('TWAP so far', s.fair && s.fair.twap ? F.num(s.fair.twap) : 'not yet')}
         ${cell('Model P(Up)', s.fair ? F.pct(s.fair.p) : '…')}${cell('Up ask', e.upAsk != null ? e.upAsk.toFixed(2) : '—')}${cell('Down ask', e.downAsk != null ? e.downAsk.toFixed(2) : '—')}
         ${cell('Edge Up', s.stale ? 'paused' : e.up != null ? `${(e.up * 100).toFixed(1)}pt` : '—', e.up > 0 && !s.stale ? 'up' : 'down')}${cell('Edge Down', s.stale ? 'paused' : e.down != null ? `${(e.down * 100).toFixed(1)}pt` : '—', e.down > 0 && !s.stale ? 'up' : 'down')}${cell('Book round trip', s.rtt ? `${Math.round(s.rtt)}ms` : '…')}
-        ${cell('Market lag', s.lag == null ? 'measuring' : `${s.lag}s behind the model`)}
+        ${cell('Market lag', s.lag == null ? 'measuring' : `${s.lag}s behind the model`)}${cell('Spot source', s.source === 'coinbase' ? 'Coinbase (backup)' : 'Binance')}${cell('Binance–Coinbase', s.basisBps == null ? '—' : `${s.basisBps >= 0 ? '+' : ''}${s.basisBps.toFixed(1)}bp`)}
       </div>${chart(s.series || [])}`;
     const p = s.paper;
     $('arb-stats').innerHTML = [

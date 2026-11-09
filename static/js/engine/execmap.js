@@ -7,6 +7,10 @@
  * red failed); pending orders orbit their venue as small cubes until they fill.
  * Nothing here is decorative data: it is drawn from the page's own network tap
  * (hosts, timings and status codes only; never bodies, headers or keys).
+ * The inner ring is the engine's own "neural flow": each sub-agent (council,
+ * swarm, consensus gate, evolution, Monte Carlo risk, risk matrix, execution
+ * monitor, arbitrage engine) lights up when it actually fires an event, and
+ * the table shows its current memory state (weights, generation, VaR…).
  * Three.js is loaded only when this view is opened.
  */
 'use strict';
@@ -24,7 +28,41 @@
     { id: 'tradovate', label: 'Tradovate (via Loki)', color: 0xc3a6ff },
     { id: 'yahoo', label: 'Yahoo (via Loki)', color: 0xb8f0d8 },
     { id: 'social', label: 'Social feeds', color: 0xffb3a7 },
+    { id: 'coinbase', label: 'Coinbase (backup feed)', color: 0x5b8cff },
   ];
+  // Sub-agents of the on-device engine, keyed by the events they emit.
+  const AGENTS = [
+    { id: 'council', label: 'Six-bot council', color: 0xa8f0c6, events: ['council:journal'] },
+    { id: 'swarm', label: 'Sentiment swarm', color: 0xffd27a, events: ['swarm:update', 'swarm:event'] },
+    { id: 'consensus', label: 'Consensus gate', color: 0xc3a6ff, events: ['consensus:vote'] },
+    { id: 'evolve', label: 'Evolution', color: 0x7fe0ff, events: ['evolve:gen', 'evolve:deploy'] },
+    { id: 'mcrisk', label: 'Monte Carlo risk', color: 0xff9db0, events: ['mcrisk:update'] },
+    { id: 'risk', label: 'Risk matrix', color: 0xff7a66, events: ['risk:update', 'risk:tripped', 'risk:healed'] },
+    { id: 'execq', label: 'Execution monitor', color: 0x9ec5ff, events: ['execq:route'] },
+    { id: 'arb', label: 'Arbitrage engine', color: 0xf3ba2f, events: ['arb:update'] },
+  ];
+  const agentState = Object.fromEntries(AGENTS.map((a) => [a.id, { n: 0, at: 0, memory: '—' }]));
+  const agentQueue = [];
+  const memoryOf = {
+    'consensus:vote': (r) => `${r.approved ? 'approved' : 'blocked'} · score ${r.score >= 0 ? '+' : ''}${(r.score || 0).toFixed(2)}`,
+    'evolve:gen': (r) => { const h = (r.history || [])[(r.history || []).length - 1]; return h ? `gen ${r.gen} · unseen-data fitness ${h.val.toFixed(3)}` : String(r.status || 'evolving').slice(0, 40); },
+    'evolve:deploy': () => 'champion deployed',
+    'mcrisk:update': (r) => r && r.var95 != null ? `VaR95 ${F.usd(r.var95)} · ×${(r.multiplier || 1).toFixed(2)}` : `${(r && r.positions) || 0} positions`,
+    'risk:update': (r) => `${String(r.level).toUpperCase()} · size ×${(r.sizeMultiplier || 0).toFixed(2)}`,
+    'risk:tripped': () => 'BREAKER TRIPPED', 'risk:healed': () => 'healed, ramping back',
+    'swarm:update': (r) => r && r.running ? `bias ${(r.sentiment || 0).toFixed(2)}${r.event ? ' · EVENT' : ''}` : 'idle',
+    'swarm:event': () => 'volatility quorum',
+    'execq:route': (r) => `spot via ${r.source}`,
+    'arb:update': (r) => r && r.running ? `${r.source || 'binance'} · ${r.paper ? r.paper.fills : 0} fills` : 'stopped',
+    'council:journal': () => 'learned from a resolved call',
+  };
+  for (const a of AGENTS) for (const ev of a.events) {
+    Loki.on(ev, (payload) => {
+      const st = agentState[a.id]; st.n += 1; st.at = Date.now();
+      try { st.memory = (memoryOf[ev] || (() => 'active'))(payload || {}); } catch { st.memory = 'active'; }
+      agentQueue.push(a.id); if (agentQueue.length > 100) agentQueue.splice(0, agentQueue.length - 100);
+    });
+  }
   const stats = Object.fromEntries(VENUES.map((v) => [v.id, { n: 0, ms: 0, last: null, errors: 0 }]));
   const queue = [];
   let orders = [];
@@ -41,6 +79,7 @@
     if (host.startsWith('paper-api.alpaca')) return 'alpaca-paper';
     if (host.includes('alpaca')) return 'alpaca-live';
     if (host.includes('reddit') || host.includes('algolia')) return 'social';
+    if (host.includes('coinbase')) return 'coinbase';
     return null;
   }
 
@@ -66,6 +105,7 @@
     started = true;
     root.innerHTML = `<div class="xm-stage"><canvas id="xm-canvas" aria-label="3D map of live connections"></canvas><div class="xm-scan" aria-hidden="true"></div></div>
       <div class="xm-side"><p class="eyebrow">LIVE CONNECTIONS FROM THIS DEVICE</p><table class="xm-table"><thead><tr><th>Venue</th><th>Calls</th><th>Avg ms</th><th>Last</th></tr></thead><tbody id="xm-rows"></tbody></table>
+      <p class="eyebrow">ENGINE SUB-AGENTS · MEMORY STATE</p><table class="xm-table"><thead><tr><th>Agent</th><th>Events</th><th>State</th></tr></thead><tbody id="xm-agents"></tbody></table>
       <p class="caption">Drag to rotate, scroll to zoom. Pulses are real requests this page made: green answered, amber slow (&gt;1.5 s), red failed. Cubes are orders (paper or live) until they settle.</p></div>`;
     try {
       three = await import('/static/vendor/three/three.module.min.js');
@@ -84,6 +124,9 @@
       if (!document.body.contains(rows)) return;
       rows.innerHTML = VENUES.map((v) => { const s = stats[v.id]; const cls = !s.n ? '' : s.last && s.last < 400 ? (s.ms > 1500 ? 'slow' : 'ok') : 'bad';
         return `<tr class="${cls}"><td><i style="background:#${v.color.toString(16).padStart(6, '0')}"></i>${F.esc(v.label)}</td><td>${s.n}</td><td>${s.n ? Math.round(s.ms) : '—'}</td><td>${s.last == null ? '—' : s.last || 'fail'}</td></tr>`; }).join('');
+      const ag = root.querySelector('#xm-agents');
+      if (ag) ag.innerHTML = AGENTS.map((a) => { const st = agentState[a.id], hot = Date.now() - st.at < 4000;
+        return `<tr class="${hot ? 'ok' : ''}"><td><i style="background:#${a.color.toString(16).padStart(6, '0')}"></i>${F.esc(a.label)}</td><td>${st.n}</td><td>${F.esc(st.memory)}</td></tr>`; }).join('');
       setTimeout(paint, 1000);
     };
     paint();
@@ -135,6 +178,23 @@
       nodes[v.id] = { pos, mesh, halo, line, heat: 0 };
     });
 
+    const agentNodes = {};
+    AGENTS.forEach((a, k) => {
+      const ang = (k / AGENTS.length) * Math.PI * 2 + 0.3, r = 3.3;
+      const pos = new T.Vector3(Math.cos(ang) * r, 1.9 + Math.cos(k * 2.1) * 0.5, Math.sin(ang) * r);
+      const mesh = new T.Mesh(new T.OctahedronGeometry(0.26, 0), new T.MeshBasicMaterial({ color: a.color, wireframe: true }));
+      mesh.position.copy(pos); scene.add(mesh);
+      const halo = glow(a.color, 1.1); halo.position.copy(pos); scene.add(halo);
+      const tag = label(a.label, a.color); tag.scale.set(3, 0.57, 1); tag.position.copy(pos).add(new T.Vector3(0, 0.6, 0)); scene.add(tag);
+      const line = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(0, 0, 0), pos]), new T.LineBasicMaterial({ color: a.color, transparent: true, opacity: 0.12, blending: T.AdditiveBlending }));
+      scene.add(line);
+      agentNodes[a.id] = { pos, mesh, halo, line, heat: 0 };
+    });
+    // Synapses between agents that feed each other.
+    [['council', 'consensus'], ['swarm', 'consensus'], ['mcrisk', 'risk'], ['risk', 'consensus'], ['execq', 'consensus'], ['evolve', 'council'], ['swarm', 'risk'], ['execq', 'arb']].forEach(([a, b]) => {
+      scene.add(new T.Line(new T.BufferGeometry().setFromPoints([agentNodes[a].pos, agentNodes[b].pos]), new T.LineBasicMaterial({ color: 0x8bdad4, transparent: true, opacity: 0.1 })));
+    });
+
     const pulses = [], cubes = new Map();
     const pulseGeo = new T.SphereGeometry(0.12, 10, 10);
     function spawn(item) {
@@ -163,6 +223,13 @@
       camera.lookAt(0, 0, 0);
       core.rotation.y += dt * 0.4; core.rotation.x += dt * 0.15;
       while (queue.length) spawn(queue.shift());
+      while (agentQueue.length) {
+        const node = agentNodes[agentQueue.shift()]; if (!node) continue;
+        node.heat = Math.min(1, node.heat + 0.6);
+        const m = new T.Mesh(pulseGeo, new T.MeshBasicMaterial({ color: 0xe7f0ff, transparent: true, blending: T.AdditiveBlending }));
+        scene.add(m); pulses.push({ m, node, out: false, t: 0, speed: 1.4 });
+      }
+      for (const id in agentNodes) { const n = agentNodes[id]; n.heat *= 0.95; n.line.material.opacity = 0.1 + n.heat * 0.7; n.halo.scale.setScalar(1.1 + n.heat * 1.4); n.mesh.rotation.y += dt * (0.5 + n.heat * 4); }
       for (let i = pulses.length - 1; i >= 0; i--) {
         const p = pulses[i]; p.t += dt * p.speed;
         const k = p.out ? p.t : 1 - p.t;

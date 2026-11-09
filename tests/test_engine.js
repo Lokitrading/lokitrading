@@ -126,3 +126,69 @@ test('arbitrage engine refuses to trade on a stalled feed or an implausible edge
   assert.equal(Loki.arb.feedStale(live, now + 60000), true, 'old data = stalled feed');
   assert.ok(Loki.arb.MAX_PLAUSIBLE_EDGE <= 0.25, 'a 48-point "edge" is a data error, never a trade');
 });
+
+test('natural-language builder parses a sentence into typed rules, code and a next-bar-fill backtest', () => {
+  const { Loki } = load('core.js', 'strategy_nl.js');
+  const r = Loki.strategy.parse('Buy ETH 15m when the 20 EMA crosses above the 50 EMA and RSI 14 is below 70, sell when RSI goes above 75 or after 30 bars, stop loss 2%, take profit 6%, size 50%');
+  assert.equal(r.symbol, 'ETH-USD'); assert.equal(r.interval, '15m');
+  assert.deepEqual(JSON.parse(JSON.stringify(r.entry.map((c) => c.type))), ['rsi', 'cross']);
+  assert.equal(r.stop, 2); assert.equal(r.take, 6); assert.equal(r.size, 0.5); assert.equal(r.exitAny, true);
+  assert.ok(r.exit.some((c) => c.type === 'bars_held' && c.n === 30));
+  assert.match(Loki.strategy.toCode(r), /crossesAbove\(ema\(close, 20\), ema\(close, 50\), i\)/);
+  // Unknown words are reported, never invented into rules.
+  const vague = Loki.strategy.parse('buy when the vibes are good');
+  assert.equal(vague.entry.length, 0); assert.ok(vague.notes.some((n) => /No entry condition/.test(n)));
+  // A breakout rule on a rising series trades, fills at the next open, and pays costs.
+  const bars = series(400, () => 0.003);
+  const bt = Loki.strategy.backtest(Loki.strategy.parse('buy when price breaks the 20 bar high, stop loss 5%, take profit 4%'), bars);
+  assert.ok(bt.trades > 3, 'it traded'); assert.ok(bt.list.every((t) => t.bars >= 0 && Number.isFinite(t.ret)));
+  const flat = Loki.strategy.backtest({ ...Loki.strategy.parse('buy when rsi is below 101, sell after 1 bars'), size: 1 }, series(200, () => 0, 3));
+  assert.ok(flat.avgTrade < 0, 'round trips on a driftless series lose the 10bp-per-side cost');
+});
+
+test('portfolio Monte Carlo bootstraps whole days jointly and prices binaries at fair odds', () => {
+  const { LokiMC } = load('mc_core.js');
+  const days = Array.from({ length: 250 }, (_, i) => Math.sin(i * 1.7) * 0.02);
+  const same = LokiMC.simulatePortfolio({ positions: [{ id: 'a', value: 1000, returns: days }, { id: 'b', value: 1000, returns: days }], paths: 4000, seed: 5 });
+  const hedged = LokiMC.simulatePortfolio({ positions: [{ id: 'a', value: 1000, returns: days }, { id: 'b', value: -1000, returns: days }], paths: 4000, seed: 5 });
+  assert.ok(same.var95 > 25, 'two identical longs add up');
+  assert.ok(Math.abs(hedged.var95) < 1e-9, 'a long and an equal short on the same days cancel exactly');
+  assert.ok(same.var99 >= same.var95 && same.cvar95 >= same.var95);
+  const bin = LokiMC.simulatePortfolio({ positions: [{ id: 'x', kind: 'binary', qty: 100, price: 0.5, fair_p: 0.5 }], paths: 20000, seed: 9 });
+  assert.ok(Math.abs(bin.var95 - 50) < 1e-9, 'a 50¢ token loses its 50¢ stake in the bad half');
+});
+
+test('execution monitor marks a failing venue down and routes size to zero', () => {
+  const { Loki } = load('core.js', 'execq.js');
+  for (let i = 0; i < 6; i++) Loki.emit('net', { phase: 'end', host: 'paper-api.alpaca.markets', path: '/v2/orders', ms: 120, status: i < 4 ? 503 : 200 });
+  for (let i = 0; i < 6; i++) Loki.emit('net', { phase: 'end', host: 'data-api.binance.vision', path: '/api/v3/klines', ms: 90, status: 200 });
+  assert.equal(Loki.execq.stats('alpaca-paper').state, 'down'); assert.equal(Loki.execq.sizeFactor('alpaca-paper'), 0);
+  assert.equal(Loki.execq.stats('binance').state, 'healthy'); assert.equal(Loki.execq.sizeFactor('binance'), 1);
+  assert.equal(Loki.execq.stats('tradovate').state, 'unknown');
+});
+
+test('consensus gate vetoes on a down venue or a red breaker, and lets exits through', async () => {
+  const { Loki } = load('core.js', 'council.js', 'risk.js', 'execq.js', 'consensus.js');
+  Loki.getJSON = async (url) => { if (url === '/api/newswire') return { tone: 0, items: [] }; throw new Error('offline'); };
+  Loki.data.bars = async () => series(80, () => 0.004);
+  const council = { p_up: 0.8, horizon: 5, confidence: 0.6 };
+  const green = { level: 'green', reason: 'within limits' }, red = { level: 'red', reason: 'drawdown' };
+  const ok = await Loki.consensus.vote({ symbol: 'SPY', side: 'buy', notional: 500, venue: 'alpaca-paper', kind: 'stock' }, { council, risk: green });
+  assert.equal(ok.approved, true, ok.summary);
+  const blocked = await Loki.consensus.vote({ symbol: 'SPY', side: 'buy', notional: 500, venue: 'alpaca-paper', kind: 'stock' }, { council, risk: red });
+  assert.equal(blocked.approved, false); assert.ok(blocked.vetoes.includes('Risk-Manager'));
+  const exit = await Loki.consensus.vote({ symbol: 'SPY', side: 'sell', notional: 500, venue: 'alpaca-paper', kind: 'stock', exit: true }, { council, risk: red });
+  assert.equal(exit.approved, true, 'closing risk is never blocked by the breaker or a bearish vote');
+  for (let i = 0; i < 5; i++) Loki.emit('net', { phase: 'end', host: 'paper-api.alpaca.markets', path: '/v2/orders', ms: 100, status: 502 });
+  const down = await Loki.consensus.vote({ symbol: 'SPY', side: 'buy', notional: 500, venue: 'alpaca-paper', kind: 'stock' }, { council, risk: green });
+  assert.ok(down.vetoes.includes('Execution-Quality'));
+  const thin = await Loki.consensus.vote({ symbol: 'BTC-USD', side: 'buy', notional: 50000, venue: 'binance', kind: 'crypto' }, { council, risk: green, book: { bids: [[99.9, 10]], asks: [[100.1, 10]] } });
+  assert.ok(thin.vetoes.includes('Order-Book Liquidity'));
+});
+
+test('replay sandbox carries second-by-second events with exact UTC windows', () => {
+  const { Loki } = load('core.js', 'council.js', 'risk.js', 'replay.js');
+  const hf = Loki.replay.EVENTS.filter((e) => e.interval === '1s');
+  assert.ok(hf.length >= 4);
+  for (const e of hf) { const span = Date.parse(e.end) - Date.parse(e.start); assert.ok(span > 0 && span <= 3000 * 1000, `${e.id} fits in 3,000 one-second bars`); assert.ok(Date.parse(e.start) >= Date.parse('2024-08-05T00:00:00Z'), 'Binance keeps 1s bars from Aug 2024'); }
+});

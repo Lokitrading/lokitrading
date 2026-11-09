@@ -32,6 +32,7 @@ from loki.api.broker_tradovate import router as broker_tradovate_router
 from loki.api.broker_workspace import router as broker_workspace_router
 from loki.api.dive_board import router as dive_board_router
 from loki.api.dive_sessions import router as dive_sessions_router
+from loki.api.engine_feeds import router as engine_feeds_router
 from loki.api.funded import router as funded_router
 from loki.api.fusion import router as fusion_router
 from loki.api.indicator_page import router as indicator_page_router
@@ -67,6 +68,7 @@ for _router in (
     live_markets_router,
     polymarket_bot_router,
     polymarket_router,
+    engine_feeds_router,
     feed_status_router,
     broker_alpaca_router,
     broker_tradovate_router,
@@ -99,7 +101,8 @@ CONTENT_SECURITY_POLICY = "; ".join(
         "connect-src 'self' https://gamma-api.polymarket.com https://clob.polymarket.com "
         "wss://ws-subscriptions-clob.polymarket.com https://data-api.binance.vision "
         "wss://data-stream.binance.vision https://paper-api.alpaca.markets https://api.alpaca.markets "
-        "https://data.alpaca.markets https://www.reddit.com https://hn.algolia.com",
+        "https://data.alpaca.markets https://www.reddit.com https://hn.algolia.com "
+        "https://api.exchange.coinbase.com https://data-api.polymarket.com",
         "worker-src 'self'",
         "frame-ancestors 'self'",
         "object-src 'none'",

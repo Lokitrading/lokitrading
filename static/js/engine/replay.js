@@ -23,6 +23,11 @@
     { id: 'yen', name: 'Yen carry-trade unwind', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '15m', start: '2024-08-01', end: '2024-08-08', note: 'A flash crash across assets on 5 August 2024.' },
     { id: 'election', name: 'US election night 2024', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '15m', start: '2024-11-03', end: '2024-11-09', note: 'Prediction markets resolved and BTC repriced overnight.' },
     { id: 'tariff-btc', name: 'Tariff shock (crypto)', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '1h', start: '2025-03-31', end: '2025-04-14', note: '“Liberation Day” tariffs: risk assets sold off, then snapped back.' },
+    // Second-by-second replays (Binance keeps 1-second bars from August 2024): 50 minutes around the sharpest move.
+    { id: 'yen-1s', name: 'Yen unwind, second by second', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '1s', start: '2024-08-05T05:24:00Z', end: '2024-08-05T06:14:00Z', note: 'The 8% plunge on 5 August 2024 at 1-second resolution: 3,000 bars in 50 minutes.' },
+    { id: 'election-1s', name: 'Election night breakout, second by second', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '1s', start: '2024-11-06T02:07:00Z', end: '2024-11-06T02:57:00Z', note: 'BTC broke its record as the results came in: a 4% move in 50 minutes.' },
+    { id: 'btc100k-1s', name: '$100k flash crash, second by second', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '1s', start: '2024-12-05T21:28:00Z', end: '2024-12-05T22:18:00Z', note: 'Hours after BTC first crossed $100k, it fell more than 6% in minutes.' },
+    { id: 'oct10-1s', name: '10 Oct 2025 liquidation cascade, second by second', symbol: 'BTC-USD', pair: 'BTCUSDT', interval: '1s', start: '2025-10-10T20:19:00Z', end: '2025-10-10T21:09:00Z', note: 'Crypto’s largest liquidation day: an 11% swing inside 50 minutes.' },
     { id: 'covid-spy', name: 'COVID crash (S&P 500)', symbol: 'SPY', interval: '1d', start: '2019-10-01', end: '2020-06-30', note: 'The fastest 30% bear market on record, then a V.' },
     { id: 'deepseek', name: 'DeepSeek AI shock (Nvidia)', symbol: 'NVDA', interval: '1d', start: '2024-10-01', end: '2025-03-15', note: 'A cheap Chinese AI model knocked ~17% off Nvidia in a day.' },
     { id: 'bear2022', name: '2022 bear market (Nasdaq)', symbol: 'QQQ', interval: '1d', start: '2021-09-01', end: '2022-12-31', note: 'A slow, grinding year-long decline as rates rose.' },
@@ -32,7 +37,8 @@
 
   async function loadBars(ev) {
     if (ev.pair) {
-      const start = Date.parse(ev.start + 'T00:00:00Z'), end = Date.parse(ev.end + 'T00:00:00Z');
+      const at = (d) => Date.parse(d.length > 10 ? d : d + 'T00:00:00Z');
+      const start = at(ev.start), end = at(ev.end);
       const out = [];
       let cursor = start;
       while (cursor < end && out.length < 3000) {
@@ -148,7 +154,7 @@
       <div><p class="eyebrow">DECISIONS, STEP BY STEP</p><ol id="rp-log" class="rp-log"></ol></div></div>`;
     const $ = (id) => root.querySelector('#' + id);
     let sim = null, timer = null, current = null;
-    const describe = () => { const ev = EVENTS.find((e) => e.id === $('rp-event').value); $('rp-note').textContent = `${ev.note} ${ev.start} → ${ev.end}. Uses your co-pilot settings (trailing stop ${Loki.config().trailing_stop_pct}%, stop ${Loki.config().stop_loss_pct}%).`; return ev; };
+    const describe = () => { const ev = EVENTS.find((e) => e.id === $('rp-event').value); $('rp-note').textContent = `${ev.note} ${ev.start.replace('T', ' ').replace(':00Z', ' UTC')} → ${ev.end.replace('T', ' ').replace(':00Z', ' UTC')}. Uses your co-pilot settings (trailing stop ${Loki.config().trailing_stop_pct}%, stop ${Loki.config().stop_loss_pct}%).`; return ev; };
     describe();
     $('rp-event').addEventListener('change', () => { stop(); sim = null; describe(); });
     const stop = () => { clearTimeout(timer); timer = null; $('rp-play').textContent = sim && !sim.snapshot().done ? 'Play ▶' : 'Load & play ▶'; };

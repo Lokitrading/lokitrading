@@ -15,19 +15,19 @@
     } catch { worker = false; }
     return worker;
   }
-  function run(plan) {
+  function run(plan, kind = 'trade') {
     const started = performance.now();
     const finish = (result) => ({ ...result, ms: Math.round(performance.now() - started) });
     const inline = () => {
       if (!window.LokiMC) throw new Error('Monte Carlo engine not loaded');
-      return finish(window.LokiMC.simulate(plan));
+      return finish(kind === 'portfolio' ? window.LokiMC.simulatePortfolio(plan) : window.LokiMC.simulate(plan));
     };
     const w = getWorker();
     if (!w) return Promise.resolve().then(inline);
     return new Promise((resolve, reject) => {
       const id = ++seq;
       waiting.set(id, { resolve: (r) => resolve(finish(r)), reject, fallback: () => { try { resolve(inline()); } catch (e) { reject(e); } } });
-      w.postMessage({ id, plan });
+      w.postMessage({ id, plan, kind });
       setTimeout(() => { const job = waiting.get(id); if (job) { waiting.delete(id); job.fallback(); } }, 15000);
     });
   }
