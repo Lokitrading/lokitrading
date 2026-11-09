@@ -10,7 +10,8 @@
  *   <h1 data-reveal-words>                 → words rise in one by one
  *   .loki-glow elements                    → cursor-following light
  *
- * Everything respects prefers-reduced-motion and pauses in hidden tabs.
+ * Decorative motion respects prefers-reduced-motion and pauses in hidden tabs; the
+ * price tape keeps scrolling (slower) with reduced motion and has its own pause button.
  */
 'use strict';
 (() => {
@@ -237,7 +238,9 @@
         }
       } else {
         const row = items.map((i) => `<span class="lt-item" data-sym="${esc(i.symbol)}">${cell(i)}</span>`).join('');
-        el.innerHTML = `<div class="lt-track"><div class="lt-row">${row}</div><div class="lt-row" aria-hidden="true">${row}</div></div>`;
+        const paused = el.classList.contains('paused');
+        el.innerHTML = `<div class="lt-viewport"><div class="lt-track"><div class="lt-row">${row}</div><div class="lt-row" aria-hidden="true">${row}</div></div></div>` +
+          `<button type="button" class="lt-toggle" aria-pressed="${paused}" aria-label="${paused ? 'Play' : 'Pause'} the price ticker" title="${paused ? 'Play' : 'Pause'} the price ticker">${paused ? '▶' : '❚❚'}</button>`;
         el.dataset.symbols = key;
         el.style.setProperty('--lt-duration', `${Math.max(40, items.length * 3.2)}s`);
         el.setAttribute('aria-label', `Live prices for ${items.length} markets`);
@@ -295,7 +298,21 @@
     if (body.dataset.lokiScene === 'full') makeScene(body, true);
     document.querySelectorAll('[data-loki-scene="hero"]').forEach((host) => makeScene(host, false));
     const ticker = document.getElementById('loki-ticker');
-    if (ticker) { fillTicker(ticker); setInterval(() => { if (!document.hidden) fillTicker(ticker); }, 60000); }
+    if (ticker) {
+      let pausedPref = false;
+      try { pausedPref = localStorage.getItem('loki_ticker_paused') === '1'; } catch { /* storage blocked */ }
+      ticker.classList.toggle('paused', pausedPref);
+      // The tape scrolls by itself; the button is the only thing that stops it (remembered on this device).
+      ticker.addEventListener('click', (e) => {
+        const btn = e.target.closest('.lt-toggle'); if (!btn) return;
+        const paused = !ticker.classList.contains('paused');
+        ticker.classList.toggle('paused', paused);
+        btn.setAttribute('aria-pressed', String(paused)); btn.textContent = paused ? '▶' : '❚❚';
+        btn.setAttribute('aria-label', `${paused ? 'Play' : 'Pause'} the price ticker`); btn.title = btn.getAttribute('aria-label');
+        try { localStorage.setItem('loki_ticker_paused', paused ? '1' : '0'); } catch { /* storage blocked */ }
+      });
+      fillTicker(ticker); setInterval(() => { if (!document.hidden) fillTicker(ticker); }, 60000);
+    }
     document.querySelectorAll('.workspace-launchers > a, .metric, .workflow-card, .peek-card').forEach((el) => el.classList.add('loki-glow'));
     wireGlow();
   }
