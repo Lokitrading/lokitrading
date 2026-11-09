@@ -21,6 +21,7 @@ import math
 import os
 import platform
 import re
+import sys
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -29,11 +30,6 @@ from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import requests
-
-try:  # POSIX only; on Windows the telemetry endpoint reports what it can
-    import resource
-except ImportError:  # pragma: no cover - exercised on Windows CI
-    resource = None  # type: ignore[assignment]
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
@@ -306,26 +302,30 @@ def api_xarb(response: Response) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------- telemetry
-@router.get("/api/status/telemetry")
-def api_telemetry(response: Response) -> Dict[str, Any]:
-    if resource is not None:
-        usage = resource.getrusage(resource.RUSAGE_SELF)
-        cpu: float = usage.ru_utime + usage.ru_stime
-        peak: Optional[float] = round(usage.ru_maxrss / 1024, 1)  # kilobytes on Linux
-    else:
-        cpu = time.process_time()
-        peak = None
+def _process_stats() -> Tuple[float, Optional[float], Optional[float], Optional[float]]:
+    """CPU seconds, current RSS MB, peak RSS MB and 1-minute load; POSIX gives more than Windows."""
+    if sys.platform == "win32":
+        return time.process_time(), None, None, None
+    import resource
+
+    usage = resource.getrusage(resource.RUSAGE_SELF)
     rss_now = None
     try:
         with open("/proc/self/statm") as fh:
             rss_now = int(fh.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1e6
-    except (OSError, ValueError, IndexError, AttributeError):
-        pass
-    uptime = time.time() - _STARTED
+    except (OSError, ValueError, IndexError):
+        pass  # macOS has no /proc
     try:
         load: Optional[float] = os.getloadavg()[0]
-    except (OSError, AttributeError):
+    except OSError:
         load = None
+    return usage.ru_utime + usage.ru_stime, rss_now, round(usage.ru_maxrss / 1024, 1), load
+
+
+@router.get("/api/status/telemetry")
+def api_telemetry(response: Response) -> Dict[str, Any]:
+    cpu, rss_now, peak, load = _process_stats()
+    uptime = time.time() - _STARTED
     response.headers["Cache-Control"] = "no-store"
     return {"server_time": time.time(), "uptime_s": round(uptime, 1), "cold_start": uptime < 15,
             "rss_mb": round(rss_now, 1) if rss_now else None, "peak_rss_mb": peak,
