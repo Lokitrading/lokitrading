@@ -16,6 +16,7 @@ from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, HTTPException, Query, Response
 
+from loki_v8.data import yahoo_ticker
 from loki.api.market_feed import YAHOO_CHART_URL, MarketFeedError, _http_json
 
 router = APIRouter(prefix="/api/replay", tags=["Replay sandbox"])
@@ -72,7 +73,7 @@ def replay_bars(
         raise HTTPException(422, "hourly stock history only reaches back about two years; use daily bars")
     p1 = int(datetime(first.year, first.month, first.day, tzinfo=timezone.utc).timestamp())
     p2 = int(datetime(last.year, last.month, last.day, tzinfo=timezone.utc).timestamp()) + 86400
-    url = f"{YAHOO_CHART_URL}/{quote(symbol.upper(), safe='')}?" + urlencode(
+    url = f"{YAHOO_CHART_URL}/{quote(yahoo_ticker(symbol), safe='')}?" + urlencode(
         {"period1": p1, "period2": p2, "interval": interval, "includePrePost": "false"})
     try:
         bars = parse_chart(_http_json(url, timeout=10.0))

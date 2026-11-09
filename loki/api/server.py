@@ -868,7 +868,8 @@ def deployment_warnings() -> List[str]:
     if not site_access.accounts_available():
         warnings.append("SUPABASE_URL and a Supabase key are not set: sign-up, login and saved workspaces are off.")
     if not os.environ.get("LOKI_BROKER_ENCRYPTION_KEY"):
-        warnings.append("LOKI_BROKER_ENCRYPTION_KEY is not set: connecting a Tradovate account is unavailable.")
+        warnings.append("LOKI_BROKER_ENCRYPTION_KEY is not set: saving a Tradovate funded-account login to a member "
+                        "account is off (the Trade page's Tradovate relay does not need it and still works).")
     return warnings
 
 

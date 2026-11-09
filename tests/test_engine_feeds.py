@@ -108,3 +108,38 @@ def test_workspace_has_command_center_and_new_scripts():
         assert needle in html
     # Engine modules load before the views that use them.
     assert html.index("engine/consensus.js") < html.index("js/trade.js") < html.index("command_center.js")
+
+
+def test_share_class_tickers_map_to_yahoo_and_exchange_suffixes_do_not():
+    from loki_v8.data import normalize_symbol, yahoo_ticker
+    assert yahoo_ticker("brk.b") == "BRK-B" and yahoo_ticker("BF/B") == "BF-B" and yahoo_ticker("HEI.A") == "HEI-A"
+    for untouched in ("VOD.L", "SHOP.TO", "RELIANCE.NS", "SPY", "GC=F", "^GSPC", "BTC-USD", "BRK-B"):
+        assert yahoo_ticker(untouched) == untouched
+    assert normalize_symbol("BRK.B") == "BRK-B" and normalize_symbol("BTCUSDT") == "BTC-USD"
+
+
+def test_unknown_symbol_is_a_404_with_a_hint_not_a_retry_later(monkeypatch):
+    import pandas as pd
+    from loki.api import ai_paper
+
+    class Empty:
+        def fetch_history(self, *a, **k):
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
+    class Pipe:
+        provider = Empty()
+
+    class Cfg:
+        period = "2y"
+
+    monkeypatch.setattr(ai_paper, "_get_pipeline", lambda s: (Pipe(), Cfg(), {}))
+    res = client.get("/api/fusion/ai/bars?symbol=NOPE&timeframe=1d&limit=60")
+    assert res.status_code == 404 and "Check the symbol" in res.json()["detail"]
+
+    class Down:
+        def fetch_history(self, *a, **k):
+            raise ConnectionError("provider down")
+
+    Pipe.provider = Down()
+    res = client.get("/api/fusion/ai/bars?symbol=SPY&timeframe=1d&limit=60")
+    assert res.status_code == 503

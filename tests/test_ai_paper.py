@@ -368,10 +368,11 @@ class TestBars:
         assert "unavailable" in failed.json()["detail"]
         assert "SPY" in failed.json()["detail"]
 
-    def test_empty_or_all_malformed_data_answers_503(self, monkeypatch):
+    def test_empty_is_404_and_all_malformed_data_answers_503(self, monkeypatch):
         empty = FakeProvider(frame=_frame([]))
         _bars_stub(monkeypatch, empty)
-        assert client.get("/api/fusion/ai/bars?symbol=SPY").status_code == 503
+        res = client.get("/api/fusion/ai/bars?symbol=SPY")
+        assert res.status_code == 404 and "Check the symbol" in res.json()["detail"]  # no data = unknown symbol
 
         junk = FakeProvider(frame=_frame([("2026-01-05", None, None, None, None, None)]))
         _bars_stub(monkeypatch, junk)

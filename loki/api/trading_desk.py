@@ -39,6 +39,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
 import loki.api.site_access as site_access
+from loki_v8.data import yahoo_ticker
 from loki.api.market_feed import (
     MarketFeedError,
     YAHOO_CHART_URL,
@@ -246,7 +247,7 @@ def _yahoo_bars(symbol: str) -> List[Dict[str, Any]]:
     technical agent's averages and the council's live evidence cache.
     """
     url = (
-        f"{YAHOO_CHART_URL}/{quote(symbol, safe='')}?"
+        f"{YAHOO_CHART_URL}/{quote(yahoo_ticker(symbol), safe='')}?"
         f"{urlencode({'range': '2d', 'interval': '5m', 'includePrePost': 'false'})}"
     )
     payload = _http_json(url)
