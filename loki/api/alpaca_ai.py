@@ -65,16 +65,24 @@ def plan_trades(plan: Dict[str, Any], equity: float, held: Dict[str, Dict[str, A
     return trades, notes
 
 
-def performance(history: Dict[str, Any]) -> Dict[str, Any]:
+def performance(history: Dict[str, Any], current_equity: Optional[float] = None) -> Dict[str, Any]:
+    """Return and worst drop since the account's first funded day.
+
+    Alpaca's daily history ends at the last completed day, so today's equity
+    (``current_equity``, from the account) is appended to keep the figures in
+    step with the balance shown next to them.
+    """
     equity = [float(e) for e in (history.get("equity") or []) if e is not None and float(e) > 0]
     stamps = history.get("timestamp") or []
+    start = datetime.fromtimestamp(stamps[-len(equity)], tz=timezone.utc).date() if stamps and equity else None
+    if current_equity and current_equity > 0 and equity and abs(current_equity - equity[-1]) > 0.005:
+        equity.append(float(current_equity))
     if len(equity) < 2:
         return {"days": len(equity)}
     peak, worst = equity[0], 0.0
     for value in equity:
         peak = max(peak, value)
         worst = min(worst, value / peak - 1)
-    start = datetime.fromtimestamp(stamps[-len(equity)], tz=timezone.utc).date() if stamps else None
     return {"days": len(equity), "since": str(start), "start_equity": equity[0], "equity": equity[-1],
             "return_pct": round((equity[-1] / equity[0] - 1) * 100, 2), "max_drawdown_pct": round(worst * 100, 2)}
 

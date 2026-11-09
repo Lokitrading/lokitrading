@@ -39,6 +39,17 @@ test('council replays history, scores six bots and trusts the trend bot in a ste
   assert.equal(Loki.council.analyze('TREND', series(320, () => 0.004)).warmed, 0);
 });
 
+test('council predicts departures from the usual up-rate and is scored against it, not a coin flip', () => {
+  const { Loki } = load('core.js', 'council.js');
+  // A market that rises on most days: its usual 5-bar up-rate is well above 50%.
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const r = Loki.council.analyze('DRIFT', series(420, () => 0.002 + (rnd() - 0.5) * 0.02));
+  assert.ok(r.usual > 0.55 && r.usual <= 0.7, `usual up-rate ${r.usual}`);
+  assert.ok(Math.abs(r.p_up - r.usual) < 0.2, 'votes are centred on the usual rate');
+  assert.ok(r.record.compared >= 30 && Number.isFinite(r.record.usual_brier) && Number.isFinite(r.record.skill));
+  assert.equal(r.verdict, r.p_up >= r.usual + 0.06 ? 'BUY' : r.p_up <= r.usual - 0.06 ? 'SELL' : 'HOLD');
+});
+
 test('co-pilot turns plain language into exact, bounded config changes and can undo them', () => {
   const { Loki } = load('core.js', 'copilot.js');
   const r = Loki.copilot.parse('Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%');

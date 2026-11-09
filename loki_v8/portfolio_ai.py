@@ -195,6 +195,41 @@ def select_target_vol(sleeves: Dict[str, Dict[str, Any]], windows: Dict[str, Tup
     return best["target_vol_pct"], [dict(t, chosen=t is best) for t in trials]
 
 
+NO_HINDSIGHT = ("SPY", "QQQ", "IWM", "DIA", "GLD", "TLT", "BTC-USD", "ETH-USD")
+
+
+def hindsight_check(sleeves: Dict[str, Dict[str, Any]], frames: Dict[str, pd.DataFrame],
+                    windows: Dict[str, Tuple[str, str]], symbols: Tuple[str, ...] = NO_HINDSIGHT) -> Dict[str, Any]:
+    """The same method on markets nobody had to pick with hindsight.
+
+    The main universe includes individual stocks (Apple, Nvidia, ...) that are
+    known winners today, which flatters any backtest that holds them. This
+    re-runs the identical procedure (risk level chosen on development and
+    validation only) on broad index funds, gold, bonds, Bitcoin and Ether, and
+    reports it next to buying and holding the same markets.
+    """
+    picked = [s for s in symbols if s in sleeves and s in frames]
+    if len(picked) < 4:
+        return {}
+    sub = {s: sleeves[s] for s in picked}
+    target, trials = select_target_vol(sub, windows, vol_windows=(63, 126, 189, 252))
+    vol_window = next(t["vol_window"] for t in trials if t.get("chosen"))
+    book = combine(sub, target, vol_window=vol_window)
+    bh = buy_hold_returns({s: frames[s] for s in picked}, book["returns"].index, book["active"])
+    out: Dict[str, Any] = {"symbols": picked, "target_vol_pct": target, "vol_window": vol_window}
+    for name, (a, b) in windows.items():
+        out[name] = window_stats(book["returns"], a, b)
+        out[name + "_buy_hold"] = window_stats(bh, a, b)
+    h, hb = out.get("holdout") or {}, out.get("holdout_buy_hold") or {}
+    if h and hb:
+        gap = h["sharpe"] - hb["sharpe"]
+        verdict = ("beats" if gap > 0.1 else "matches" if gap >= -0.1 else "trails") + " buying and holding on risk-adjusted return"
+        if h["max_dd_pct"] > hb["max_dd_pct"] * 0.6:  # drawdowns are negative: a smaller worst drop
+            verdict += ", with much smaller drops"
+        out["verdict"] = verdict
+    return out
+
+
 # --- Self-knowledge: uncertainty and health ------------------------------------
 def bootstrap_ci(returns: pd.Series, n: int = 2000, block: int = 21, seed: int = 7,
                  level: float = 0.90) -> Dict[str, Any]:

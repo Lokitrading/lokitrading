@@ -142,3 +142,26 @@ def test_recent_changes_lists_entries_and_exits(sleeves):
     changes = portfolio_ai.recent_changes(sleeves, bars=3)
     actions = {(c["action"]) for c in changes}
     assert actions == {"entered", "exited"}
+
+
+def test_hindsight_check_reruns_the_method_on_unpicked_markets(sleeves):
+    frames = {f"S{i}": _tape(900, seed=i + 3) for i in range(5)}
+    idx = sleeves["S0"]["returns"].index
+    windows = {"development": (str(idx[100].date()), str(idx[350].date())),
+               "validation": (str(idx[351].date()), str(idx[480].date())),
+               "holdout": (str(idx[481].date()), "2100-01-01")}
+    out = portfolio_ai.hindsight_check(sleeves, frames, windows, symbols=("S0", "S1", "S2", "S3"))
+    assert out["symbols"] == ["S0", "S1", "S2", "S3"] and out["target_vol_pct"] in (10.0, 15.0, 20.0, 25.0)
+    assert {"holdout", "holdout_buy_hold", "verdict"} <= set(out)
+    assert any(word in out["verdict"] for word in ("beats", "matches", "trails"))
+    assert portfolio_ai.hindsight_check(sleeves, frames, windows, symbols=("S0", "X")) == {}  # too few markets
+
+
+def test_shipped_record_carries_an_honest_hindsight_check():
+    from loki_v8.train import load_report
+    block = load_report()["universal"]["portfolio"]
+    hc = block["hindsight_check"]
+    assert not {"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "JPM", "XOM"} & set(hc["symbols"])
+    assert hc["holdout"]["max_dd_pct"] > hc["holdout_buy_hold"]["max_dd_pct"]  # smaller worst drop
+    assert "buying and holding" in hc["verdict"]
+    assert any("inverse volatility" in r for r in block["rejected_experiments"])

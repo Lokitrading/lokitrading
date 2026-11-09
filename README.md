@@ -9,7 +9,7 @@ Everything ships over Vercel: every push to `main` reaches https://lokitrading.v
 Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so Vercel mostly serves files and a few relays:
 
 - **Device-direct data.** Binance market data, Polymarket odds and order books, and Alpaca (with the visitor's own keys) are called straight from the browser; these hosts send CORS headers and are the only ones the CSP `connect-src` allows. Stock history and headlines still come through Loki's cached relays (Yahoo sends no CORS headers). Past replay windows are edge-cacheable (`/api/replay/bars`).
-- **AI council** (`/#council`, `engine/council.js`). Six bots (Trend Hawk, Reversion Owl, Momentum Fox, Volatility Bear, Swarm Bee, Pattern Raven) each predict P(higher in 5 bars). Weights are earned with the Hedge rule on decayed log-loss, blending each symbol's record with the all-symbol record. A first visit replays ~250 walk-forward decisions; every live call is stored and scored when its horizon passes, with a written reflection. It is a learning statistical engine, not a conscious mind, and the page shows its Brier score next to a coin flip's 0.25.
+- **AI council** (`/#council`, `engine/council.js`). Six bots (Trend Hawk, Reversion Owl, Momentum Fox, Volatility Bear, Swarm Bee, Pattern Raven) each predict P(higher in 5 bars). Weights are earned with the Hedge rule on decayed log-loss, blending each symbol's record with the all-symbol record. A first visit replays ~250 walk-forward decisions; every live call is stored and scored when its horizon passes, with a written reflection. It is a learning statistical engine, not a conscious mind. Since 2.57 each bot states how far it expects the market to depart from its *usual* up-rate (markets rise more often than they fall), and the page scores the council against always guessing that usual rate rather than a coin flip. Measured over 10 years of 21 markets (22,000+ walk-forward calls per set) its skill over that guess is about zero: five-day direction is close to unpredictable, and the page says so.
 - **Autonomous sentiment swarm** (`engine/swarm.js`). Price Pulse, Vol Burst, Book Imbalance, Odds Mover, Newswire and Social Chatter report alarm/direction/confidence; a quorum across families (market + crowd) is a volatility event that shrinks position size and biases the Swarm Bee. Lead time over the first matching headline is measured, never assumed. Social feeds are best effort and say when a browser blocks them.
 - **Self-healing risk matrix** (`engine/risk.js`). Drawdown limit = 2.5 × recent weekly volatility (3–15%); GREEN / AMBER (half size) / RED (no new entries). On RED it plans exits by liquidity: thin prediction-market positions are hedged with the opposite outcome token, thin stock/crypto/futures positions get sliced limit exits, liquid ones are halved. After a 30-minute cooldown and a calm swarm, size ramps back 25 → 50 → 100%.
 - **Monte Carlo** (`engine/mc_core.js`, run in a Web Worker). 5,000 paths per order: log-normal network delay, price drift during the delay, fills walking a randomly thinned book (or spread + impact), fees and on-chain gas spikes, block-bootstrapped horizon returns or a fair-probability draw for binaries. Confidence = share of profitable paths after costs, plus VaR/CVaR and p99 slippage.
@@ -18,6 +18,39 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **3D engine map** (`/#execution-map`, `engine/execmap.js`, Three.js r170 vendored under `static/vendor/three`, MIT). A 3D topology of every venue the device talks to; real requests (from a fetch tap that records host, status and timing only) and orders animate along the edges. See the 2.56 notes below.
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
+
+## 2.57: is the trading AI actually good? An honest audit
+
+**Does it work?**
+- On the live site, the Portfolio AI, the per-symbol AI (10 tickers including BRK.B and EURUSD=X), and Talk to Loki all answered correctly.
+- The live plan matches the tested 20-year replay. The live site replays only 5 years per market, yet in/out decisions disagree on at most 0.8% of days in any market.
+- The backtest is causal: it decides on the previous completed bar and fills on the next one, with stop gaps handled.
+
+**How good is it?**
+- **Portfolio AI, data it never saw (2023 on):** +13.3%/yr, Sharpe 1.21, worst drop −9.8%. Buy-and-hold of the same markets: +21.9%/yr, Sharpe 0.98, worst drop −28.3%.
+- **Hindsight check (new):** the 21 markets include individual stocks that are known winners today, which flatters any backtest.
+  - The identical method was re-run on index funds, gold, bonds, BTC and ETH.
+  - Result: +10.2%/yr, Sharpe 1.03, worst drop −8.6%, against buy-and-hold's +16.2%/yr, Sharpe 1.03, −22.0%.
+  - It **matches** buy-and-hold on risk-adjusted return; its real edge is far smaller drops.
+  - This check is now shipped in the record (`hindsight_check`), shown on the AI trading page, and given by Talk to Loki.
+- **Six-bot council:** it was scored against always guessing each market's usual up-rate, not a coin flip.
+  - Data: 10 years of 10 markets, then confirmed on 11 others.
+  - Its skill was about zero (−0.3%). Its ~55% hit rate came from markets rising more often than they fall.
+
+**What changed**
+- **Council calibration.**
+  - Bots now predict departures from the usual rate, in half-size steps.
+  - Skill vs the usual rate went from −0.31% to +0.17% on the set the change was picked on, and from −0.56% to −0.15% on the 11 markets it was not.
+  - That is less wrong, not a new edge, and the page now says so.
+  - Autopilot, consensus and the jury read the council relative to the usual rate too.
+- **Alpaca forward-test report:** today's equity is now included. Alpaca's daily history ends yesterday, so the "since" return used to lag the balance shown next to it.
+
+**Tried and rejected** (chosen on 2005–2022 only, as before; logged in `rejected_experiments`):
+- risk-balanced (inverse-volatility) weights: Sharpe 0.95–0.99 vs 1.15;
+- fixed stock/crypto budgets: 1.152 vs 1.151;
+- a multi-horizon trend blend: 1.19 vs 1.15, below the 0.05 promotion margin.
+
+The current rules sit on a robust plateau; none of these is a real improvement.
 
 ## 2.56: leaner workspace, cooler 3D map
 
