@@ -112,3 +112,16 @@ def test_talk_to_loki_answers_odds_from_polymarket(monkeypatch):
 def test_no_odds_found_falls_through(monkeypatch):
     monkeypatch.setattr(loki_brain, "_poly_search", lambda q: [])
     assert (loki_brain.answer("what are the odds of a recession") or {}).get("intent") != "odds"
+
+
+def test_trending_is_built_from_markets_grouped_by_event(monkeypatch):
+    rows = [dict(market("A", 0.6, "1"), volume24hr=50, events=[{"id": "e1", "title": "Event one", "slug": "event-one"}]),
+            dict(market("B", 0.3, "2"), volume24hr=500, events=[{"id": "e2", "title": "Event two", "slug": "event-two"}]),
+            dict(market("C", 0.2, "3"), volume24hr=10, events=[{"id": "e1", "title": "Event one", "slug": "event-one"}]),
+            dict(market("D", 0.5, "4"), events=[])]
+    calls = []
+    monkeypatch.setattr(pm, "_get", lambda path, params: calls.append(path) or rows)
+    out = pm.events("trending", 10)
+    assert calls == ["/markets"]  # never the oversized untagged /events feed
+    assert [e["title"] for e in out] == ["Event two", "Event one"]
+    assert sorted(m["label"] for m in out[1]["markets"]) == ["A", "C"]

@@ -115,3 +115,14 @@ test('replay sandbox steps through a crash with stops and keeps drawdown below b
   assert.ok(s.dd < s.holdDd, `bot drawdown ${s.dd.toFixed(3)} should be below buy-and-hold ${s.holdDd.toFixed(3)}`);
   assert.ok(s.decisions.length > 0, 'decisions are logged step by step');
 });
+
+test('arbitrage engine refuses to trade on a stalled feed or an implausible edge', () => {
+  const { Loki } = load('core.js', 'arb.js');
+  const now = 2e12;
+  const live = Array.from({ length: 30 }, (_, i) => ({ t: now - (30 - i) * 1000, c: 100, v: i % 3 }));
+  const frozen = live.map((b) => ({ ...b, v: 0 }));
+  assert.equal(Loki.arb.feedStale(live, now), false);
+  assert.equal(Loki.arb.feedStale(frozen, now), true, 'zero-volume seconds = stalled feed');
+  assert.equal(Loki.arb.feedStale(live, now + 60000), true, 'old data = stalled feed');
+  assert.ok(Loki.arb.MAX_PLAUSIBLE_EDGE <= 0.25, 'a 48-point "edge" is a data error, never a trade');
+});
