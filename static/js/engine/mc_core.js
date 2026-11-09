@@ -116,5 +116,36 @@
     };
   }
 
-  root.LokiMC = { simulate };
+  /**
+   * Portfolio stress test: one horizon, N paths, joint bootstrap of whole
+   * historical days across every symbol (keeps their real correlation).
+   * plan: { positions: [{ id, value, returns: [aligned daily log returns] } | { id, kind: 'binary', qty, price, fair_p }],
+   *         horizon_days, paths, seed }
+   */
+  function simulatePortfolio(plan) {
+    const N = Math.max(500, Math.min(20000, plan.paths || 10000));
+    const r = rng(plan.seed || 11), H = Math.max(1, plan.horizon_days || 1);
+    const linear = (plan.positions || []).filter((p) => p.returns && p.returns.length > 20);
+    const binary = (plan.positions || []).filter((p) => p.kind === 'binary');
+    const days = linear.length ? Math.min(...linear.map((p) => p.returns.length)) : 0;
+    const pnl = new Float64Array(N), contrib = linear.map(() => new Float64Array(N));
+    for (let n = 0; n < N; n++) {
+      let total = 0;
+      for (let h = 0; h < H; h++) {
+        const d = days ? Math.floor(r() * days) : 0;
+        linear.forEach((p, k) => { const ret = p.returns[p.returns.length - days + d]; const x = p.value * (Math.exp(ret) - 1); contrib[k][n] += x; total += x; });
+      }
+      for (const b of binary) { const win = r() < (b.fair_p ?? b.price); total += b.qty * ((win ? 1 : 0) - b.price); }
+      pnl[n] = total;
+    }
+    const sorted = Array.from(pnl).sort((a, b) => a - b);
+    const k5 = Math.max(1, Math.floor(N * 0.05)), k1 = Math.max(1, Math.floor(N * 0.01));
+    const tail = sorted.slice(0, k5).reduce((a, x) => a + x, 0) / k5;
+    // each position's average P&L inside the worst 5% of paths = its share of the tail
+    const order = Array.from(pnl.keys()).sort((a, b) => pnl[a] - pnl[b]).slice(0, k5);
+    const shares = linear.map((p, k) => ({ id: p.id, tail: order.reduce((a, i) => a + contrib[k][i], 0) / k5 }));
+    return { paths: N, var95: -q(sorted, 0.05), var99: -q(sorted, 0.01), cvar95: -tail, worst: sorted[0], median: q(sorted, 0.5), contributions: shares, k1 };
+  }
+
+  root.LokiMC = { simulate, simulatePortfolio };
 })(typeof self !== 'undefined' ? self : this);

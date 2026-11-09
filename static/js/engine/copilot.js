@@ -97,6 +97,21 @@
   const modeMultiplier = () => ({ defensive: 0.5, normal: 1, aggressive: 1 }[config().risk_mode] || 1);
 
   Loki.config = config;
-  Loki.copilot = { parse, apply, undo, DEFAULTS, LABEL, modeMultiplier, history: () => Loki.store.get(HISTORY, []).slice().reverse(),
+  /** Validate settings from an outside source (an imported strategy card): known keys only, clamped, never arms the autopilot. */
+  function sanitize(input) {
+    const cur = config(), out = {};
+    for (const [k, def] of Object.entries(DEFAULTS)) {
+      if (!input || !(k in input)) continue;
+      const v = input[k];
+      if (typeof def === 'number' && Number.isFinite(Number(v))) out[k] = bound(k, Number(v));
+      else if (k === 'risk_mode' && ['defensive', 'normal', 'aggressive'].includes(v)) out[k] = v;
+      else if (k === 'hedge_rule' && v && typeof v === 'object') out[k] = { enabled: Boolean(v.enabled), vol_threshold_pct: Math.min(300, Math.max(5, Number(v.vol_threshold_pct) || 40)) };
+      else if (k === 'watchlist' && Array.isArray(v)) out[k] = v.map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z0-9.^=\-]{1,12}$/.test(x)).slice(0, 20);
+    }
+    const changes = Object.keys(out).filter((k) => JSON.stringify(cur[k]) !== JSON.stringify(out[k])).map((k) => ({ key: k, from: cur[k], to: out[k], why: 'imported strategy card', label: LABEL[k] || k }));
+    return { changes, config: { ...cur, ...out } };
+  }
+
+  Loki.copilot = { parse, apply, undo, sanitize, DEFAULTS, LABEL, modeMultiplier, history: () => Loki.store.get(HISTORY, []).slice().reverse(),
     EXAMPLES: ['Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%', 'Set take profit to 12% and max position size 3%', 'Only trade when council confidence is above 30%', 'Go defensive and pause the autopilot', 'Add TSLA and AMD to my watchlist', 'Daily loss limit 2%'] };
 })();

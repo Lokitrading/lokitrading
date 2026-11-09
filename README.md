@@ -19,6 +19,30 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## Engine v3 and the Command Center (2.54)
+
+Everything below runs on the visitor's device unless marked "server".
+
+- **Consensus gate** (`engine/consensus.js`): six agents (Macro, Liquidity, Sentiment, Council, Risk, Execution) vote on every order from the Trade terminal. Live orders need approval; Liquidity, Risk and Execution can veto; exits are never blocked by direction.
+- **Execution quality** (`engine/execq.js`): rolling error rate and p50/p95 latency per venue from the page's own network tap. Degraded venues halve size, down venues pause orders, crypto spot fails over from Binance to Coinbase.
+- **Live Monte Carlo risk** (`engine/mcrisk.js`): 10,000 one-day paths every 5 s over every open broker and Polymarket-paper position (joint bootstrap of real days). VaR95 above the daily loss limit shrinks every new order.
+- **Evolution** (`engine/evolve.js`): 30 strategy strains breed on 70% of history; a champion is promoted only if it beats the current rules on the unseen 30%. Paper auto-deploy is opt-in; live is never changed automatically.
+- **Natural-language strategies** (`engine/strategy_nl.js`): a fixed grammar turns a sentence into rules, readable code and a next-bar-fill backtest. A strategy can be armed on paper under a commitment hash.
+- **Commit-reveal and signed scorecards** (`engine/audit.js`): the rules are hashed with a salt before trading, and every later log entry carries that hash. Scorecard links are signed with the device key and verified in any browser. This is a hash commitment, not a zero-knowledge proof.
+- **Prediction markets v2** (`pm_lab.js`):
+  - a paper market-maker for Polymarket liquidity rewards, filled only by real trade prints;
+  - a read-only Kalshi ↔ Polymarket cross-venue check (server: `/api/xarb`), with both rule texts shown under every pair.
+- **Command Center** (`#command`, `command_center.js`): glass widgets you can drag and collapse, with these panels:
+  - telemetry (server: `/api/status/telemetry`);
+  - order-book heatmap and depth surface with an iceberg heuristic;
+  - central-bank newswire (server: `/api/newswire`);
+  - signal relay to Telegram/Discord/Slack (server: `/api/signals/relay`, fixed hosts only, nothing stored);
+  - strategy cards;
+  - voice commands and hotkeys (Shift+P/F/K/V/C/M; destructive actions always confirm).
+- **Also new:**
+  - second-by-second replays (1 s Binance bars);
+  - the sub-agent "neural flow" ring in the 3D execution map.
+
 ## Games (Bored?)
 
 - **Market Word** (`static/js/market_word.js`): a five-letter trading-vocabulary puzzle with a definition for every answer. Daily (same word for everyone, by date) and unlimited Practice; hint, hard mode, colour-blind palette, streaks, guess distribution and a copyable result grid.

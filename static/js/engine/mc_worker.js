@@ -2,9 +2,9 @@
 'use strict';
 importScripts('/static/js/engine/mc_core.js');
 self.onmessage = (event) => {
-  const { id, plan } = event.data || {};
+  const { id, plan, kind } = event.data || {};
   try {
-    self.postMessage({ id, ok: true, result: self.LokiMC.simulate(plan) });
+    self.postMessage({ id, ok: true, result: kind === 'portfolio' ? self.LokiMC.simulatePortfolio(plan) : self.LokiMC.simulate(plan) });
   } catch (error) {
     self.postMessage({ id, ok: false, error: String((error && error.message) || error) });
   }

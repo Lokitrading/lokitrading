@@ -141,16 +141,24 @@
       const maxNotional = Math.min(HARD_NOTIONAL_CAP, Number($('tk-cap').value) || 1000);
       const sizePct = equity ? notional / equity * 100 : null;
       const councilAgrees = !council || (t.side === 'buy' ? council.p_up >= 0.5 : council.p_up <= 0.5);
+      const held = state.positions.find((p) => p.symbol === t.symbol || p.symbol === t.symbol.replace(/[-/]/g, ''));
+      const isExit = Boolean(held && ((held.qty > 0 && t.side === 'sell') || (held.qty < 0 && t.side === 'buy')));
+      const exVenue = v.broker === 'alpaca' ? state.venue : 'tradovate';
+      const venueFactor = Loki.execq ? Loki.execq.sizeFactor(exVenue) : 1;
+      const mcBook = Loki.mcrisk ? Loki.mcrisk.snapshot() : null;
+      const consensus = Loki.consensus ? await Loki.consensus.vote({ symbol: t.symbol, side: t.side, notional, venue: exVenue, exit: isExit, kind },
+        { council, risk, book, mc: mcBook && mcBook.var95 != null ? mcBook : null, dailyLossLimit: equity ? equity * cfg.daily_loss_limit_pct / 100 : null }) : null;
       const checks = [
         ['Connected', Boolean(state.account), state.account ? `${v.label} account ${state.account.id || ''}` : 'connect the account first'],
         ['Notional cap', notional <= maxNotional, `${F.usd(notional)} vs your cap ${F.usd(maxNotional)}`],
-        ['Size vs plan', sizePct == null || sizePct <= cfg.max_position_pct * (risk.sizeMultiplier || 0.0001) * 1.0001 || t.side === 'sell', sizePct == null ? 'equity unknown' : `${sizePct.toFixed(1)}% of equity vs ${(cfg.max_position_pct * risk.sizeMultiplier).toFixed(1)}% allowed now`],
+        ['Size vs plan', sizePct == null || sizePct <= cfg.max_position_pct * (risk.sizeMultiplier * venueFactor || 0.0001) * 1.0001 || isExit, sizePct == null ? 'equity unknown' : `${sizePct.toFixed(1)}% of equity vs ${(cfg.max_position_pct * risk.sizeMultiplier * venueFactor).toFixed(1)}% allowed now${venueFactor < 1 ? ' (venue degraded: half size)' : ''}`],
         ['Risk matrix', risk.level !== 'red' || t.side === 'sell', `${risk.level.toUpperCase()}: ${risk.reason}`],
         ['Council', councilAgrees, council ? `${Math.round(council.p_up * 100)}% up over ${council.horizon} bars: ${council.verdict}` : 'no council read for futures'],
-        ['Simulated confidence', mc.confidence >= 50, `${mc.confidence}% of 5,000 paths profitable after costs`],
+        ['Simulated confidence', mc.confidence >= 50 || isExit, `${mc.confidence}% of 5,000 paths profitable after costs${isExit ? ' (closing a position: not required)' : ''}`],
       ];
+      if (consensus) checks.push(['Agent consensus', consensus.approved, `${consensus.summary} · ${consensus.reporting} of ${consensus.votes.length} agents reporting`]);
       if (v.live) checks.push(['Live trading armed', armed(), armed() ? 'armed for this session' : `type “${PHRASE}” in the arming box first`]);
-      state.check = { t, council, mc, risk, checks, notional, price, kind, at: Date.now() };
+      state.check = { t, council, mc, risk, checks, notional, price, kind, consensus, at: Date.now() };
       renderCheck();
       return state.check;
     } finally { $('tk-check').disabled = false; }
@@ -165,6 +173,7 @@
       ${Loki.mc.histogramSvg(c.mc)}
       <p class="caption">Expected ${F.usd(c.mc.pnl.mean, true)} · 5% worst case ${F.usd(c.mc.pnl.p5, true)} · VaR95 ${F.usd(c.mc.var95)} · CVaR95 ${F.usd(c.mc.cvar95)} · slippage p50 ${c.mc.slippage_bps.p50.toFixed(1)}bp / p99 ${c.mc.slippage_bps.p99.toFixed(1)}bp · delay p99 ${Math.round(c.mc.delay_ms.p99)}ms${c.mc.book_exhausted_share > 0.01 ? ` · book ran out in ${(c.mc.book_exhausted_share * 100).toFixed(0)}% of paths` : ''}</p>
       ${council ? `<p class="caption">Council: ${council.votes.map((v) => `${v.icon} ${Math.round(v.p * 100)}%`).join(' · ')} → <b>${Math.round(council.p_up * 100)}% up</b>. ${F.esc(council.mood.text)}</p>` : ''}
+      ${c.consensus ? `<details class="tk-consensus"><summary>Consensus vote: ${F.esc(c.consensus.summary)}</summary><ul>${c.consensus.votes.map((x) => `<li class="${x.veto ? 'no' : x.score == null ? '' : x.score >= 0 ? 'ok' : 'no'}"><b>${F.esc(x.name)}</b> ${x.veto ? 'VETO · ' : x.score == null ? '' : `${x.score >= 0 ? '+' : ''}${x.score.toFixed(2)} · `}${F.esc(x.why)}</li>`).join('')}</ul></details>` : ''}
       <ul class="tk-checks">${c.checks.map(([name, ok, why]) => `<li class="${ok ? 'ok' : 'no'}"><b>${ok ? '✓' : '✗'} ${F.esc(name)}</b> ${F.esc(why)}</li>`).join('')}</ul>
       <p class="${pass ? 'tk-go' : 'tk-stop'}">${pass ? 'All checks pass. You can place this order.' : 'Some checks fail. You can still place it on paper/demo; live orders need every check to pass.'}</p>`;
     $('tk-send').disabled = VENUES[state.venue].live && !pass;
@@ -198,7 +207,7 @@
       const r = await tradovate('order', { method: 'POST', body: { account_id: acct.id, account_spec: acct.name, symbol: t.symbol, action: t.side === 'buy' ? 'Buy' : 'Sell', quantity: Math.round(t.qty), order_type: t.type === 'limit' ? 'Limit' : 'Market', price: t.type === 'limit' ? t.limit : null, confirm: v.live ? PHRASE : '' } });
       result = { id: r.order_id, status: 'sent' };
     }
-    await Loki.audit.append({ kind: v.live ? 'live' : 'paper', venue: state.venue, action: 'order', symbol: t.symbol, side: t.side, qty: t.qty, type: t.type, limit: t.limit, broker_order_id: result.id, confidence: c.mc.confidence, council_p: c.council ? c.council.p_up : null, risk: c.risk.level });
+    await Loki.audit.append({ kind: v.live ? 'live' : 'paper', venue: state.venue, action: 'order', symbol: t.symbol, side: t.side, qty: t.qty, type: t.type, limit: t.limit, broker_order_id: result.id, confidence: c.mc.confidence, council_p: c.council ? c.council.p_up : null, risk: c.risk.level, consensus: c.consensus ? +c.consensus.score.toFixed(3) : null });
     setMsg('trade-msg', `${v.label}: ${t.side.toUpperCase()} ${t.qty} ${t.symbol} sent (order ${String(result.id).slice(0, 8)}…, ${result.status}).`);
     setTimeout(() => refresh(true), 1200);
   }
@@ -358,6 +367,10 @@
   });
   Loki.on('config:change', render);
   Loki.on('audit:append', renderAudit);
+  if (Loki.mcrisk) Loki.mcrisk.register('broker', async () => (state.account && state.positions.length ? {
+    equity: Number(state.account.equity) || 0,
+    positions: state.positions.filter((p) => p.value).map((p) => ({ id: p.symbol, symbol: marketSymbol(p.symbol.replace(/USD$/, '/USD')) || p.symbol, value: p.value, kind: /USD$/.test(p.symbol) ? 'crypto' : 'stock' })),
+  } : null));
   Loki.on('risk:update', () => {});
   setInterval(() => { if (!root.hidden && !document.hidden) autopilotTick(); }, 15 * 60000);
   setInterval(() => { if (!root.hidden && !document.hidden && getCred()) refresh(true); }, 60000);

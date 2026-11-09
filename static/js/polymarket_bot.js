@@ -248,6 +248,11 @@
   document.addEventListener('loki:view', onView);
   window.addEventListener('hashchange', () => setTimeout(onView, 0));
   document.addEventListener('visibilitychange', onView);
+  // The continuous Monte Carlo engine stress-tests these paper tokens with everything else held.
+  window.Loki?.mcrisk?.register('polymarket-paper', async () => (bot.positions.length ? {
+    equity: equity(),
+    positions: bot.positions.filter((p) => !p.hedged).map((p) => ({ id: p.id, kind: 'binary', qty: p.shares, price: mark(p), fair_p: Number.isFinite(p.model) ? p.model : mark(p) })),
+  } : null));
   render();
   onView();
 })();

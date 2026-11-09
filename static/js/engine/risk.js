@@ -79,7 +79,9 @@
       ramp = RAMP[Math.min(RAMP.length - 1, Math.floor((now - saved.healed_at) / RAMP_STEP))];
     }
     const levelMult = { green: 1, amber: 0.5, red: 0 }[level];
-    const sizeMultiplier = clamp(levelMult * swarmMult * ramp, 0, 1);
+    // The continuous Monte Carlo engine and the execution monitor can shrink size further.
+    const mcMult = !state && Loki.mcrisk ? Loki.mcrisk.multiplier() : 1;
+    const sizeMultiplier = clamp(levelMult * swarmMult * ramp * mcMult, 0, 1);
 
     const actions = [];
     if (level === 'red') {
