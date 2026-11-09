@@ -9,6 +9,13 @@
  * weights start from evidence; afterwards every live call is stored and
  * scored when its horizon passes. Everything runs on this device.
  *
+ * Calibration (2.57): markets rise more often than they fall, so a bot with no
+ * view should say "the usual", not 50%. Each bot now states how far it
+ * expects this market to depart from its own usual up-rate (the share of
+ * past 5-bar windows that rose), in half-size steps. The record is scored
+ * against that usual-rate guess, not a coin flip: on 10 years of 21 markets
+ * the council's skill over it is about zero, and the page says so.
+ *
  * It is a statistical engine with memory, not a conscious mind, and its
  * probabilities are estimates, not promises.
  */
@@ -23,7 +30,9 @@
   const DECAY = 0.985;        // older mistakes fade, so the council keeps adapting
   const MIN_HISTORY = 70;
 
-  const squash = (score, span = 0.3) => clamp(0.5 + span * Math.tanh(score), 0.08, 0.92);
+  const STEP = 0.5;           // bots move half as far from the usual rate as before: their edges are small
+  let usual = 0.5;            // this market's usual up-rate, set by vote() before the bots run
+  const squash = (score, span = 0.3) => clamp(usual + STEP * span * Math.tanh(score), 0.08, 0.92);
   const tail = (a, n) => a.slice(Math.max(0, a.length - n));
 
   /* ---------------------------------------------------------------- bots */
@@ -102,6 +111,13 @@
     },
   ];
 
+  /** How often this market rose over HORIZON bars in its recent past (Laplace-smoothed). */
+  function baseRate(b, lookback = 500) {
+    let ups = 0, n = 0;
+    for (let i = Math.max(0, b.length - 1 - lookback); i + HORIZON < b.length; i++) { ups += b[i + HORIZON].c > b[i].c ? 1 : 0; n++; }
+    return clamp((ups + 1) / (n + 2), 0.3, 0.7);
+  }
+
   /* --------------------------------------------------------------- state */
   const blank = () => ({ symbols: {}, global: Object.fromEntries(BOTS.map((x) => [x.id, { loss: 0, n: 0, hits: 0 }])), journal: [], version: 2 });
   let state = Loki.store.get(STATE_KEY, null);
@@ -128,15 +144,17 @@
   }
 
   function vote(bars, ctx, w) {
+    usual = baseRate(bars);
     const votes = BOTS.map((bot) => { try { return { ...bot.predict(bars, ctx), id: bot.id }; } catch { return { id: bot.id, p: 0.5, why: 'abstained' }; } });
     const p = votes.reduce((a, v) => a + v.p * w[v.id], 0);
     const spread = Math.sqrt(votes.reduce((a, v) => a + w[v.id] * (v.p - p) ** 2, 0));
     const agreement = clamp(1 - spread / 0.2, 0, 1);
-    const confidence = clamp(Math.abs(p - 0.5) * 2 * (0.4 + 0.6 * agreement), 0, 1);
-    return { votes, p, agreement, confidence };
+    // How far the council departs from the usual rate (bots step at most ~0.15 away), damped by disagreement.
+    const confidence = clamp(Math.abs(p - usual) * 4 * (0.4 + 0.6 * agreement), 0, 1);
+    return { votes, p, agreement, confidence, usual };
   }
 
-  function score(sym, votes, pEns, y) {
+  function score(sym, votes, pEns, y, base) {
     const s = symbolState(sym);
     for (const v of votes) {
       for (const rec of [s.bots[v.id], state.global[v.id]]) {
@@ -146,6 +164,8 @@
       }
     }
     s.ens.n += 1; s.ens.hits += (pEns >= 0.5) === Boolean(y) ? 1 : 0; s.ens.brier += (pEns - y) ** 2;
+    // The honest yardstick: what always guessing this market's usual up-rate would have scored.
+    if (Number.isFinite(base)) { s.ens.bn = (s.ens.bn || 0) + 1; s.ens.bb = (s.ens.bb || 0) + (base - y) ** 2; s.ens.mb = (s.ens.mb || 0) + (pEns - y) ** 2; }
   }
 
   /** Walk-forward replay of past decisions so the weights start from evidence. */
@@ -163,9 +183,9 @@
       if (pendingT.has(bars[i].t)) continue;
       const view = bars.slice(0, i + 1);
       const w = weights(symbol);
-      const { votes, p } = vote(view, null, w);
+      const { votes, p, usual: base } = vote(view, null, w);
       const y = bars[i + HORIZON].c > bars[i].c ? 1 : 0;
-      score(symbol, votes, p, y);
+      score(symbol, votes, p, y, base);
       count += 1;
     }
     s.warmed = bars[last].t;
@@ -184,7 +204,7 @@
       if (idx < 0 || idx + HORIZON >= bars.length) { still.push(call); continue; }
       const entry = bars[idx].c, exit = bars[idx + HORIZON].c, y = exit > entry ? 1 : 0;
       const before = weights(symbol);
-      score(symbol, call.votes, call.p, y);
+      score(symbol, call.votes, call.p, y, call.base);
       const after = weights(symbol);
       const right = call.votes.filter((v) => (v.p >= 0.5) === Boolean(y)).map((v) => BOTS.find((b) => b.id === v.id).name);
       const mover = BOTS.map((b) => [b, after[b.id] - before[b.id]]).sort((a, z) => Math.abs(z[1]) - Math.abs(a[1]))[0];
@@ -202,11 +222,12 @@
     const warmed = warmStart(symbol, bars);
     resolvePending(symbol, bars);
     const w = weights(symbol);
-    const { votes, p, agreement, confidence } = vote(bars, ctx, w);
+    const { votes, p, agreement, confidence, usual: base } = vote(bars, ctx, w);
     const s = symbolState(symbol), lastT = bars[bars.length - 1].t;
-    if (!s.pending.some((c) => c.t === lastT)) s.pending.push({ t: lastT, p, votes: votes.map((v) => ({ id: v.id, p: v.p })) });
+    if (!s.pending.some((c) => c.t === lastT)) s.pending.push({ t: lastT, p, base, votes: votes.map((v) => ({ id: v.id, p: v.p })) });
     save();
-    const verdict = p >= 0.56 ? 'BUY' : p <= 0.44 ? 'SELL' : 'HOLD';
+    // A call only counts as a view when it departs clearly from the usual rate.
+    const verdict = p >= base + 0.06 ? 'BUY' : p <= base - 0.06 ? 'SELL' : 'HOLD';
     const ens = s.ens;
     return {
       symbol, p_up: p, confidence, agreement, verdict, horizon: HORIZON, warmed,
@@ -215,19 +236,23 @@
         const bot = BOTS.find((b) => b.id === v.id), rec = s.bots[v.id];
         return { ...v, name: bot.name, icon: bot.icon, style: bot.style, weight: w[v.id], hit_rate: rec.n ? rec.hits / rec.n : null, calls: Math.round(rec.n) };
       }),
-      record: { calls: ens.n, hit_rate: ens.n ? ens.hits / ens.n : null, brier: ens.n ? ens.brier / ens.n : null },
-      mood: mood(ens, confidence, bars),
+      usual: base,
+      record: { calls: ens.n, hit_rate: ens.n ? ens.hits / ens.n : null, brier: ens.n ? ens.brier / ens.n : null,
+        // Compared on the same calls: positive skill = better than always guessing the usual rate.
+        usual_brier: ens.bn ? ens.bb / ens.bn : null, skill: ens.bn >= 30 ? 1 - ens.mb / ens.bb : null, compared: ens.bn || 0 },
+      mood: mood(ens, confidence, bars, agreement),
     };
   }
 
   /** A one-line, data-derived self-description. Not feelings: a status report. */
-  function mood(ens, confidence, bars) {
+  function mood(ens, confidence, bars, agreement = 0) {
     const hit = ens.n ? ens.hits / ens.n : 0.5;
     const vol = std(tail(logReturns(bars.map((b) => b.c)), 20)) * Math.sqrt(252);
     if (ens.n >= 30 && hit < 0.48) return { word: 'humbled', text: `I've been wrong more than right lately (${Math.round(hit * 100)}%), so I'm sizing smaller until I earn it back.` };
     if (vol > 0.6) return { word: 'cautious', text: `Volatility is high (${Math.round(vol * 100)}% annualised); my edges shrink in storms, so caution beats conviction.` };
     if (confidence > 0.35) return { word: 'confident', text: 'The bots mostly agree and the evidence is strong. Still an estimate, never a promise.' };
-    return { word: 'uncertain', text: 'The bots disagree; the honest answer is that this is close to a coin flip right now.' };
+    if (agreement >= 0.5) return { word: 'uncertain', text: 'The bots mostly agree there is no clear edge: this looks close to the usual odds right now.' };
+    return { word: 'uncertain', text: 'The bots disagree; the honest answer is that this is close to the usual odds right now.' };
   }
 
   /** Pure vote with caller-held weights (the replay sandbox learns its own). */

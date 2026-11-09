@@ -68,7 +68,7 @@
     if (sw && sw.running) add('sentiment', 'Sentiment-Scraper', { score: clamp(sw.sentiment * 2 * dir, -1, 1), why: `swarm crowd bias ${sw.sentiment >= 0 ? '+' : ''}${sw.sentiment.toFixed(2)}${sw.event ? ', volatility event in progress' : ''}` });
     else add('sentiment', 'Sentiment-Scraper', { score: null, why: 'swarm not deployed — abstains' });
 
-    if (ctx.council) add('council', 'Six-Bot Council', { score: clamp((ctx.council.p_up - 0.5) * 4 * dir, -1, 1), why: `${Math.round(ctx.council.p_up * 100)}% up over ${ctx.council.horizon} bars (confidence ${Math.round(ctx.council.confidence * 100)}%)` });
+    if (ctx.council) add('council', 'Six-Bot Council', { score: clamp((ctx.council.p_up - (Number.isFinite(ctx.council.usual) ? ctx.council.usual : 0.5)) * 6 * dir, -1, 1), why: `${Math.round(ctx.council.p_up * 100)}% up over ${ctx.council.horizon} bars (confidence ${Math.round(ctx.council.confidence * 100)}%)` });
     else add('council', 'Six-Bot Council', { score: null, why: 'no council read for this instrument — abstains' });
 
     const risk = ctx.risk || Loki.risk.evaluate({ swarm: sw });

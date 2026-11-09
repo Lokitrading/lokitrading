@@ -352,6 +352,15 @@ PORTFOLIO_WINDOWS = {"development": ("2005-01-01", "2018-12-31"), "validation": 
                      "holdout": ("2023-01-01", "2100-01-01")}
 
 
+# Tried on 2026-11-09 with the same protocol (chosen on 2005-2022 only); none earned a place.
+PORTFOLIO_REJECTED = [
+    "risk-balanced weights (inverse volatility over 63/126/252 days): development/validation Sharpe 0.95-0.99 vs 1.15 — rejected",
+    "fixed stock/crypto budgets (50-90% stocks): best 1.152 vs 1.151 — no real gain, rejected",
+    "multi-horizon trend signal (21/63/126/252 days) blended into the rules: best 1.19 vs 1.15 (crypto only), "
+    "under the 0.05 promotion margin — rejected",
+]
+
+
 def portfolio_stage(report: Dict[str, Any], data_dir: Optional[Path]) -> Dict[str, Any]:
     """Run every market's verified profile at once; pick the risk level on 2005-2022."""
     sleeves, frames = {}, {}
@@ -368,11 +377,13 @@ def portfolio_stage(report: Dict[str, Any], data_dir: Optional[Path]) -> Dict[st
     out = {"target_vol_pct": target, "vol_window": vol_window, "symbols": list(sleeves), "trials": trials,
            "rejected_experiments": [
                "8 extra asset-class ETFs (EFA, EEM, IEF, SLV, DBC, VNQ, XLU, XLV): development Sharpe 0.90 vs 1.10 — rejected",
-               "capital tilted to markets whose strategy worked over the trailing year: best 1.08 vs 1.10 — rejected"], "windows": PORTFOLIO_WINDOWS,
+               "capital tilted to markets whose strategy worked over the trailing year: best 1.08 vs 1.10 — rejected",
+               *PORTFOLIO_REJECTED], "windows": PORTFOLIO_WINDOWS,
            "cost_bps_per_side": portfolio_ai.COST_BPS, "average_gross_exposure": round(float(book["gross"].mean()), 3)}
     for name, (a, b) in PORTFOLIO_WINDOWS.items():
         out[name] = portfolio_ai.window_stats(book["returns"], a, b)
         out[name + "_buy_hold"] = portfolio_ai.window_stats(bh, a, b)
+    out["hindsight_check"] = portfolio_ai.hindsight_check(sleeves, frames, PORTFOLIO_WINDOWS)
     out["holdout_ci"] = portfolio_ai.bootstrap_ci(
         book["returns"][book["returns"].index >= PORTFOLIO_WINDOWS["holdout"][0]])
     out["expected_range"] = portfolio_ai.expected_range(

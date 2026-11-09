@@ -371,6 +371,18 @@ def market_overview() -> str:
             " Open Live markets for the full board, or name any ticker and I'll run the AI on it.\n" + FOOTER)
 
 
+def _hindsight_sentence() -> str:
+    hc = (_universal().get("portfolio") or {}).get("hindsight_check") or {}
+    h, b = hc.get("holdout") or {}, hc.get("holdout_buy_hold") or {}
+    if not h or not b:
+        return ""
+    return ("Honesty check: part of that record comes from stocks that are known winners today (Apple, Nvidia and so on). "
+            f"On markets nobody had to pick with hindsight — index funds, gold, bonds, Bitcoin and Ether — the same method made "
+            f"{_pct(h.get('cagr_pct'))} a year (Sharpe {float(h.get('sharpe') or 0):.2f}, worst drop {_pct(h.get('max_dd_pct'))}) against "
+            f"{_pct(b.get('cagr_pct'))} for holding them (Sharpe {float(b.get('sharpe') or 0):.2f}, worst drop {_pct(b.get('max_dd_pct'))}): "
+            f"it {hc.get('verdict', 'is comparable')}. So its real strength is protection in bad markets, not beating the market.")
+
+
 def track_record() -> str:
     uni = _universal()
     eq, cr = (uni.get("equity") or {}), (uni.get("crypto") or {})
@@ -384,6 +396,9 @@ def track_record() -> str:
                        f"{p.get('symbols')} symbols, average worst drop {_pct(p.get('mean_max_dd_pct'))}. Simply holding the same "
                        f"assets: {_pct(p.get('buy_hold_mean_cagr_pct'))} a year with {_pct(p.get('buy_hold_mean_max_dd_pct'))} worst drop.")
     out.append("In that simulation it was profitable on data held back from training, with smaller drawdowns than holding, but it trailed buy-and-hold in the strong 2023-26 bull run. These are hypothetical results, not real trading: simulations have limits and future results can differ.")
+    honest = _hindsight_sentence()
+    if honest:
+        out.append(honest)
     return "\n".join(out)
 
 
@@ -420,6 +435,9 @@ def portfolio_answer() -> str:
     if plan and plan.get("changes"):
         moves = ", ".join(f"{c['action']} {c['symbol']} ({c['date']})" for c in plan["changes"][:5])
         lines.append(f"Recent moves: {moves}.")
+    honest = _hindsight_sentence()
+    if honest:
+        lines.append(honest)
     ci = uni.get("holdout_ci") or {}
     if ci.get("cagr_pct"):
         lines.append(f"Honest uncertainty: that simulated yearly return could plausibly have been anywhere from "

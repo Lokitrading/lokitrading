@@ -28,13 +28,22 @@
     } finally { busy = false; $('cn-go').disabled = false; renderJournal(); }
   }
 
+  // The honest yardstick is not a coin flip but always guessing this market's usual up-rate.
+  function skillLine(rec, r) {
+    if (rec.skill == null) return `Always guessing this market's usual rate (${Number.isFinite(r.usual) ? Math.round(r.usual * 100) + '% up' : '—'}) is the bar to beat; there are not enough comparable calls yet to say whether the council beats it.`;
+    const pts = rec.skill * 100;
+    const word = pts > 1 ? 'better than' : pts < -1 ? 'worse than' : 'about the same as';
+    return `That is ${word} always guessing this market's usual rate (Brier ${rec.usual_brier.toFixed(3)}; skill ${pts >= 0 ? '+' : ''}${pts.toFixed(1)}%). ` +
+      'Over 10 years of 21 markets the council\'s skill was about zero: five-day direction is close to unpredictable, so treat this as a second opinion and use the Portfolio AI for decisions.';
+  }
+
   function render(r) {
     const cls = r.verdict === 'BUY' ? 'up' : r.verdict === 'SELL' ? 'down' : 'flat';
     const rec = r.record;
     $('cn-verdict').innerHTML = `
-      <div class="cn-head"><div><span class="eyebrow">${F.esc(r.symbol)} · NEXT ${r.horizon} BARS</span><b class="${cls}">${r.verdict}</b><span>${Math.round(r.p_up * 100)}% chance of finishing higher · confidence ${Math.round(r.confidence * 100)}% · agreement ${Math.round(r.agreement * 100)}%</span></div>
+      <div class="cn-head"><div><span class="eyebrow">${F.esc(r.symbol)} · NEXT ${r.horizon} BARS</span><b class="${cls}">${r.verdict}</b><span>${Math.round(r.p_up * 100)}% chance of finishing higher${Number.isFinite(r.usual) ? ` (usually ${Math.round(r.usual * 100)}%)` : ''} · confidence ${Math.round(r.confidence * 100)}% · agreement ${Math.round(r.agreement * 100)}%</span></div>
       <div class="cn-mood"><span class="eyebrow">STATE OF MIND · ${F.esc(r.mood.word.toUpperCase())}</span><p>${F.esc(r.mood.text)}</p></div></div>
-      <p class="caption">Track record on ${F.esc(r.symbol)}: ${rec.calls} scored calls, ${rec.hit_rate == null ? '—' : Math.round(rec.hit_rate * 100) + '% right'}, Brier ${rec.brier == null ? '—' : rec.brier.toFixed(3)} (a coin flip scores 0.250; lower is better). These are honest walk-forward numbers, not a promise.</p>`;
+      <p class="caption">Track record on ${F.esc(r.symbol)}: ${rec.calls} scored calls, ${rec.hit_rate == null ? '—' : Math.round(rec.hit_rate * 100) + '% right'}, Brier ${rec.brier == null ? '—' : rec.brier.toFixed(3)} (lower is better). ${skillLine(rec, r)} These are honest walk-forward numbers, not a promise.</p>`;
     $('cn-bots').innerHTML = r.votes.map((v) => `
       <article class="cn-bot">
         <header><span class="cn-icon" aria-hidden="true">${v.icon}</span><div><strong>${F.esc(v.name)}</strong><span class="muted">${F.esc(v.style)}</span></div></header>

@@ -112,7 +112,7 @@ def main() -> int:
     elif not trades:
         lines.append("- Nothing to place right now:")
     lines += [f"- {n}" for n in notes]
-    perf = performance(broker.history())
+    perf = performance(broker.history(), equity)
     if perf.get("days", 0) >= 2:
         lines.append("")
         lines.append(f"Account since {perf['since']}: {perf['return_pct']:+.2f}% "

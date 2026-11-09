@@ -526,6 +526,7 @@ def _portfolio_plan() -> Dict[str, Any]:
         "holdout_ci": block.get("holdout_ci"),
         "holdout": block.get("holdout"),
         "holdout_buy_hold": block.get("holdout_buy_hold"),
+        "hindsight_check": block.get("hindsight_check"),
         "note": (
             "Weights are what the tested portfolio holds at the latest completed daily bar: every market runs "
             "its verified rules, capital is shared equally, and the book is scaled toward "

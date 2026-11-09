@@ -55416,7 +55416,10 @@
    ],
    "rejected_experiments": [
     "8 extra asset-class ETFs (EFA, EEM, IEF, SLV, DBC, VNQ, XLU, XLV): development Sharpe 0.90 vs 1.10 \u2014 rejected",
-    "capital tilted to markets whose strategy worked over the trailing year: best 1.08 vs 1.10 \u2014 rejected"
+    "capital tilted to markets whose strategy worked over the trailing year: best 1.08 vs 1.10 \u2014 rejected",
+    "risk-balanced weights (inverse volatility over 63/126/252 days): development/validation Sharpe 0.95-0.99 vs 1.15 \u2014 rejected",
+    "fixed stock/crypto budgets (50-90% stocks): best 1.152 vs 1.151 \u2014 no real gain, rejected",
+    "multi-horizon trend signal (21/63/126/252 days) blended into the rules: best 1.19 vs 1.15 (crypto only), under the 0.05 promotion margin \u2014 rejected"
    ],
    "windows": {
     "development": [
@@ -55469,6 +55472,57 @@
     "sharpe": 0.981,
     "max_dd_pct": -28.26,
     "profitable_months_pct": 59.6
+   },
+   "hindsight_check": {
+    "symbols": [
+     "SPY",
+     "QQQ",
+     "IWM",
+     "DIA",
+     "GLD",
+     "TLT",
+     "BTC-USD",
+     "ETH-USD"
+    ],
+    "target_vol_pct": 10.0,
+    "vol_window": 252,
+    "development": {
+     "cagr_pct": 7.01,
+     "sharpe": 0.811,
+     "max_dd_pct": -14.39,
+     "profitable_months_pct": 55.4
+    },
+    "development_buy_hold": {
+     "cagr_pct": 10.23,
+     "sharpe": 0.826,
+     "max_dd_pct": -34.13,
+     "profitable_months_pct": 58.3
+    },
+    "validation": {
+     "cagr_pct": 8.01,
+     "sharpe": 0.934,
+     "max_dd_pct": -16.39,
+     "profitable_months_pct": 56.2
+    },
+    "validation_buy_hold": {
+     "cagr_pct": 18.68,
+     "sharpe": 0.891,
+     "max_dd_pct": -39.39,
+     "profitable_months_pct": 58.3
+    },
+    "holdout": {
+     "cagr_pct": 10.15,
+     "sharpe": 1.03,
+     "max_dd_pct": -8.57,
+     "profitable_months_pct": 66.0
+    },
+    "holdout_buy_hold": {
+     "cagr_pct": 16.18,
+     "sharpe": 1.032,
+     "max_dd_pct": -22.03,
+     "profitable_months_pct": 59.6
+    },
+    "verdict": "matches buying and holding on risk-adjusted return, with much smaller drops"
    },
    "holdout_ci": {
     "level": 0.9,

@@ -144,7 +144,18 @@
       cell('Simulated return / year (2023→now)', pct(h.cagr_pct), `buy & hold ${pct(b && b.cagr_pct)}`, '#a8f0c6') +
       cell('Sharpe ratio', Number(h.sharpe).toFixed(2), `buy & hold ${b ? Number(b.sharpe).toFixed(2) : '—'}`) +
       cell('Worst drop', pct(h.max_dd_pct), `buy & hold ${pct(b && b.max_dd_pct)}`, '#ffb3a7') +
-      cell('Profitable months', `${Number(h.profitable_months_pct).toFixed(0)}%`, `risk target ${plan.target_vol_pct}% / yr`);
+      cell('Profitable months', `${Number(h.profitable_months_pct).toFixed(0)}%`, `risk target ${plan.target_vol_pct}% / yr`) +
+      hindsightNote(plan.hindsight_check);
+  }
+
+  // The same method on markets nobody had to pick with hindsight (index funds, gold, bonds, BTC, ETH).
+  function hindsightNote(hc) {
+    const h = hc && hc.holdout, b = hc && hc.holdout_buy_hold;
+    if (!h || !b) return '';
+    return `<p class="pf-hindsight"><strong>Honesty check.</strong> Part of the record above comes from stocks that are known winners today. ` +
+      `On markets nobody had to pick with hindsight (${esc(hc.symbols.join(', '))}) the same method made ${esc(pct(h.cagr_pct))} a year ` +
+      `(Sharpe ${esc(Number(h.sharpe).toFixed(2))}, worst drop ${esc(pct(h.max_dd_pct))}) against buy &amp; hold's ${esc(pct(b.cagr_pct))} ` +
+      `(Sharpe ${esc(Number(b.sharpe).toFixed(2))}, worst drop ${esc(pct(b.max_dd_pct))}): it ${esc(hc.verdict || '')}.</p>`;
   }
 
   const PALETTE = ['#a8f0c6', '#8bdad4', '#6fd3bf', '#c9ffe2', '#7fb8e6', '#b8a8f0', '#f0c98b', '#e6a8d8', '#9fe0a8', '#88c9f0'];

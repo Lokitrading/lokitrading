@@ -39,7 +39,7 @@
     const momentum = tanh(zMom) * 0.7 + trend * 0.3, reversion = -tanh(zRev / 1.5);
     const wMom = reg.character === 'trending' ? 0.75 : reg.character === 'mean-reverting' ? 0.25 : 0.5;
     let score = wMom * momentum + (1 - wMom) * reversion;
-    if (council && Number.isFinite(council.p_up)) score = 0.7 * score + 0.3 * tanh((council.p_up - 0.5) * 4);
+    if (council && Number.isFinite(council.p_up)) score = 0.7 * score + 0.3 * tanh((council.p_up - (Number.isFinite(council.usual) ? council.usual : 0.5)) * 6);
     const agree = score * dir;
     return { id: 'quant', name: 'Quant Agent', score, agree, vote: agree >= 0.15, regime: reg, zMom, zRev, momentum, reversion, weightMomentum: wMom,
       hypothesis: `${reg.character} regime → ${Math.round(wMom * 100)}% momentum / ${Math.round((1 - wMom) * 100)}% mean reversion. 20-bar momentum z ${zMom.toFixed(2)}, distance from 20-bar mean ${zRev.toFixed(2)}σ${council ? `, council ${Math.round(council.p_up * 100)}% up` : ''}. Net ${score >= 0 ? 'bullish' : 'bearish'} ${Math.abs(score).toFixed(2)}, which ${agree >= 0.15 ? 'supports' : 'does not support'} a ${side}.` };

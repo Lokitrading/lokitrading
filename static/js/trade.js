@@ -140,7 +140,8 @@
       const equity = state.account ? state.account.equity : null;
       const maxNotional = Math.min(HARD_NOTIONAL_CAP, Number($('tk-cap').value) || 1000);
       const sizePct = equity ? notional / equity * 100 : null;
-      const councilAgrees = !council || (t.side === 'buy' ? council.p_up >= 0.5 : council.p_up <= 0.5);
+      const usual = council && Number.isFinite(council.usual) ? council.usual : 0.5;
+      const councilAgrees = !council || (t.side === 'buy' ? council.p_up >= usual : council.p_up <= usual);
       const held = state.positions.find((p) => p.symbol === t.symbol || p.symbol === t.symbol.replace(/[-/]/g, ''));
       const isExit = Boolean(held && ((held.qty > 0 && t.side === 'sell') || (held.qty < 0 && t.side === 'buy')));
       const exVenue = v.broker === 'alpaca' ? state.venue : 'tradovate';
@@ -253,7 +254,9 @@
         const council = Loki.council.analyze(sym, bars, { sentiment: Loki.swarm && Loki.swarm.snapshot().running ? Loki.swarm.snapshot().sentiment : undefined });
         const alpacaSym = Loki.data.isCrypto(sym) ? sym.replace('-USD', '/USD') : sym;
         const held = state.positions.find((p) => p.symbol === alpacaSym.replace('/', '') || p.symbol === alpacaSym);
-        const threshold = 0.5 + cfg.min_council_confidence / 400;
+        // Relative to this market's usual up-rate: a view only counts when it departs from "the usual".
+        const usual = Number.isFinite(council.usual) ? council.usual : 0.5;
+        const threshold = usual + cfg.min_council_confidence / 800;
         if (!held && council.p_up >= threshold && risk.level !== 'red') {
           const budget = state.account.equity * (cfg.max_position_pct / 100) * risk.sizeMultiplier * Loki.copilot.modeMultiplier();
           const price = bars[bars.length - 1].c, qty = Loki.data.isCrypto(sym) ? Math.floor(budget / price * 1e4) / 1e4 : Math.floor(budget / price);
@@ -263,7 +266,7 @@
             await Loki.audit.append({ kind: 'paper', venue: state.venue, action: 'order', symbol: alpacaSym, side: 'buy', qty, type: 'market', broker_order_id: order.id, council_p: council.p_up, risk: risk.level, autopilot: true });
             log.push(`BUY ${qty} ${alpacaSym} (council ${Math.round(council.p_up * 100)}% up)`);
           }
-        } else if (held && (council.p_up <= 0.44 || risk.level === 'red')) {
+        } else if (held && (council.p_up <= usual - 0.06 || risk.level === 'red')) {
           await alpaca(`/v2/positions/${encodeURIComponent(held.symbol)}`, { method: 'DELETE' });
           Loki.emit('order', { venue: 'alpaca', side: 'sell', symbol: held.symbol, qty: held.qty, pending: true });
           await Loki.audit.append({ kind: 'paper', venue: state.venue, action: 'order', symbol: held.symbol, side: 'sell', qty: held.qty, type: 'close', council_p: council.p_up, risk: risk.level, autopilot: true, pnl: held.pl });

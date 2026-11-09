@@ -59,6 +59,7 @@ class TestIntents:
     def test_track_record_and_how_it_works_use_the_shipped_report(self):
         record = loki_brain.answer("how did the AI do historically?")
         assert record["intent"] == "track_record" and "2023" in record["text"] and "a year" in record["text"]
+        assert "Honesty check" in record["text"] and "hindsight" in record["text"]  # the unflattering test too
         how = loki_brain.answer("how does the AI learn from mistakes?")
         assert how["intent"] == "how_ai" and "200-day" in how["text"]
 

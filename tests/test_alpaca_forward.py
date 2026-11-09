@@ -45,3 +45,10 @@ def test_closed_stock_market_defers_stocks_but_trades_crypto():
 def test_performance_summary():
     perf = af.performance({"equity": [25000, 25500, 24990, 26000], "timestamp": [1, 2, 3, 4]})
     assert perf["return_pct"] == 4.0 and perf["max_drawdown_pct"] == -2.0 and perf["days"] == 4
+
+
+def test_performance_includes_todays_equity():
+    # Alpaca's daily history stops at yesterday; the live balance must count.
+    perf = af.performance({"equity": [25000, 24998], "timestamp": [86400 * 20000, 86400 * 20001]}, 25058.68)
+    assert perf["equity"] == 25058.68 and perf["return_pct"] == 0.23 and perf["since"] == "2024-10-04"
+    assert af.performance({"equity": [25000, 25100], "timestamp": [1, 2]}, 25100.0)["days"] == 2
