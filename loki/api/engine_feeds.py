@@ -209,7 +209,7 @@ def _kalshi_markets() -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     cursor = ""
     for _ in range(4):
-        params = {"status": "open", "limit": 200, "with_nested_markets": "true"}
+        params: Dict[str, Any] = {"status": "open", "limit": 200, "with_nested_markets": "true"}
         if cursor:
             params["cursor"] = cursor
         res = requests.get(KALSHI + "/events", params=params, headers=_UA, timeout=(4, 12), allow_redirects=False)
@@ -237,8 +237,8 @@ def _kalshi_markets() -> List[Dict[str, Any]]:
 def _poly_markets(pages: int = 6) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for page in range(pages):  # Gamma returns at most 100 markets per call
-        res = requests.get(GAMMA + "/markets", params={"active": "true", "closed": "false", "limit": 100, "offset": page * 100,
-                                                       "order": "volume24hr", "ascending": "false"},
+        query: Dict[str, Any] = {"active": "true", "closed": "false", "limit": 100, "offset": page * 100, "order": "volume24hr", "ascending": "false"}
+        res = requests.get(GAMMA + "/markets", params=query,
                            headers=_UA, timeout=(4, 12), allow_redirects=False)
         if res.status_code != 200:
             break
