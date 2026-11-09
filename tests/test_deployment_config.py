@@ -126,7 +126,7 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn('id="ai-next-tick"', source)  # next-check countdown slot
         self.assertIn('id="visit-note"', source)  # what-changed-since-last-visit slot
         self.assertLess(
-            source.index('data-view="trading-desk"'),
+            source.index('data-view="real-market"'),
             source.index('data-view="game"'),
             "Bored? should sit at the very bottom of the navigation bar",
         )
@@ -140,9 +140,14 @@ class DeploymentConfigTests(unittest.TestCase):
                         'data-view="ai-trading"', 'data-view="copilot"'):
             self.assertLess(source.index(visible), group_start)
         self.assertIn('id="nav-more-toggle"', source)
-        for grouped in ("agent-council", "simulated-market", "real-market",
-                        "scenarios", "trading-desk", "game"):
+        for grouped in ("simulated-market", "real-market", "game"):
             self.assertGreater(source.index(f'data-view="{grouped}"'), group_start, grouped)
+        # The 3D engine map is a main view now; the retired views are gone entirely.
+        self.assertLess(source.index('data-view="execution-map"'), group_start)
+        for retired in ("agent-council", "scenarios", "trading-desk"):
+            self.assertNotIn(f'data-view="{retired}"', source)
+            self.assertNotIn(f'id="{retired}"', source)
+        self.assertNotIn('class="sidebar-context"', source)
         # Account pill mounts into the topbar instead of floating over content.
         auth_js = (ROOT / "static" / "js" / "loki_auth.js").read_text(encoding="utf-8")
         self.assertIn(".topbar-status", auth_js)
@@ -150,8 +155,11 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn('id="next-steps-panel"', source)
         self.assertIn('id="data-context-line"', source)
         workspace = (ROOT / "static" / "js" / "workspace.js").read_text(encoding="utf-8")
-        for marker in ("loki_steps_data", "loki_steps_run", "loki_steps_council"):
+        for marker in ("loki_steps_data", "loki_steps_run"):
             self.assertIn(marker, workspace)
+        # The review step is now ticked by a Red Team gauntlet run.
+        redteam = (ROOT / "static" / "js" / "redteam_view.js").read_text(encoding="utf-8")
+        self.assertIn("loki_steps_council", redteam)
         self.assertIn("loki_steps_journal", workspace)  # recording a paper portfolio action ticks the journal step
         # CSV preview before a replay.
         self.assertIn('id="quant-csv-preview"', source)
@@ -173,8 +181,6 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn('id="regime-panel"', source)
         self.assertIn('id="regime-note"', source)
         self.assertIn('id="regime-table"', source)
-        self.assertIn('id="scenario-compare"', source)
-        self.assertIn('id="scenario-compare-out"', source)
         self.assertIn('class="panel practice-panel"', source)
         self.assertIn('data-practice="ride-trend"', source)
         self.assertIn('data-practice="range-trap"', source)
@@ -184,8 +190,6 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn("report.regime_metrics", workspace)
         self.assertIn("mark_updated_at", workspace)
         self.assertIn("opened_at", workspace)
-        self.assertIn("council-disagree", workspace)
-        self.assertIn("#scenario-compare", workspace)
         practice = (ROOT / "static" / "js" / "practice.js").read_text(encoding="utf-8")
         for key in ("ride-trend", "range-trap", "crash-drill"):
             self.assertIn(key, practice)
@@ -295,11 +299,7 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn("startsWith('synthetic-practice'))practiceDataset=true", workspace)
 
     def test_council_review_hygiene_from_the_human_walkthrough(self):
-        # A wrong MiroFish id must be stopped with human guidance, never a raw
-        # pydantic error, and never shipped to the server unchecked.
         workspace = (ROOT / "static" / "js" / "workspace.js").read_text(encoding="utf-8")
-        self.assertIn("not ready to travel with this review", workspace)
-        self.assertIn("/^report_[A-Za-z0-9_-]+$/.test(miroId)", workspace)
         # 422 details lose their "body.field:" programmer prefix.
         self.assertIn(".replace(/^body\\.([A-Za-z_]+): /", workspace)
         self.assertIn("field: `", workspace)

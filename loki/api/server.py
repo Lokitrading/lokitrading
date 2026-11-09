@@ -44,7 +44,6 @@ from loki.api.polymarket import router as polymarket_router
 from loki.api.polymarket_bot import router as polymarket_bot_router
 from loki.api.replay_data import router as replay_router
 from loki.api.revenue import router as revenue_router
-from loki.api.trading_desk import router as trading_desk_router
 from loki.api.watchtower import router as watchtower_router
 
 # Interactive API docs are a map of every endpoint: useful locally, needless
@@ -73,7 +72,6 @@ for _router in (
     broker_alpaca_router,
     broker_tradovate_router,
     replay_router,
-    trading_desk_router,
     news_desk_router,
     dive_board_router,
     dive_sessions_router,

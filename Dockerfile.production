@@ -17,7 +17,6 @@ COPY main.py README.md ./
 COPY loki/ ./loki/
 COPY loki_v8/ ./loki_v8/
 COPY core/ ./core/
-COPY components/ ./components/
 COPY third_party/ ./third_party/
 COPY templates/ ./templates/
 COPY static/ ./static/

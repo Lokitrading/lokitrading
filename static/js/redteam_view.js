@@ -31,6 +31,7 @@
       const d = await Loki.jury.evaluate({ symbol, side, qty, price, kind: Loki.data.isCrypto && Loki.data.isCrypto(symbol) ? 'crypto' : 'stock', venue: 'local-paper' },
         { bars, equity: book.equity, drawdown: book.drawdown, strategy, risk: Loki.risk.evaluate({ swarm: Loki.swarm ? Loki.swarm.snapshot() : null }), correlation });
       last = d; render(d); msg('rt-msg', '');
+      try { localStorage.setItem('loki_steps_council', JSON.stringify({ at: Date.now() })); } catch { /* storage blocked */ }
       $('rt-trade').disabled = !d.approved; $('rt-override').disabled = d.approved;
       $('rt-resize').hidden = !(d.risk.resizable && d.supermajority);
       if (!$('rt-resize').hidden) $('rt-resize').textContent = `Resize to the allowed ${F.usd(Math.floor(d.risk.maxNotional))} and re-run`;

@@ -66,7 +66,6 @@ jobs:
               "tests/test_exit_upgrades.py",
               "tests/test_fusion_api.py",
               "tests/test_fusion_council.py",
-              "tests/test_fusion_external.py",
               "tests/test_fusion_portfolio.py",
               "tests/test_fusion_provenance.py",
               "tests/test_fusion_quant.py",

@@ -5,7 +5,7 @@
   const MARKS = [
     ["data", "Imported your own history"],
     ["run", "Walk-forward replay complete"],
-    ["council", "Council review complete"],
+    ["council", "Red Team review complete"],
     ["journal", "Paper decision recorded"]
   ];
 
