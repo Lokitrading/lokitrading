@@ -91,7 +91,7 @@
       return `<tr class="${loss == null ? '' : loss > 0.2 ? 'bad' : p50 > 1500 ? 'slow' : 'ok'}"><td>${esc(t.label)}</td><td>${p50 == null ? '—' : Math.round(p50) + 'ms'}</td><td>${loss == null ? '—' : pct(loss, 0)}</td><td>${s.skew == null ? '—' : s.coarse ? `~${s.skew >= 0 ? '+' : ''}${(s.skew / 1000).toFixed(1)}s ±0.5s` : `${s.skew >= 0 ? '+' : ''}${Math.round(s.skew)}ms`}</td><td>${spark(s.ms, 90, 22)}</td></tr>`;
     }).join('')}</tbody></table>`;
     const i = tele.loki.info;
-    $('cc-server').innerHTML = i ? [['Region', i.region], ['Uptime', i.uptime_s < 120 ? `${Math.round(i.uptime_s)}s${i.cold_start ? ' (cold start)' : ''}` : `${(i.uptime_s / 60).toFixed(0)} min`], ['Memory', i.rss_mb ? `${i.rss_mb} MB` : `${i.peak_rss_mb} MB peak`], ['CPU', i.cpu_share == null ? '—' : pct(i.cpu_share)], ['Load', i.load_1m == null ? '—' : i.load_1m.toFixed(2)], ['Python', i.python]]
+    $('cc-server').innerHTML = i ? [['Region', i.region], ['Uptime', i.uptime_s < 120 ? `${Math.round(i.uptime_s)}s${i.cold_start ? ' (cold start)' : ''}` : `${(i.uptime_s / 60).toFixed(0)} min`], ['Memory', i.rss_mb ? `${i.rss_mb} MB` : i.peak_rss_mb ? `${i.peak_rss_mb} MB peak` : '—'], ['CPU', i.cpu_share == null ? '—' : pct(i.cpu_share)], ['Load', i.load_1m == null ? '—' : i.load_1m.toFixed(2)], ['Python', i.python]]
       .map(([k, v]) => `<div><span>${k}</span><b>${esc(String(v))}</b></div>`).join('') : '<p class="muted">Waiting for the server…</p>';
   }
   async function telemetryLoop() { if (visible()) { await Promise.all(TARGETS.map(ping)); renderTelemetry(); renderVenues(); } }

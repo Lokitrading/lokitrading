@@ -21,7 +21,6 @@ import math
 import os
 import platform
 import re
-import resource
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -30,6 +29,11 @@ from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import requests
+
+try:  # POSIX only; on Windows the telemetry endpoint reports what it can
+    import resource
+except ImportError:  # pragma: no cover - exercised on Windows CI
+    resource = None  # type: ignore[assignment]
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
@@ -304,23 +308,27 @@ def api_xarb(response: Response) -> Dict[str, Any]:
 # ---------------------------------------------------------------- telemetry
 @router.get("/api/status/telemetry")
 def api_telemetry(response: Response) -> Dict[str, Any]:
-    usage = resource.getrusage(resource.RUSAGE_SELF)
-    rss_kb = usage.ru_maxrss  # kilobytes on Linux
+    if resource is not None:
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        cpu: float = usage.ru_utime + usage.ru_stime
+        peak: Optional[float] = round(usage.ru_maxrss / 1024, 1)  # kilobytes on Linux
+    else:
+        cpu = time.process_time()
+        peak = None
     rss_now = None
     try:
         with open("/proc/self/statm") as fh:
             rss_now = int(fh.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1e6
-    except (OSError, ValueError, IndexError):
+    except (OSError, ValueError, IndexError, AttributeError):
         pass
     uptime = time.time() - _STARTED
-    cpu = usage.ru_utime + usage.ru_stime
     try:
-        load = os.getloadavg()[0]
-    except OSError:
+        load: Optional[float] = os.getloadavg()[0]
+    except (OSError, AttributeError):
         load = None
     response.headers["Cache-Control"] = "no-store"
     return {"server_time": time.time(), "uptime_s": round(uptime, 1), "cold_start": uptime < 15,
-            "rss_mb": round(rss_now, 1) if rss_now else None, "peak_rss_mb": round(rss_kb / 1024, 1),
+            "rss_mb": round(rss_now, 1) if rss_now else None, "peak_rss_mb": peak,
             "cpu_s": round(cpu, 2), "cpu_share": round(cpu / uptime, 4) if uptime > 0 else None, "load_1m": load,
             "region": os.getenv("VERCEL_REGION") or "local", "python": platform.python_version()}
 
