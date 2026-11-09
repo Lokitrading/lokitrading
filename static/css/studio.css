@@ -126,19 +126,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .instrument-heading { color: #afc6d0; font: 9px/1.6 var(--mono); letter-spacing: .6px; padding: 12px 18px; border-color: var(--line); align-items: center; }
 .loki-workspace .instrument-heading button { color: var(--muted); font-size: 9px; min-height: 28px; padding: 4px 7px; border: 1px solid var(--line-strong); border-radius: 5px; letter-spacing: 0; }
 .loki-workspace .instrument-heading button:hover { background: var(--surface-hover); color: var(--accent); }
-.loki-workspace .instrument-summary { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 0; gap: 12px; }
-.loki-workspace .instrument-summary .eyebrow { font-size: 9px; color: var(--subtle); }
-.loki-workspace .instrument-summary strong { display: block; color: var(--text); font-size: 19px; font-weight: 500; letter-spacing: -.5px; margin-top: 4px; }
-.loki-workspace .instrument-stamp { font: 10px var(--mono); color: var(--green); border: 1px solid var(--accent-line); background: #a8f0c608; padding: 7px; border-radius: 5px; white-space: nowrap; }
-.loki-workspace .signal-drawing { width: calc(100% - 32px); margin: 16px 16px 0; height: auto; max-height: 210px; overflow: visible; }
-.loki-workspace .signal-trace { stroke: var(--green); stroke-width: 2; filter: drop-shadow(0 0 5px #a8f0c62b); }
-.loki-workspace .signal-drawing stop { stop-color: var(--green); }
-.loki-workspace .signal-crosshair { stroke: var(--accent); }
-.loki-workspace .signal-reference { stroke: #6c98b5; }
-.loki-workspace .instrument-stages { display: flex; flex-wrap: wrap; gap: 9px 14px; justify-content: center; padding: 14px 12px; font-size: 10px; color: var(--muted); }
-.loki-workspace .instrument-stages i { display: inline-block; width: 4px; height: 4px; background: var(--green); border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-.loki-workspace .instrument-stages span:nth-child(2) i { background: var(--blue); }
-.loki-workspace .instrument-stages span:nth-child(3) i { background: #b7b5e8; }
 .loki-workspace .instrument-footer { padding: 11px 16px; border-color: var(--line); color: var(--subtle); font-size: 9px; flex-wrap: wrap; }
 .loki-workspace .instrument-key::before { background: var(--green); }
 .loki-workspace #overview > .workspace-launchers { order: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -306,23 +293,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .toast { background: var(--accent-surface); border-color: var(--accent-line); color: var(--text); border-radius: 8px; }
 
 /* Arcade: touch targets and feedback use the same visual language. */
-.loki-workspace .wordle-panel { background: radial-gradient(ellipse at 50% 30%, #173b3d55, transparent 70%), var(--panel); border-color: var(--accent-line); }
-.loki-workspace .wordle-container { display: flex; flex-direction: column; align-items: center; gap: 24px; width: 100%; max-width: 480px; margin: 24px auto 0; padding: 12px 0; border-radius: 10px; }
-.loki-workspace .wordle-board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; width: min(100%, 310px); }
-.loki-workspace .wordle-tile { aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-inset); color: var(--text); font: 600 26px var(--sans); transition: background 160ms, border-color 160ms; }
-.loki-workspace .wordle-tile:not(:empty) { border-color: #7faeaa; }
-.loki-workspace .wordle-keyboard { display: grid; gap: 7px; width: 100%; }
-.loki-workspace .wordle-key-row { display: flex; gap: 5px; justify-content: center; }
-.loki-workspace .wordle-key { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 6px 2px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel-raised); color: var(--text); font: 600 12px var(--sans); touch-action: manipulation; box-shadow: 0 2px 0 #050c13; }
-.loki-workspace .wordle-key[data-key="ENTER"], .loki-workspace .wordle-key[data-key="BACK"] { flex-grow: 1.7; font-size: 10px; }
-.loki-workspace .wordle-key:hover { border-color: var(--accent); }
-.loki-workspace .wordle-tile.correct, .loki-workspace .wordle-key.correct, .loki-workspace .wordle-legend .correct { background: var(--green); border-color: var(--green); color: var(--accent-ink); }
-.loki-workspace .wordle-tile.present, .loki-workspace .wordle-key.present, .loki-workspace .wordle-legend .present { background: var(--amber); border-color: var(--amber); color: #332910; }
-.loki-workspace .wordle-tile.absent, .loki-workspace .wordle-key.absent, .loki-workspace .wordle-legend .absent { background: #344350; border-color: #344350; color: #e1ebf3; }
-.loki-workspace .wordle-legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 18px; font-size: 11px; color: var(--muted); }
-.loki-workspace .wordle-legend i { display: inline-block; height: 9px; width: 9px; border-radius: 2px; margin-right: 5px; }
-.loki-workspace .wordle-message { min-height: 23px; color: var(--accent); font-size: 13px; text-align: center; margin: 0; }
-.loki-workspace .wordle-container .button-row { margin: -12px 0 0; }
 .loki-workspace .dive-tier, .loki-workspace .dive-stat { border-radius: 5px; }
 .loki-workspace .dive-launch { background: var(--surface-inset); border-color: var(--line-strong); }
 .loki-workspace .dive-wait { background: var(--accent-surface); border-color: var(--accent-line); color: var(--muted); }
@@ -341,7 +311,6 @@ html { scroll-padding-top: 100px; }
 @media (min-width: 1600px) {
   .loki-workspace #overview > .hero { padding: 48px; gap: 70px; }
   .loki-workspace .hero h2 { font-size: 66px; }
-  .loki-workspace .signal-drawing { max-height: 230px; }
 }
 @media (max-width: 1280px) {
   .loki-workspace .sidebar { width: 218px; padding-inline: 14px; }
@@ -351,9 +320,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace #overview > .hero { padding: 30px; gap: 26px; }
   .loki-workspace .hero h2 { font-size: 44px; }
   .loki-workspace .hero-actions { gap: 14px; }
-  .loki-workspace .instrument-summary { padding: 18px 15px 0; }
-  .loki-workspace .instrument-summary strong { font-size: 15px; }
-  .loki-workspace .instrument-stamp { display: none; }
   .loki-workspace .workspace-launchers > a { padding: 16px; gap: 10px; }
   .loki-workspace .launcher-icon { flex-basis: 34px; height: 36px; }
   .loki-workspace .workspace-launchers strong { font-size: 12px; }
@@ -371,7 +337,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .hero-actions { align-items: flex-start; flex-direction: column; }
   .loki-workspace .arrival-principles { gap: 14px; font-size: 9px; }
   .loki-workspace .instrument-heading { padding: 12px; flex-wrap: wrap; gap: 6px; }
-  .loki-workspace .signal-drawing { max-height: 180px; }
   .loki-workspace #overview > .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .loki-workspace .metric .small-value { font-size: 18px; }
   .loki-workspace .floor-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -420,8 +385,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .hero-actions .button { white-space: normal; text-align: left; }
   .loki-workspace .arrival-principles { font-size: 9px; gap: 24px; margin-top: 23px; }
   .loki-workspace .instrument-heading { flex-wrap: nowrap; padding: 12px; }
-  .loki-workspace .instrument-summary strong { font-size: 16px; }
-  .loki-workspace .signal-drawing { max-height: 155px; }
   .loki-workspace #overview > .workspace-launchers { grid-template-columns: 1fr; gap: 9px; }
   .loki-workspace .workspace-launchers > a { padding: 16px; }
   .loki-workspace .workspace-launchers strong { font-size: 13px; }
@@ -451,10 +414,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace #ai-candles { min-height: 240px !important; }
   .loki-workspace .button { white-space: normal; text-align: center; }
   .loki-workspace input, .loki-workspace select, .loki-workspace textarea { font-size: 16px; }
-  .loki-workspace .wordle-container { gap: 20px; }
-  .loki-workspace .wordle-key-row { gap: 3px; }
-  .loki-workspace .wordle-key { font-size: 11px; }
-  .loki-workspace .wordle-key[data-key="ENTER"] { font-size: 9px; }
   .loki-workspace .dive-topbar { flex-wrap: wrap; gap: 12px; }
   .loki-workspace .dive-form input { min-width: 0; }
 }

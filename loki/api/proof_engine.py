@@ -553,10 +553,6 @@ def attempt_falsification(
     return checks
 
 
-def hardest_fee_bps() -> float:
-    return BATTERY[-1][1]
-
-
 def reviewers(checks: Sequence[Mapping[str, str]]) -> list[dict[str, str]]:
     """Independent lenses over the same checks — no new numbers, new focus.
     Total: a missing check means the battery never reached it, and the

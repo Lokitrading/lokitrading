@@ -92,10 +92,6 @@ def _now_iso() -> str:
 _TABLE_MISSING = "The account leaderboard is not set up yet — run supabase/schema_member_data.sql in the project database."
 
 
-def _supa_quote(value: str) -> str:
-    return value.replace(" ", "%20").replace(",", "%2C").replace('"', "%22")
-
-
 def _supa_send(
     method: str, path: str, *, json_body: Optional[dict] = None, headers: Optional[dict] = None
 ) -> http_requests.Response:
@@ -109,17 +105,6 @@ def _supa_send(
         )
     except http_requests.RequestException as exc:
         raise HTTPException(503, "The shared board is unreachable; try again shortly.") from exc
-
-
-def _supa_detail(response: http_requests.Response) -> str:
-    try:
-        body = response.json()
-    except ValueError:  # pragma: no cover — non-json replies simply say so
-        return ""
-    message = body.get("message") or ""
-    hint = body.get("hint") or ""
-    code = body.get("code") or ""
-    return f"{code} {message} {hint}".lower()
 
 
 _QUIRK_MISSING = (
@@ -341,9 +326,11 @@ class DiveScoreBody(BaseModel):
 async def leaderboard() -> Dict[str, Any]:
     mode = board_mode()
     if mode == "shared":
-        return await run_in_threadpool(_shared_read)
+        rows: Dict[str, Any] = await run_in_threadpool(_shared_read)
+        return rows
     if mode == "server-local":
-        return await run_in_threadpool(local_read)
+        local: Dict[str, Any] = await run_in_threadpool(local_read)
+        return local
     return {"mode": "unavailable", "note": _mode_note("unavailable"), "entries": []}
 
 
@@ -366,9 +353,11 @@ async def publish(request: Request, body: DiveScoreBody) -> Dict[str, Any]:
         raise HTTPException(429, "One publish per 20 seconds — give the board a breath.")
     if mode == "shared":
         assert member is not None
-        return await run_in_threadpool(shared_write, member["uid"], nickname, best)
+        written: Dict[str, Any] = await run_in_threadpool(shared_write, member["uid"], nickname, best)
+        return written
     if mode == "server-local":
-        return await run_in_threadpool(local_write, nickname, best)
+        saved: Dict[str, Any] = await run_in_threadpool(local_write, nickname, best)
+        return saved
     raise HTTPException(
         503,
         "This deployment hosts no shared score store, so nothing was recorded — your best dive still lives in this browser.",

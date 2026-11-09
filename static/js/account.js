@@ -36,6 +36,15 @@
       message('Restored. Open the workspace to continue.');
     } catch (error) { message(error.message); } finally { busy(false); }
   });
+  $('nickname-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const result = await api('/api/auth/nickname', {method:'PUT', body:JSON.stringify({nickname:$('nickname-input').value.trim()})});
+      $('account-name').textContent = result.nickname + '’s space';
+      window.LokiAccountChanged?.();
+      message('Nickname changed. The leaderboard shows it from your next published score.');
+    } catch (error) { message(error.message); }
+  });
   $('account-logout').addEventListener('click', async () => {
     try { await api('/api/auth/logout', {method:'POST'}); window.LokiAccountChanged?.(); location.href='/login'; }
     catch (error) { message(error.message); }
@@ -44,6 +53,7 @@
     try {
       const [member, workspace] = await Promise.all([api('/api/account/me'), api('/api/account/workspace')]);
       $('account-name').textContent = member.nickname + '’s space';
+      $('nickname-input').value = member.nickname;
       $('account-email').textContent = member.email;
       $('account-best').textContent = member.dive ? member.dive.best_score.toLocaleString() + ' pts' : 'No score yet';
       $('account-dives').textContent = member.dive ? member.dive.dives + ' score publications · self-reported' : 'Finish a dive and publish to join the board.';

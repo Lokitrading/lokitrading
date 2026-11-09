@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from .broker import make_broker
@@ -19,7 +18,7 @@ from .config import LokiConfig
 from .data import get_provider
 from .regime import Regime, detect_regime, is_bearish, is_bullish
 from .risk import RiskManager
-from .strategy import EnsembleStrategy, Signal
+from .strategy import EnsembleStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -207,29 +206,3 @@ class LokiAgentPipeline:
         trail.append({"agent": "execution", **e})
 
         return trail
-
-    def run_universe(
-        self,
-        symbols: Optional[List[str]] = None,
-        equity: Optional[float] = None,
-        *,
-        execute: bool = False,
-    ) -> Dict:
-        """Run the pipeline across a symbol list and return a full report."""
-        syms = symbols or self.cfg.symbols
-        quotes = self.provider.get_quotes(syms)
-        equity = equity or self.cfg.initial_cash
-        open_positions = len(self.executor.broker.positions)
-
-        report = {"trails": {}, "signals": 0, "executed": 0}
-        for sym in syms:
-            price = quotes.get(sym, 0.0)
-            trail = self.run_symbol(sym, equity, open_positions, price, execute=execute)
-            report["trails"][sym] = trail
-            if any(t.get("agent") == "quant" and t.get("action") in ("BUY", "SELL") for t in trail):
-                report["signals"] += 1
-            if any(t.get("agent") == "execution" and t.get("executed") for t in trail):
-                report["executed"] += 1
-                open_positions = len(self.executor.broker.positions)
-                equity = self.executor.broker.equity(quotes)
-        return report

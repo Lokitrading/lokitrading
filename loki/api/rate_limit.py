@@ -64,7 +64,7 @@ def client_key(request: Request) -> str:
     address is used instead.
     """
     if os.environ.get("VERCEL"):
-        forwarded = request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "")
+        forwarded: str = request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "")
         first = forwarded.split(",")[0].strip()
         if first:
             return first[:64]

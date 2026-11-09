@@ -496,25 +496,6 @@ def _max_drawdown(equity: pd.Series) -> Tuple[float, pd.Series]:
     return float(dd.min()) if len(dd) else 0.0, dd
 
 
-def monte_carlo(trades: List[Trade], n_sims: int = 1000) -> Dict[str, float]:
-    """Bootstrap trade sequence to estimate return distribution."""
-    pct_returns = [t.pnl_pct for t in trades]
-    if not pct_returns:
-        return {"mean": 0.0, "p5": 0.0, "p95": 0.0, "p_positive": 0.0}
-    arr = np.array(pct_returns)
-    finals = []
-    for _ in range(n_sims):
-        sample = np.random.choice(arr, size=len(arr), replace=True)
-        finals.append((1 + sample / 100.0).prod() * 100.0 - 100.0)
-    finals = np.array(finals)
-    return {
-        "mean": float(finals.mean()),
-        "p5": float(np.percentile(finals, 5)),
-        "p95": float(np.percentile(finals, 95)),
-        "p_positive": float((finals > 0).mean() * 100.0),
-    }
-
-
 def walk_forward(
     df: pd.DataFrame,
     cfg: LokiConfig,

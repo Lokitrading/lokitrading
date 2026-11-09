@@ -43,17 +43,6 @@ def atr(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> 
     return wilder(true_range(high, low, close), length)
 
 
-def rolling_slope(series: pd.Series, length: int) -> pd.Series:
-    """Rolling linear regression slope (per bar)."""
-    x = np.arange(length)
-    x_mean = x.mean()
-    x_var = ((x - x_mean) ** 2).sum()
-    return series.rolling(length).apply(
-        lambda y: np.sum((x - x_mean) * (y - y.mean())) / x_var if np.sum((y - y.mean()) ** 2) > 0 else 0.0,
-        raw=True
-    )
-
-
 # ---------------------------------------------------------------------------
 # Momentum oscillators
 # ---------------------------------------------------------------------------
@@ -127,13 +116,6 @@ def keltner_channels(high: pd.Series, low: pd.Series, close: pd.Series,
     atr_ = atr(high, low, close, length)
     upper = middle + mult * atr_
     lower = middle - mult * atr_
-    return upper, middle, lower
-
-
-def donchian(high: pd.Series, low: pd.Series, length: int = 20):
-    upper = high.rolling(length).max()
-    lower = low.rolling(length).min()
-    middle = (upper + lower) / 2.0
     return upper, middle, lower
 
 

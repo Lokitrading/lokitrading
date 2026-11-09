@@ -261,7 +261,8 @@ def _portfolio() -> Optional[Dict[str, Any]]:
     from loki.api import ai_paper
 
     try:
-        return ai_paper.ai_portfolio(Response())
+        portfolio: Optional[Dict[str, Any]] = ai_paper.ai_portfolio(Response())
+        return portfolio
     except Exception as exc:  # noqa: BLE001 - chat must never 500 on a data blip
         logger.warning("brain portfolio read failed: %s", exc.__class__.__name__)
         return None
@@ -544,7 +545,8 @@ def _board() -> Optional[Dict[str, Any]]:
     from loki.api import live_markets
 
     try:
-        return live_markets.live_board(Response())
+        board: Optional[Dict[str, Any]] = live_markets.live_board(Response())
+        return board
     except Exception as exc:  # noqa: BLE001 - chat must never 500
         logger.warning("brain board read failed: %s", exc.__class__.__name__)
         return None

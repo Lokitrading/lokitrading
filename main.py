@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).with_name(".env"), override=False)
 
-from loki.api.server import app
+from loki.api.server import app  # noqa: F401 - the ASGI entry point (uvicorn main:app, Vercel)
 
 if __name__ == "__main__":
     # Loopback by default: a dev server on 0.0.0.0 is reachable by anyone on
