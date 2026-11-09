@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -44,9 +45,23 @@ OHLCV_COLUMNS = ["open", "high", "low", "close", "volume"]
 _CRYPTO_BASE = {"BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "LINK", "MATIC", "AVAX", "DOT"}
 
 
+_SHARE_CLASS = re.compile(r"^([A-Z]{1,5})[./]([ABC])$")
+
+
+def yahoo_ticker(symbol: str) -> str:
+    """Share classes are written BRK.B or BRK/B by brokers but BRK-B on Yahoo.
+
+    Only one-letter classes A/B/C are rewritten, so exchange suffixes such as
+    VOD.L, SHOP.TO or RELIANCE.NS are left alone.
+    """
+    s = symbol.strip().upper()
+    m = _SHARE_CLASS.match(s)
+    return f"{m.group(1)}-{m.group(2)}" if m else s
+
+
 def normalize_symbol(symbol: str) -> str:
     """Normalize a user-supplied symbol to the yfinance ticker."""
-    s = symbol.strip().upper()
+    s = yahoo_ticker(symbol)
     if s.endswith("USDT"):
         return s[:-4].rstrip("/-") + "-USD"
     if s.endswith("/USD"):

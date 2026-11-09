@@ -22,6 +22,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
+from loki_v8.data import yahoo_ticker
 from loki.api.binance_market_data import (
     MarketDataError,
     get_binance_spot_snapshot,
@@ -229,7 +230,7 @@ def _fetch_binance_quote(symbol: str) -> dict[str, Any]:
 
 def _fetch_yahoo_quote(symbol: str) -> dict[str, Any]:
     """Public chart feed: last daily closes power both price and spark."""
-    url = f"{YAHOO_CHART_URL}/{quote(symbol, safe='')}?{urlencode({'range': '5d', 'interval': '1d', 'includePrePost': 'false'})}"
+    url = f"{YAHOO_CHART_URL}/{quote(yahoo_ticker(symbol), safe='')}?{urlencode({'range': '5d', 'interval': '1d', 'includePrePost': 'false'})}"
     try:
         payload = _http_json(url)
         result = payload["chart"]["result"]

@@ -127,7 +127,8 @@
   $('cc-vote-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const symbol = $('cc-vote-sym').value.trim().toUpperCase() || 'BTC-USD', side = $('cc-vote-side').value, notional = Number($('cc-vote-usd').value) || 1000;
-    msg('cc-vote-msg', 'Polling six agents…');
+    msg('cc-vote-msg', `Polling six agents on ${symbol}…`);
+    $('cc-vote').innerHTML = '';
     try {
       const bars = await Loki.data.bars(symbol, { interval: '1d', limit: 300 });
       const council = bars.length > 60 ? Loki.council.analyze(symbol, bars) : null;
@@ -136,7 +137,7 @@
       if (pair) { try { book = await Loki.data.binanceDepth(pair, 100); } catch { /* no book */ } }
       await Loki.consensus.vote({ symbol, side, notional, venue: pair ? 'binance' : 'alpaca-paper', kind: pair ? 'crypto' : 'stock' }, { council, book });
       msg('cc-vote-msg', 'A dry run: nothing is sent. Real orders on Trade run this same vote.');
-    } catch (error) { msg('cc-vote-msg', error.message, true); }
+    } catch (error) { msg('cc-vote-msg', error.message, true); $('cc-vote').innerHTML = '<p class="muted">No vote: the agents need price history for this symbol.</p>'; }
   });
 
   /* -------------------------------------------------------- evolution */

@@ -358,7 +358,8 @@ def ai_bars(
         ) from exc
 
     candles: List[Dict[str, Any]] = []
-    if frame is not None and not getattr(frame, "empty", True):
+    provider_had_rows = frame is not None and not getattr(frame, "empty", True)
+    if provider_had_rows:
         frame = frame.sort_index()
         frame = frame[~frame.index.duplicated(keep="last")]
         for stamp, row in frame.tail(limit).iterrows():
@@ -381,11 +382,18 @@ def ai_bars(
                     "v": values[4],
                 }
             )
-    if not candles:
+    if not candles and provider_had_rows:
         raise HTTPException(
             503,
-            f"Candle data for {symbol} is unavailable right now; try again shortly. "
+            f"Candle data for {symbol} came back malformed; try again shortly. "
             "The chart stays empty rather than inventing candles.",
+        )
+    if not candles:
+        # The provider answered but had nothing: almost always a mistyped or delisted symbol.
+        raise HTTPException(
+            404,
+            f"No price history found for {symbol}. Check the symbol (for example SPY, BRK.B, BTC-USD, GC=F); "
+            "the chart stays empty rather than inventing candles.",
         )
     return {
         "symbol": symbol,
