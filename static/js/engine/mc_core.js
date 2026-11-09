@@ -71,17 +71,21 @@
       } else {
         horizonLog = mu * H + sd * Math.sqrt(H) * gauss(r);
       }
+      // Flash-crash injection: with probability p the horizon also takes a jump (e.g. -8% ± 4%).
+      if (plan.shock && r() < plan.shock.prob) horizonLog += plan.shock.mean + plan.shock.sd * gauss(r);
       let total = 0, slipBps = 0;
       for (const leg of plan.legs || []) {
         const dir = leg.side === 'sell' ? -1 : 1, qty = Math.abs(leg.qty), mult = leg.multiplier || 1;
-        const thin = 0.35 + 0.8 * r();
+        const thin = (plan.thin_lo ?? 0.35) + (plan.thin_span ?? 0.8) * r(); // stress tests pass a much thinner book
         let fill;
         if (leg.book && (dir > 0 ? leg.book.asks : leg.book.bids) && (dir > 0 ? leg.book.asks : leg.book.bids).length) {
           const side = dir > 0 ? leg.book.asks : leg.book.bids;
-          const w = walk(side.map(([p, s]) => [p * (leg.kind === 'binary' ? 1 : drift), s]), qty, thin);
+          const bb = leg.book.bids && leg.book.bids[0], ba = leg.book.asks && leg.book.asks[0];
+          const mid0 = bb && ba ? (ba[0] + bb[0]) / 2 : side[0][0], widen = plan.spread_mult || 1; // news: quotes pull away from the mid
+          const w = walk(side.map(([p, s]) => [(mid0 + (p - mid0) * widen) * (leg.kind === 'binary' ? 1 : drift), s]), qty, thin);
           fill = w.avg; if (w.exhausted) exhausted++;
         } else {
-          const spreadBps = leg.kind === 'stock' ? 2 : leg.kind === 'future' ? 1.5 : leg.kind === 'binary' ? 150 : 4;
+          const spreadBps = (leg.kind === 'stock' ? 2 : leg.kind === 'future' ? 1.5 : leg.kind === 'binary' ? 150 : 4) * (plan.spread_mult || 1);
           const impactBps = 8 * Math.sqrt(Math.max(0, qty * leg.price * mult) / 1e6) / thin;
           fill = leg.price * drift * (1 + dir * (spreadBps / 2 + impactBps) / 1e4);
         }

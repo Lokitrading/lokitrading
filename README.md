@@ -19,6 +19,58 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## Red Team lab (2.55)
+
+`#redteam`. Every proposed trade is attacked before it is simulated. All of it runs on the visitor's device unless marked "server".
+
+- **Agent jury** (`engine/jury.js`):
+  - **Quant Agent:** momentum and mean reversion, weighted by the regime that GARCH, variance-ratio and efficiency tests detect.
+  - **Risk Manager:** VaR, maximum position size, and the tilt, quarantine, news and concentration checks. It has an **absolute veto**.
+  - **Execution Engine:** chooses market, limit, TWAP or VWAP from volatility, spread and participation, and estimates slippage with the local fill engine.
+  - **Red Team, Devil's Advocate and the six-agent consensus** also vote.
+  - A trade needs a 2/3 supermajority of the five jurors.
+  - The Risk Manager cross-examines the Quant with past failures in the same volatility regime.
+  - Every decision is written to a post-mortem log with the minority's reasoning.
+  - The jurors are deterministic statistical agents. No large language models are involved: none are configured on the server.
+- **Red Team** (`engine/redteam.js`):
+  - Six scenarios of 3,000 paths each: baseline, depth collapse, latency spike, spread widening ×8, flash-crash jump, and full liquidity withdrawal.
+  - Plus the asset's worst historical move, and path-wise maximum drawdown.
+  - The Devil's Advocate runs the opposite trade through the same tests.
+  - The verdict matrix gives a 0–100% safety score; paper trades need at least 60%.
+- **Local fill engine** (`engine/fillsim.js`):
+  - Queue position for limit orders, and partial fills.
+  - 50–500 ms latency.
+  - Square-root impact above 5% of bar volume.
+  - Front-running market makers.
+  - TWAP/VWAP with a dark-pool node.
+  - Margin calls.
+  - Seeded and deterministic: the "Verify determinism" button proves identical fills.
+- **Local paper book and journal** (`engine/paperbook.js`):
+  - Zero-dependency paper trading.
+  - Execution-vs-plan audits and pattern-of-failure clusters.
+  - Sharpe, Sortino and Calmar cards.
+- **Guardrails** (`engine/guard.js`):
+  - 3 max-loss trades in a row → 24-hour lockout.
+  - Strategy drift log.
+  - Drawdown-scaled sizing.
+  - 30-day quarantine.
+  - News lockout 15 minutes before FOMC decisions (server: `/api/calendar/macro`, from the Fed's calendar) and estimated jobs reports. Add CPI or anything else yourself.
+- **Cross-asset matrix** (`engine/xasset.js`), across 10 markets:
+  - Macro pair signals.
+  - 20- vs 120-day divergence alerts.
+  - Risk-parity rebalancing for the paper book.
+- **Black swan stress** (`engine/stress.js`):
+  - 2010, 2020, 2022 and 2024 crises replayed on the book.
+  - 10,000 jump-diffusion paths with systemic correlation-to-one jumps.
+  - Margin-call escalation.
+  - The cut in gross exposure needed to bring VaR99 inside the limit.
+- **Local-first data** (`engine/localstore.js`):
+  - Columnar typed-array cache in IndexedDB.
+  - Offline mode.
+  - A CPU benchmark.
+- **Walk-forward evolution:** strains are scored on rolling out-of-sample windows. They get Sharpe/Sortino/Calmar scorecards and are sunset when they fall below baseline.
+- **Wired into the Trade terminal:** live orders also need jury approval and red-team safety.
+
 ## Engine v3 and the Command Center (2.54)
 
 Everything below runs on the visitor's device unless marked "server".

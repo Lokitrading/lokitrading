@@ -301,6 +301,85 @@ def api_xarb(response: Response) -> Dict[str, Any]:
     return data
 
 
+# ----------------------------------------------------------- macro calendar
+FOMC_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+MONTHS = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July", "August",
+                                       "September", "October", "November", "December"], start=1)}
+
+
+def parse_fomc(html: str) -> List[Dict[str, Any]]:
+    """Meeting decision days from the Fed's calendar page: the statement lands at 2:00 pm ET on the last day."""
+    from zoneinfo import ZoneInfo
+
+    ny = ZoneInfo("America/New_York")
+    out: List[Dict[str, Any]] = []
+    for year_match in re.finditer(r"(\d{4}) FOMC Meetings", html):
+        year = int(year_match.group(1))
+        block = html[year_match.end(): year_match.end() + 14000]
+        nxt = re.search(r"\d{4} FOMC Meetings", block)
+        if nxt:
+            block = block[: nxt.start()]
+        for month, days in re.findall(r"fomc-meeting__month[^>]*>\s*<strong>([^<]+)</strong>.*?fomc-meeting__date[^>]*>([^<]+)<", block, re.S):
+            month = month.split("/")[-1].strip()
+            nums = re.findall(r"\d{1,2}", days)
+            if month not in MONTHS or not nums:
+                continue
+            day = int(nums[-1])
+            try:
+                when = datetime(year, MONTHS[month], day, 14, 0, tzinfo=ny)
+            except ValueError:
+                continue
+            out.append({"name": "FOMC rate decision", "time": when.isoformat(), "impact": "high", "source": "federalreserve.gov", "estimated": False,
+                        "projections": "*" in days})
+    return out
+
+
+def jobs_reports(start: datetime, months: int = 3) -> List[Dict[str, Any]]:
+    """US employment report: usually the first Friday of the month at 8:30 am ET (BLS can move it)."""
+    from zoneinfo import ZoneInfo
+
+    ny = ZoneInfo("America/New_York")
+    out = []
+    y, m = start.year, start.month
+    for _ in range(months + 1):
+        d = datetime(y, m, 1, 8, 30, tzinfo=ny)
+        while d.weekday() != 4:
+            d = d.replace(day=d.day + 1)
+        if (d.month, d.day) == (1, 1):  # New Year's Day: the report moves a week later
+            d = d.replace(day=8)
+        elif (d.month, d.day) == (7, 4):  # Independence Day: released the Thursday before
+            d = d.replace(day=3)
+        out.append({"name": "US jobs report (NFP)", "time": d.isoformat(), "impact": "high", "source": "first-Friday rule", "estimated": True})
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
+    return out
+
+
+def _calendar() -> Dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    events: List[Dict[str, Any]] = []
+    error = None
+    try:
+        events.extend(parse_fomc(_fetch(FOMC_URL, timeout=10).decode("utf-8", errors="replace")))
+    except Exception as exc:  # the jobs schedule still works without the Fed page
+        error = f"Fed calendar unreachable ({str(exc)[:60]})"
+    events.extend(jobs_reports(now))
+    horizon = now.timestamp() + 120 * 86400
+    upcoming = sorted((e for e in events if now.timestamp() - 86400 <= datetime.fromisoformat(e["time"]).timestamp() <= horizon),
+                      key=lambda e: e["time"])
+    return {"events": upcoming, "error": error, "at": int(now.timestamp()),
+            "note": "FOMC dates come from the Federal Reserve's own calendar. Jobs-report dates follow the usual first-Friday rule and are marked "
+                    "estimated; CPI dates are not included because the BLS schedule cannot be read here: add them yourself."}
+
+
+@router.get("/api/calendar/macro")
+def api_calendar(response: Response) -> Dict[str, Any]:
+    data = _cached("calendar", 6 * 3600, _calendar)
+    response.headers["Cache-Control"] = "public, max-age=1800, s-maxage=21600"
+    return data
+
+
 # ---------------------------------------------------------------- telemetry
 def _process_stats() -> Tuple[float, Optional[float], Optional[float], Optional[float]]:
     """CPU seconds, current RSS MB, peak RSS MB and 1-minute load; POSIX gives more than Windows."""

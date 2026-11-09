@@ -148,6 +148,13 @@
       const mcBook = Loki.mcrisk ? Loki.mcrisk.snapshot() : null;
       const consensus = Loki.consensus ? await Loki.consensus.vote({ symbol: t.symbol, side: t.side, notional, venue: exVenue, exit: isExit, kind },
         { council, risk, book, mc: mcBook && mcBook.var95 != null ? mcBook : null, dailyLossLimit: equity ? equity * cfg.daily_loss_limit_pct / 100 : null }) : null;
+      $('tk-result').innerHTML = '<p class="muted">Convening the agent jury and the red team…</p>';
+      let jury = null;
+      if (Loki.jury && msym && bars.length >= 80) {
+        try { jury = await Loki.jury.evaluate({ symbol: msym, side: t.side, qty: t.qty * mult, price, kind, venue: exVenue, exit: isExit }, { bars, council, book, risk, equity: equity || undefined, strategy: 'manual' }); }
+        catch (error) { jury = null; }
+      }
+      const gate = Loki.guard ? Loki.guard.canEnter('manual') : { ok: true };
       const checks = [
         ['Connected', Boolean(state.account), state.account ? `${v.label} account ${state.account.id || ''}` : 'connect the account first'],
         ['Notional cap', notional <= maxNotional, `${F.usd(notional)} vs your cap ${F.usd(maxNotional)}`],
@@ -157,8 +164,13 @@
         ['Simulated confidence', mc.confidence >= 50 || isExit, `${mc.confidence}% of 5,000 paths profitable after costs${isExit ? ' (closing a position: not required)' : ''}`],
       ];
       if (consensus) checks.push(['Agent consensus', consensus.approved, `${consensus.summary} · ${consensus.reporting} of ${consensus.votes.length} agents reporting`]);
+      if (jury) {
+        checks.push(['Agent jury (2/3 + risk veto)', jury.approved || isExit, jury.postMortem.slice(0, 220)]);
+        checks.push(['Red team safety', jury.redteam.safety >= jury.redteam.pass || isExit, `${jury.redteam.safety}% safety · expected max drawdown ${(jury.redteam.expectedMaxDD * 100).toFixed(1)}%${jury.redteam.devil.bias ? " · devil's advocate: the other side is as plausible" : ''}`]);
+      }
+      if (!gate.ok && !isExit) checks.push(['Guardrails', false, gate.why]);
       if (v.live) checks.push(['Live trading armed', armed(), armed() ? 'armed for this session' : `type “${PHRASE}” in the arming box first`]);
-      state.check = { t, council, mc, risk, checks, notional, price, kind, consensus, at: Date.now() };
+      state.check = { t, council, mc, risk, checks, notional, price, kind, consensus, jury, isExit, at: Date.now() };
       renderCheck();
       return state.check;
     } finally { $('tk-check').disabled = false; }
@@ -174,6 +186,7 @@
       <p class="caption">Expected ${F.usd(c.mc.pnl.mean, true)} · 5% worst case ${F.usd(c.mc.pnl.p5, true)} · VaR95 ${F.usd(c.mc.var95)} · CVaR95 ${F.usd(c.mc.cvar95)} · slippage p50 ${c.mc.slippage_bps.p50.toFixed(1)}bp / p99 ${c.mc.slippage_bps.p99.toFixed(1)}bp · delay p99 ${Math.round(c.mc.delay_ms.p99)}ms${c.mc.book_exhausted_share > 0.01 ? ` · book ran out in ${(c.mc.book_exhausted_share * 100).toFixed(0)}% of paths` : ''}</p>
       ${council ? `<p class="caption">Council: ${council.votes.map((v) => `${v.icon} ${Math.round(v.p * 100)}%`).join(' · ')} → <b>${Math.round(council.p_up * 100)}% up</b>. ${F.esc(council.mood.text)}</p>` : ''}
       ${c.consensus ? `<details class="tk-consensus"><summary>Consensus vote: ${F.esc(c.consensus.summary)}</summary><ul>${c.consensus.votes.map((x) => `<li class="${x.veto ? 'no' : x.score == null ? '' : x.score >= 0 ? 'ok' : 'no'}"><b>${F.esc(x.name)}</b> ${x.veto ? 'VETO · ' : x.score == null ? '' : `${x.score >= 0 ? '+' : ''}${x.score.toFixed(2)} · `}${F.esc(x.why)}</li>`).join('')}</ul></details>` : ''}
+      ${c.jury ? `<details class="tk-consensus"><summary>Jury ${c.jury.yes}/${c.jury.jurors.length} · red team safety ${c.jury.redteam.safety}% · max size ${F.usd(c.jury.risk.maxNotional)}</summary><ul>${c.jury.jurors.map((j) => `<li class="${j.vote ? 'ok' : 'no'}"><b>${F.esc(j.name)}</b> ${F.esc(j.why)}</li>`).join('')}<li class="${c.jury.risk.veto ? 'no' : 'ok'}"><b>Risk Manager (veto)</b> ${F.esc(c.jury.risk.summary)}</li><li><b>Execution</b> ${F.esc(c.jury.execution.summary)}</li></ul><p class="caption">Full stress table and post-mortems in the <a href="#redteam">Red Team lab</a>.</p></details>` : ''}
       <ul class="tk-checks">${c.checks.map(([name, ok, why]) => `<li class="${ok ? 'ok' : 'no'}"><b>${ok ? '✓' : '✗'} ${F.esc(name)}</b> ${F.esc(why)}</li>`).join('')}</ul>
       <p class="${pass ? 'tk-go' : 'tk-stop'}">${pass ? 'All checks pass. You can place this order.' : 'Some checks fail. You can still place it on paper/demo; live orders need every check to pass.'}</p>`;
     $('tk-send').disabled = VENUES[state.venue].live && !pass;
@@ -184,6 +197,7 @@
     const v = VENUES[state.venue], t = ticket();
     if (!state.check || Date.now() - state.check.at > 120000 || state.check.t.symbol !== t.symbol || state.check.t.qty !== t.qty || state.check.t.side !== t.side) await preTradeCheck();
     const c = state.check;
+    if (Loki.guard) Loki.guard.drift({ source: `trade (${v.label})`, symbol: t.symbol, side: t.side, recommended: c.checks.every(([, ok]) => ok) ? t.side : c.jury && c.jury.risk.veto ? 'blocked' : 'hold', why: c.jury ? c.jury.postMortem.slice(0, 160) : 'pre-trade checks' });
     if (v.live) {
       if (!c.checks.every(([, ok]) => ok)) throw new Error('Live orders need every pre-trade check to pass.');
       const today = new Date().toDateString(), count = Loki.store.get('loki_live_orders_today_v1', { day: today, n: 0 });
