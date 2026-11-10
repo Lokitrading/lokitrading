@@ -370,11 +370,17 @@ def portfolio_stage(report: Dict[str, Any], data_dir: Optional[Path]) -> Dict[st
             df = load_history(sym, data_dir)
             frames[sym] = df
             sleeves[sym] = portfolio_ai.run_sleeve(df, params, sym)
-    target, trials = portfolio_ai.select_target_vol(sleeves, PORTFOLIO_WINDOWS, vol_windows=(63, 126, 189, 252))
+    # Idle cash earns Treasury-bill interest in the replay, as it does live.
+    cash_yield = load_history(portfolio_ai.CASH_YIELD_SYMBOL, data_dir)["close"]
+    target, trials = portfolio_ai.select_target_vol(sleeves, PORTFOLIO_WINDOWS, vol_windows=(63, 126, 189, 252),
+                                                    cash_yield=cash_yield)
     vol_window = next(t["vol_window"] for t in trials if t.get("chosen"))
-    book = portfolio_ai.combine(sleeves, target, vol_window=vol_window)
+    book = portfolio_ai.combine(sleeves, target, vol_window=vol_window, cash_yield=cash_yield)
     bh = portfolio_ai.buy_hold_returns(frames, book["returns"].index, book["active"])
     out = {"target_vol_pct": target, "vol_window": vol_window, "symbols": list(sleeves), "trials": trials,
+           "cash_parking": {"symbol": portfolio_ai.CASH_ETF, "yield_source": portfolio_ai.CASH_YIELD_SYMBOL,
+                            "fee_pct": portfolio_ai.CASH_FEE_PCT, "switch_bps": portfolio_ai.CASH_SWITCH_BPS,
+                            "average_cash": round(float((1 - book["gross"]).mean()), 3)},
            "rejected_experiments": [
                "8 extra asset-class ETFs (EFA, EEM, IEF, SLV, DBC, VNQ, XLU, XLV): development Sharpe 0.90 vs 1.10 — rejected",
                "capital tilted to markets whose strategy worked over the trailing year: best 1.08 vs 1.10 — rejected",
@@ -383,7 +389,8 @@ def portfolio_stage(report: Dict[str, Any], data_dir: Optional[Path]) -> Dict[st
     for name, (a, b) in PORTFOLIO_WINDOWS.items():
         out[name] = portfolio_ai.window_stats(book["returns"], a, b)
         out[name + "_buy_hold"] = portfolio_ai.window_stats(bh, a, b)
-    out["hindsight_check"] = portfolio_ai.hindsight_check(sleeves, frames, PORTFOLIO_WINDOWS)
+    out["hindsight_check"] = portfolio_ai.hindsight_check(sleeves, frames, PORTFOLIO_WINDOWS, cash_yield=cash_yield)
+    out["calendar_years"] = portfolio_ai.calendar_years(book["returns"])
     out["holdout_ci"] = portfolio_ai.bootstrap_ci(
         book["returns"][book["returns"].index >= PORTFOLIO_WINDOWS["holdout"][0]])
     out["expected_range"] = portfolio_ai.expected_range(

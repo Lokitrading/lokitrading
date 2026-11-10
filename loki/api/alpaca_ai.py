@@ -31,7 +31,11 @@ def plan_trades(plan: Dict[str, Any], equity: float, held: Dict[str, Dict[str, A
     """Orders that bring the AI's markets to their target weights (pure; unit-tested)."""
     trades: List[Dict[str, Any]] = []
     notes: List[str] = []
-    for row in plan.get("positions", []):
+    rows = list(plan.get("positions", []))
+    parking = plan.get("cash_parking") or {}
+    if parking.get("symbol"):  # the unused share goes into Treasury bills, like the tested record
+        rows.append({"symbol": parking["symbol"], "weight": parking.get("weight") or 0.0})
+    for row in rows:
         engine = row["symbol"]
         symbol = alpaca_symbol(engine)
         target = max(0.0, float(row.get("weight") or 0.0)) * equity
@@ -62,6 +66,9 @@ def plan_trades(plan: Dict[str, Any], equity: float, held: Dict[str, Dict[str, A
             trade.update(side="sell", qty=qty)
         trades.append(trade)
     trades.sort(key=lambda t: 0 if t["side"] in ("sell", "close") else 1)  # free cash before buying
+    if parking.get("symbol") and not stocks_open and any(t["crypto"] and t["side"] == "buy" for t in trades):
+        notes.append(f"Crypto buys use free cash; if one is short, it completes after {parking['symbol']} "
+                     "(Treasury bills) is sold when the US market opens.")
     return trades, notes
 
 

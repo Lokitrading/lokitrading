@@ -371,6 +371,17 @@ def market_overview() -> str:
             " Open Live markets for the full board, or name any ticker and I'll run the AI on it.\n" + FOOTER)
 
 
+def _years_sentence() -> str:
+    years = (_universal().get("portfolio") or {}).get("calendar_years") or []
+    full = [y for y in years if not y.get("partial")]
+    if not full:
+        return ""
+    losers = [y for y in full if y["return_pct"] < 0]
+    worst = ("; losing years: " + ", ".join(f"{y['year']} {_pct(y['return_pct'])}" for y in losers)) if losers else ""
+    return (f"Year by year, the simulated Portfolio AI was up in {len(full) - len(losers)} of {len(full)} full years "
+            f"({full[0]['year']}-{full[-1]['year']}){worst}. No strategy can promise a profit every year, or every month.")
+
+
 def _hindsight_sentence() -> str:
     hc = (_universal().get("portfolio") or {}).get("hindsight_check") or {}
     h, b = hc.get("holdout") or {}, hc.get("holdout_buy_hold") or {}
@@ -396,9 +407,9 @@ def track_record() -> str:
                        f"{p.get('symbols')} symbols, average worst drop {_pct(p.get('mean_max_dd_pct'))}. Simply holding the same "
                        f"assets: {_pct(p.get('buy_hold_mean_cagr_pct'))} a year with {_pct(p.get('buy_hold_mean_max_dd_pct'))} worst drop.")
     out.append("In that simulation it was profitable on data held back from training, with smaller drawdowns than holding, but it trailed buy-and-hold in the strong 2023-26 bull run. These are hypothetical results, not real trading: simulations have limits and future results can differ.")
-    honest = _hindsight_sentence()
-    if honest:
-        out.append(honest)
+    for extra in (_years_sentence(), _hindsight_sentence()):
+        if extra:
+            out.append(extra)
     return "\n".join(out)
 
 
@@ -425,7 +436,7 @@ def portfolio_answer() -> str:
     lines = ["The Portfolio AI runs the verified strategy on 21 markets at once — 13 stocks/ETFs (including gold and bonds) "
              "and 8 coins — shares capital equally, scales the whole book to a steady risk level, and never holds more than 100% of the account."]
     if h:
-        lines.append(f"In a simulation on held-back 2023→now data (hypothetical, not real trading) it made {_pct(h.get('cagr_pct'))} a year with a Sharpe of {h.get('sharpe')} and a worst drop of "
+        lines.append(f"In a simulation on held-back 2023→now data (hypothetical, not real trading) it made {_pct(h.get('cagr_pct'))} a year with a Sharpe of {float(h.get('sharpe') or 0):.2f} and a worst drop of "
                      f"{_pct(h.get('max_dd_pct'))}; holding all 21 equally made {_pct(b.get('cagr_pct'))} a year but fell {_pct(b.get('max_dd_pct'))} at worst.")
     plan = _portfolio()
     if plan and plan.get("health", {}).get("status") not in (None, "unknown"):
@@ -435,9 +446,13 @@ def portfolio_answer() -> str:
     if plan and plan.get("changes"):
         moves = ", ".join(f"{c['action']} {c['symbol']} ({c['date']})" for c in plan["changes"][:5])
         lines.append(f"Recent moves: {moves}.")
-    honest = _hindsight_sentence()
-    if honest:
-        lines.append(honest)
+    for extra in (_years_sentence(), _hindsight_sentence()):
+        if extra:
+            lines.append(extra)
+    park = uni.get("cash_parking") or {}
+    if park.get("symbol"):
+        lines.append(f"Cash it isn't using (about {round(park.get('average_cash', 0) * 100)}% on average) sits in Treasury bills ({park['symbol']}), "
+                     "so idle money still earns interest — that's included in the numbers above.")
     ci = uni.get("holdout_ci") or {}
     if ci.get("cagr_pct"):
         lines.append(f"Honest uncertainty: that simulated yearly return could plausibly have been anywhere from "
@@ -599,6 +614,9 @@ def trust_answer() -> str:
     if pf:
         lines.append(f"• Portfolio AI (21 markets): worst drop {_pct(pf.get('max_dd_pct'))} on 2023-onward data.")
     lines.append("• It loses on many individual trades and trails buy-and-hold in strong bull runs; its edge is avoiding the deepest drops.")
+    years = _years_sentence()
+    if years:
+        lines.append("• " + years)
     lines.append("The safest way to judge it is to run it on paper money first — the AI trading page does exactly that.\n" + FOOTER)
     return "\n".join(lines)
 

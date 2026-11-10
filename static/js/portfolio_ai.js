@@ -18,7 +18,7 @@
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (v) => (window.LokiCurrency ? window.LokiCurrency.format(v) : (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const pct = (v, d = 1) => (Number.isFinite(Number(v)) ? `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(d)}%` : '—');
-  const fresh = (cash = 10000) => ({ cash, start: cash, running: false, holdings: {}, trades: [], curve: [], log: [], lastCheck: 0 });
+  const fresh = (cash = 10000) => ({ cash, start: cash, running: false, holdings: {}, trades: [], curve: [], log: [], lastCheck: 0, interest: 0, accruedAt: 0 });
 
   let state = (() => { try { return { ...fresh(), ...(JSON.parse(localStorage.getItem(KEY) || 'null') || {}) }; } catch { return fresh(); } })();
   let plan = null, busy = false, timer = null;
@@ -111,6 +111,16 @@
     return data;
   }
 
+  // Idle cash earns Treasury-bill interest, as in the tested record (the plan says the current yield).
+  function accrueInterest() {
+    const park = plan && plan.cash_parking, now = Date.now();
+    if (!park || !(park.yield_pct > 0) || !(state.cash > 0)) { state.accruedAt = now; return; }
+    const days = state.accruedAt ? Math.min(30, (now - state.accruedAt) / 86400000) : 0;
+    const earned = state.cash * (park.yield_pct / 100) * (days / 365);
+    if (earned > 0) { state.cash += earned; state.interest = (state.interest || 0) + earned; }
+    state.accruedAt = now;
+  }
+
   async function step(force) {
     if (busy) return;
     busy = true;
@@ -118,6 +128,7 @@
     try {
       await loadPlan(force);
       if (state.running && claim()) {
+        accrueInterest();
         const n = rebalance();
         if (n) log(`Rebalanced ${n} market(s) toward the tested book (${(plan.gross * 100).toFixed(0)}% invested).`, 'good');
         state.curve.push({ t: Date.now(), e: equity() });
@@ -145,7 +156,21 @@
       cell('Sharpe ratio', Number(h.sharpe).toFixed(2), `buy & hold ${b ? Number(b.sharpe).toFixed(2) : '—'}`) +
       cell('Worst drop', pct(h.max_dd_pct), `buy & hold ${pct(b && b.max_dd_pct)}`, '#ffb3a7') +
       cell('Profitable months', `${Number(h.profitable_months_pct).toFixed(0)}%`, `risk target ${plan.target_vol_pct}% / yr`) +
-      hindsightNote(plan.hindsight_check);
+      yearsStrip(plan.calendar_years) + hindsightNote(plan.hindsight_check);
+  }
+
+  // Every calendar year of the simulated record, losing years included: no strategy is positive every year.
+  function yearsStrip(years) {
+    if (!Array.isArray(years) || !years.length) return '';
+    const full = years.filter((y) => !y.partial), losers = full.filter((y) => y.return_pct < 0);
+    const max = Math.max(5, ...years.map((y) => Math.abs(y.return_pct)));
+    const bars = years.map((y) => {
+      const hgt = Math.max(2, Math.round((Math.abs(y.return_pct) / max) * 46));
+      const label = `${y.year}${y.partial ? ' (so far)' : ''}: ${pct(y.return_pct)}`;
+      return `<span class="pf-year${y.return_pct < 0 ? ' down' : ''}" title="${esc(label)}" aria-label="${esc(label)}"><i style="height:${hgt}px"></i><small>${String(y.year).slice(2)}</small></span>`;
+    }).join('');
+    const worst = losers.length ? ` Losing years: ${losers.map((y) => `${y.year} ${pct(y.return_pct)}`).join(', ')}.` : '';
+    return `<div class="pf-years"><p><strong>Year by year (simulated, ${esc(String(years[0].year))}→now).</strong> Up in ${full.length - losers.length} of ${full.length} full years.${esc(worst)} No strategy can promise a profit every year.</p><div class="pf-year-bars" role="img" aria-label="Simulated return each calendar year">${bars}</div></div>`;
   }
 
   // The same method on markets nobody had to pick with hindsight (index funds, gold, bonds, BTC, ETH).
@@ -170,7 +195,7 @@
       return seg;
     }).join('');
     const legend = held.slice(0, 6).map((p, i) => `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${esc(p.symbol)} ${esc((p.weight * 100).toFixed(1))}%</span>`).join('') +
-      (held.length > 6 ? `<span>+${held.length - 6} more</span>` : '') + `<span><i style="background:#2c3c48"></i>cash ${esc((plan.cash * 100).toFixed(1))}%</span>`;
+      (held.length > 6 ? `<span>+${held.length - 6} more</span>` : '') + `<span><i style="background:#2c3c48"></i>cash ${esc((plan.cash * 100).toFixed(1))}%${plan.cash_parking ? ` in T-bills (${esc(plan.cash_parking.symbol)}, ~${esc(Number(plan.cash_parking.yield_pct).toFixed(1))}%/yr)` : ''}</span>`;
     return `<div class="pf-donut-wrap"><div class="pf-donut-center"><svg class="pf-donut" viewBox="0 0 132 132" aria-hidden="true"><circle r="52" cx="66" cy="66" stroke="#1d2b35"/>${segs}</svg>` +
       `<div class="pf-donut-label"><span class="pf-donut-num">${esc(Math.round(plan.gross * 100))}%</span><small>INVESTED</small></div></div><div class="pf-legend">${legend}</div></div>`;
   }
@@ -195,7 +220,8 @@
     const realized = state.trades.reduce((a, t) => a + t.pnl, 0);
     const metric = (k, v) => `<div class="pf-metric"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`;
     $('pf-metrics').innerHTML = metric('Equity', money(eq)) + metric('Total P&L', `${money(eq - state.start)} (${pct((eq / state.start - 1) * 100, 2)})`) +
-      metric('Invested', `${eq > 0 ? ((invested / eq) * 100).toFixed(0) : 0}%`) + metric('Realized P&L', money(realized));
+      metric('Invested', `${eq > 0 ? ((invested / eq) * 100).toFixed(0) : 0}%`) + metric('Realized P&L', money(realized)) +
+      (state.interest > 0 ? metric('T-bill interest', money(state.interest)) : '');
     const rows = Object.entries(state.holdings).map(([sym, h]) => {
       const px = priceOf(sym);
       const value = h.qty * (Number.isFinite(px) ? px : h.avg);

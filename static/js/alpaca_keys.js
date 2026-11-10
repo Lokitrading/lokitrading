@@ -482,7 +482,7 @@
   function renderAi(data, applied) {
     const out = $('#alpaca-ai-out');
     out.replaceChildren();
-    const targets = (data.targets || []).map((t) => `${t.symbol} ${t.weight_pct}%`).join(', ') || 'all cash — every market is out of its uptrend';
+    const targets = (data.targets || []).map((t) => `${t.symbol} ${t.weight_pct}%${t.cash_parking ? ' (idle cash in Treasury bills)' : ''}`).join(', ') || 'all cash — every market is out of its uptrend';
     out.append(element('p', `Plan as of ${data.plan_as_of || '—'} · AI invested ${data.ai_invested_pct}% · account equity US$${number(data.equity)} · US market ${data.us_market_open ? 'open' : 'closed'}.`, 'integration-note'));
     out.append(element('p', `Targets: ${targets}`, 'caption'));
     const trades = data.trades || [];

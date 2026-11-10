@@ -13,6 +13,11 @@ combined smooth each other out. This module:
    completed bar, so the paper autopilot holds what was tested.
 
 Scale changes are charged ``COST_BPS`` per side on the traded notional.
+
+Idle cash (2.58): whatever the book does not hold is parked in a 0-3 month
+Treasury-bill fund (``CASH_ETF``). The replay credits yesterday's published
+13-week bill yield, minus ``CASH_FEE_PCT`` a year and ``CASH_SWITCH_BPS`` on
+every move in or out, so the record and the live plan hold the same thing.
 """
 
 from __future__ import annotations
@@ -34,6 +39,23 @@ ANNUAL = 260  # union calendar mixes 252 equity and 365 crypto days
 MAX_SCALE = 4.0  # sleeves at 1/N each; the 100% gross cap binds far earlier
 COST_BPS = 15.0  # fees + slippage per side on scale-driven rebalancing
 FEE_BPS = 10.0  # per side on sleeve fills, on top of slippage in fills
+CASH_ETF = "SGOV"  # 0-3 month US Treasury bills; holds the cash the book is not using
+CASH_YIELD_SYMBOL = "^IRX"  # 13-week T-bill yield, % a year
+CASH_FEE_PCT = 0.14  # % a year: a conservative T-bill fund expense ratio
+CASH_SWITCH_BPS = 2.0  # per side when cash moves in or out of the bill fund
+
+
+def tbill_returns(index: pd.DatetimeIndex, yields: pd.Series) -> pd.Series:
+    """Daily return of a T-bill fund on ``index`` from published yields (decided on yesterday's print)."""
+    y = yields.astype(float).copy()
+    norm = pd.DatetimeIndex(y.index)
+    if norm.tz is not None:
+        norm = norm.tz_localize(None)
+    y.index = norm.normalize()
+    y = y[~y.index.duplicated(keep="last")].sort_index()
+    y = y.reindex(index, method="ffill").shift(1).fillna(0.0)
+    days = pd.Series(index, index=index).diff().dt.days.fillna(1).clip(lower=1, upper=5)
+    return ((y - CASH_FEE_PCT).clip(lower=0.0) / 100.0) * days / 365.0
 
 
 def config_for(params: Dict[str, Any]) -> LokiConfig:
@@ -98,8 +120,12 @@ def run_sleeve(df: pd.DataFrame, params: Dict[str, Any], symbol: str) -> Dict[st
 
 
 def combine(sleeves: Dict[str, Dict[str, Any]], target_vol_pct: float, warmup: int = 300,
-            vol_window: Optional[int] = None) -> Dict[str, Any]:
-    """Equal-capital sleeves, vol-targeted, gross exposure capped at 100%."""
+            vol_window: Optional[int] = None, cash_yield: Optional[pd.Series] = None) -> Dict[str, Any]:
+    """Equal-capital sleeves, vol-targeted, gross exposure capped at 100%.
+
+    With ``cash_yield`` (13-week bill yields, % a year) the unused cash earns
+    T-bill interest; volatility targeting still sees only the markets.
+    """
     R = pd.DataFrame({s: v["returns"] for s, v in sleeves.items()}).sort_index()
     E = pd.DataFrame({s: v["exposure"] for s, v in sleeves.items()}).reindex(R.index).ffill().fillna(0.0)
     active = pd.DataFrame(
@@ -121,8 +147,17 @@ def combine(sleeves: Dict[str, Dict[str, Any]], target_vol_pct: float, warmup: i
     scale = np.minimum(weekly, cap).clip(lower=0.0, upper=MAX_SCALE)
     cost = scale.diff().abs().fillna(0.0) * gross_ew * COST_BPS / 10_000.0
     returns = ew * scale - cost
-    return {"returns": returns, "scale": scale, "gross": gross_ew * scale, "active": active, "exposure": E,
-            "n_active": n, "base_returns": ew}
+    gross = gross_ew * scale
+    out = {"returns": returns, "scale": scale, "gross": gross, "active": active, "exposure": E,
+           "n_active": n, "base_returns": ew}
+    if cash_yield is not None and len(cash_yield):
+        rf = tbill_returns(returns.index, cash_yield)
+        cash = (1.0 - gross).clip(lower=0.0, upper=1.0)
+        switch = cash.diff().abs().fillna(0.0) * CASH_SWITCH_BPS / 10_000.0
+        out["returns"] = returns + cash.shift(1).fillna(0.0) * rf - switch
+        last = cash_yield.dropna()
+        out["cash_yield_pct"] = round(max(0.0, float(last.iloc[-1]) - CASH_FEE_PCT), 3) if len(last) else None
+    return out
 
 
 def window_stats(returns: pd.Series, start: str, end: str) -> Dict[str, Any]:
@@ -175,18 +210,25 @@ def allocation(sleeves: Dict[str, Dict[str, Any]], book: Dict[str, Any], prices:
     for r in rows:
         r["weight"] = round(r["weight"], 5)
     rows.sort(key=lambda r: r["weight"], reverse=True)
-    return {"scale": round(scale_now, 4), "gross": round(gross, 4), "cash": round(1.0 - gross, 4),
-            "active_markets": n, "positions": rows}
+    out = {"scale": round(scale_now, 4), "gross": round(gross, 4), "cash": round(1.0 - gross, 4),
+           "active_markets": n, "positions": rows}
+    if book.get("cash_yield_pct") is not None:
+        # The unused share sits in Treasury bills, exactly as in the replay.
+        out["cash_parking"] = {"symbol": CASH_ETF, "weight": round(max(0.0, 1.0 - gross), 5),
+                               "yield_pct": book["cash_yield_pct"],
+                               "what": "0-3 month US Treasury bills: the cash the AI is not using earns interest"}
+    return out
 
 
 def select_target_vol(sleeves: Dict[str, Dict[str, Any]], windows: Dict[str, Tuple[str, str]],
                       candidates: Tuple[float, ...] = (10.0, 15.0, 20.0, 25.0),
-                      vol_windows: Tuple[int, ...] = (VOL_WINDOW,)) -> Tuple[float, List[Dict[str, Any]]]:
+                      vol_windows: Tuple[int, ...] = (VOL_WINDOW,),
+                      cash_yield: Optional[pd.Series] = None) -> Tuple[float, List[Dict[str, Any]]]:
     """Pick risk target (and vol look-back) by the WORSE of development/validation Sharpe."""
     trials = []
     for vw in vol_windows:
         for tv in candidates:
-            book = combine(sleeves, tv, vol_window=vw)
+            book = combine(sleeves, tv, vol_window=vw, cash_yield=cash_yield)
             dev = window_stats(book["returns"], *windows["development"])
             val = window_stats(book["returns"], *windows["validation"])
             trials.append({"target_vol_pct": tv, "vol_window": vw, "development": dev, "validation": val,
@@ -195,11 +237,24 @@ def select_target_vol(sleeves: Dict[str, Dict[str, Any]], windows: Dict[str, Tup
     return best["target_vol_pct"], [dict(t, chosen=t is best) for t in trials]
 
 
+def calendar_years(returns: pd.Series, start: str = "2005-01-01") -> List[Dict[str, Any]]:
+    """Return for every calendar year from ``start`` (the last one is year-to-date)."""
+    x = returns[returns.index >= start]
+    out = []
+    for year, chunk in x.groupby(x.index.year):
+        if len(chunk) < 20:
+            continue
+        out.append({"year": int(year), "return_pct": round(float(((1 + chunk).prod() - 1) * 100), 2),
+                    "partial": bool(chunk.index[-1] < pd.Timestamp(f"{year}-12-24"))})
+    return out
+
+
 NO_HINDSIGHT = ("SPY", "QQQ", "IWM", "DIA", "GLD", "TLT", "BTC-USD", "ETH-USD")
 
 
 def hindsight_check(sleeves: Dict[str, Dict[str, Any]], frames: Dict[str, pd.DataFrame],
-                    windows: Dict[str, Tuple[str, str]], symbols: Tuple[str, ...] = NO_HINDSIGHT) -> Dict[str, Any]:
+                    windows: Dict[str, Tuple[str, str]], symbols: Tuple[str, ...] = NO_HINDSIGHT,
+                    cash_yield: Optional[pd.Series] = None) -> Dict[str, Any]:
     """The same method on markets nobody had to pick with hindsight.
 
     The main universe includes individual stocks (Apple, Nvidia, ...) that are
@@ -212,9 +267,9 @@ def hindsight_check(sleeves: Dict[str, Dict[str, Any]], frames: Dict[str, pd.Dat
     if len(picked) < 4:
         return {}
     sub = {s: sleeves[s] for s in picked}
-    target, trials = select_target_vol(sub, windows, vol_windows=(63, 126, 189, 252))
+    target, trials = select_target_vol(sub, windows, vol_windows=(63, 126, 189, 252), cash_yield=cash_yield)
     vol_window = next(t["vol_window"] for t in trials if t.get("chosen"))
-    book = combine(sub, target, vol_window=vol_window)
+    book = combine(sub, target, vol_window=vol_window, cash_yield=cash_yield)
     bh = buy_hold_returns({s: frames[s] for s in picked}, book["returns"].index, book["active"])
     out: Dict[str, Any] = {"symbols": picked, "target_vol_pct": target, "vol_window": vol_window}
     for name, (a, b) in windows.items():

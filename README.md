@@ -19,6 +19,32 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.58: idle cash earns Treasury-bill interest; year-by-year record
+
+**Idle cash in Treasury bills.**
+- The Portfolio AI holds markets only while they trend, so on average about 37% of the account sat in cash earning nothing.
+- That cash is now parked in a 0–3 month Treasury-bill fund (SGOV) in four places:
+  - the tested record;
+  - the live plan (`cash_parking`);
+  - the website's paper book, which accrues the current yield;
+  - the Alpaca paper forward test and the website's Alpaca panel, which buy and sell SGOV.
+- How the replay credits the interest:
+  - it uses yesterday's published 13-week bill yield (`^IRX`);
+  - minus a conservative 0.14% a year fee;
+  - with 2 bps charged on every move in or out.
+- The risk level was re-chosen on 2005–2022 with the cash included; it stayed at 10%.
+
+| Window | Before | With T-bills |
+|---|---|---|
+| 2005–2018 | +11.5%/yr, Sharpe 1.15, worst −15.1% | +12.0%/yr, Sharpe 1.19, worst −14.9% |
+| 2019–2022 | +15.6%/yr, Sharpe 1.39 | +15.9%/yr, Sharpe 1.42 |
+| 2023 → now (unseen) | +13.3%/yr, Sharpe 1.21, worst −9.8% | **+14.2%/yr, Sharpe 1.29, worst −9.2%** |
+
+**Year-by-year record (simulated).**
+- The AI trading page, Talk to Loki and the record (`calendar_years`) now show every calendar year since 2005.
+- It was up in 19 of 21 full years. The losing years were 2008 (−6.1%) and 2022 (−4.1%).
+- No strategy can promise a profit every year, or every month; the page says so.
+
 ## 2.57: is the trading AI actually good? An honest audit
 
 **Does it work?**
@@ -211,7 +237,7 @@ python train_long_history.py --write-snapshot        # ~30 min on 4 cores
 
 ## Portfolio AI (21 markets at once)
 
-`loki_v8/portfolio_ai.py` replays each market's verified profile (13 stocks/ETFs incl. gold and bonds, 8 coins), gives every active market an equal share of capital, and scales the whole book toward a target yearly volatility — capped so total holdings never exceed 100% of the account. The target (10%) was chosen on 2005-2022 only. Untouched holdout 2023 → Nov 2026: **+13.7%/yr, Sharpe 1.25, worst drop −10.5%, 64% of months profitable**, versus equal-weight buy-and-hold of the same markets at +21.9%/yr, Sharpe 0.98, worst drop −28.3%. `GET /api/fusion/ai/portfolio` returns what that exact book holds at the latest completed bar; the AI trading page's Portfolio AI panel mirrors it with paper money. Historical results, not a promise.
+`loki_v8/portfolio_ai.py` replays each market's verified profile (13 stocks/ETFs incl. gold and bonds, 8 coins), gives every active market an equal share of capital, and scales the whole book toward a target yearly volatility — capped so total holdings never exceed 100% of the account. The target (10%) was chosen on 2005-2022 only. Untouched holdout 2023 → Nov 2026 (idle cash in T-bills since 2.58): **+14.2%/yr, Sharpe 1.29, worst drop −9.2%, 66% of months profitable**, versus equal-weight buy-and-hold of the same markets at +21.9%/yr, Sharpe 0.98, worst drop −28.3%. `GET /api/fusion/ai/portfolio` returns what that exact book holds at the latest completed bar; the AI trading page's Portfolio AI panel mirrors it with paper money. Historical results, not a promise.
 
 ## Security
 
