@@ -19,6 +19,32 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.59: risk levels; another round of honest research
+
+**Risk levels (AI trading page, `GET /api/fusion/ai/portfolio?risk=steady|balanced|growth`).**
+- The same tested rules can now run at three risk levels. Each level publishes its whole simulated record (2005 → now, same fees, slippage and T-bill cash):
+
+| Level | Risk target | Return / yr | Worst drop | Losing years (of 21) | Sharpe |
+|---|---|---|---|---|---|
+| **Steady** (tested default) | 10% | +13.3% | −15.9% | 2 | 1.26 |
+| Balanced | 15% | +16.0% | −18.2% | 2 | 1.24 |
+| Growth | 20% | +17.1% | −20.3% | 4 | 1.21 |
+
+- Steady stays the default because it earned the most for the risk it took on 2005–2022. Higher levels hold more of each market, so both returns and drops grow.
+- Nothing borrows: total holdings stay capped at 100%, which is why returns flatten above Growth.
+- The Alpaca forward test and the website's Alpaca panel stay on Steady.
+- Switching level reuses the downloaded market data for a minute, so it never refetches 21 markets.
+
+**Research that did not earn a place** (chosen on 2005–2022 only; baseline score 1.19, logged in `rejected_experiments`):
+- capital tilted to the strongest markets (6- and 12-month momentum): 0.99–1.17;
+- a drawdown brake (halve or stop after a 5% or 8% drop): smaller drops but 0.25–1.13;
+- dip-buying sleeves on index funds (2-day RSI): no edge after costs, 1.04;
+- crisis diversifiers (dollar, commodities, mid-term Treasuries): 1.20, inside the noise.
+
+Twelve alternatives across three rounds have now failed to beat the current rules by the 0.05 promotion margin. That is evidence the rules sit on a robust plateau, and it is the reason no "better" signal was shipped: one chosen from this many tries would mostly be luck.
+
+**Error sweep.** Every page on the live site (desktop and mobile), every data endpoint and every button was re-checked; no new errors were found.
+
 ## 2.58: idle cash earns Treasury-bill interest; year-by-year record
 
 **Idle cash in Treasury bills.**

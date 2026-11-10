@@ -449,6 +449,11 @@ def portfolio_answer() -> str:
     for extra in (_years_sentence(), _hindsight_sentence()):
         if extra:
             lines.append(extra)
+    levels = [lv for lv in uni.get("risk_levels") or [] if lv.get("whole_record")]
+    if len(levels) > 1:
+        lines.append("You can pick a risk level on the AI trading page (same rules, simulated 2005→now): " + "; ".join(
+            f"{lv['label']} {_pct(lv['whole_record'].get('cagr_pct'))} a year with a worst drop of {_pct(lv['whole_record'].get('max_dd_pct'))}"
+            for lv in levels) + ". Steady is the default because it earned the most for the risk it took; higher levels mean bigger drops.")
     park = uni.get("cash_parking") or {}
     if park.get("symbol"):
         lines.append(f"Cash it isn't using (about {round(park.get('average_cash', 0) * 100)}% on average) sits in Treasury bills ({park['symbol']}), "
