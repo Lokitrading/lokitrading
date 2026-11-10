@@ -165,3 +165,36 @@ def test_shipped_record_carries_an_honest_hindsight_check():
     assert hc["holdout"]["max_dd_pct"] > hc["holdout_buy_hold"]["max_dd_pct"]  # smaller worst drop
     assert "buying and holding" in hc["verdict"]
     assert any("inverse volatility" in r for r in block["rejected_experiments"])
+
+
+def test_idle_cash_earns_treasury_bill_interest(sleeves):
+    plain = portfolio_ai.combine(sleeves, 10.0, warmup=260)
+    idx = plain["returns"].index
+    yields = pd.Series(5.0, index=idx)  # 5% a year
+    parked = portfolio_ai.combine(sleeves, 10.0, warmup=260, cash_yield=yields)
+    extra = (parked["returns"] - plain["returns"]).iloc[5:]
+    cash = (1 - plain["gross"]).shift(1).iloc[5:]
+    assert (extra[cash > 0.5] > 0).mean() > 0.9  # idle days earn interest
+    daily = portfolio_ai.tbill_returns(idx, yields)
+    assert daily.iloc[10] == pytest.approx((5.0 - portfolio_ai.CASH_FEE_PCT) / 100 / 365 * (idx[10] - idx[9]).days)
+    alloc = portfolio_ai.allocation(sleeves, parked)
+    park = alloc["cash_parking"]
+    assert park["symbol"] == portfolio_ai.CASH_ETF and park["weight"] == pytest.approx(alloc["cash"], abs=1e-4)
+    assert park["yield_pct"] == pytest.approx(5.0 - portfolio_ai.CASH_FEE_PCT)
+    assert "cash_parking" not in portfolio_ai.allocation(sleeves, plain)  # no yields, no parking
+
+
+def test_calendar_years_include_losing_years():
+    idx = pd.bdate_range("2019-01-01", "2021-06-30")
+    r = pd.Series(np.where(idx.year == 2020, -0.0005, 0.0004), index=idx)
+    years = portfolio_ai.calendar_years(r, start="2019-01-01")
+    assert [y["year"] for y in years] == [2019, 2020, 2021]
+    assert years[1]["return_pct"] < 0 and years[2]["partial"] and not years[0]["partial"]
+
+
+def test_shipped_record_parks_cash_and_reports_every_year():
+    from loki_v8.train import load_report
+    block = load_report()["universal"]["portfolio"]
+    assert block["cash_parking"]["symbol"] == "SGOV" and 0 < block["cash_parking"]["average_cash"] < 1
+    years = block["calendar_years"]
+    assert years[0]["year"] == 2005 and any(y["return_pct"] < 0 for y in years)  # honest: not every year is up

@@ -52,3 +52,14 @@ def test_performance_includes_todays_equity():
     perf = af.performance({"equity": [25000, 24998], "timestamp": [86400 * 20000, 86400 * 20001]}, 25058.68)
     assert perf["equity"] == 25058.68 and perf["return_pct"] == 0.23 and perf["since"] == "2024-10-04"
     assert af.performance({"equity": [25000, 25100], "timestamp": [1, 2]}, 25100.0)["days"] == 2
+
+
+def test_idle_cash_goes_into_treasury_bills():
+    plan = {"positions": [{"symbol": "SPY", "weight": 0.5}], "cash_parking": {"symbol": "SGOV", "weight": 0.5, "yield_pct": 3.9}}
+    trades, _ = af.plan_trades(plan, 10_000, {}, stocks_open=True)
+    assert {(t["symbol"], t["side"], t["notional"]) for t in trades} == {("SPY", "buy", 5000.0), ("SGOV", "buy", 5000.0)}
+    # When markets re-enter, the bills are sold first to pay for them.
+    held = {"SGOV": {"market_value": 9000, "qty": 90, "current_price": 100}}
+    trades, _ = af.plan_trades({"positions": [{"symbol": "SPY", "weight": 0.9}],
+                                "cash_parking": {"symbol": "SGOV", "weight": 0.1}}, 10_000, held, stocks_open=True)
+    assert trades[0]["symbol"] == "SGOV" and trades[0]["side"] == "sell" and trades[0]["qty"] == 80

@@ -91,7 +91,10 @@ def main() -> int:
              f"Alpaca PAPER account · equity ${equity:,.2f} · US market {'open' if stocks_open else 'closed'} · "
              f"plan as of {plan.get('as_of')} · AI invested {plan.get('gross', 0) * 100:.0f}%", ""]
     held_targets = [r for r in plan.get("positions", []) if r.get("weight", 0) > 0]
-    lines.append("Target: " + (", ".join(f"{r['symbol']} {r['weight'] * 100:.1f}%" for r in held_targets) or "all cash"))
+    parking = plan.get("cash_parking") or {}
+    lines.append("Target: " + (", ".join(f"{r['symbol']} {r['weight'] * 100:.1f}%" for r in held_targets) or "no markets")
+                 + (f"; idle cash {parking['weight'] * 100:.1f}% in {parking['symbol']} (Treasury bills, ~{parking.get('yield_pct', 0):.1f}%/yr)"
+                    if parking.get("weight") else ""))
     placed = 0
     for t in trades:
         what = (f"buy ${t['notional']:,.2f}" if t["side"] == "buy" else

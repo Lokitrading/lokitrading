@@ -504,7 +504,15 @@ def _portfolio_plan() -> Dict[str, Any]:
     missing = [s for s in symbols if s not in sleeves]
     if len(sleeves) < max(5, len(symbols) // 2):
         raise HTTPException(503, "Not enough market data reached the Portfolio AI right now; try again shortly.")
-    book = portfolio_ai.combine(sleeves, float(block["target_vol_pct"]), vol_window=block.get("vol_window"))
+    cash_yield = None
+    if block.get("cash_parking"):
+        try:  # idle cash sits in Treasury bills, as in the tested record
+            raw = provider.fetch_history(portfolio_ai.CASH_YIELD_SYMBOL, "5y", "1d")
+            cash_yield = raw["close"] if raw is not None and not raw.empty else None
+        except Exception as exc:  # noqa: BLE001 - without yields the cash is simply shown as cash
+            logger.warning("T-bill yield unavailable: %s", exc.__class__.__name__)
+    book = portfolio_ai.combine(sleeves, float(block["target_vol_pct"]), vol_window=block.get("vol_window"),
+                                cash_yield=cash_yield)
     try:
         quotes = provider.get_quotes(list(sleeves))
     except Exception:  # noqa: BLE001 - last closes are an honest fallback
@@ -527,10 +535,12 @@ def _portfolio_plan() -> Dict[str, Any]:
         "holdout": block.get("holdout"),
         "holdout_buy_hold": block.get("holdout_buy_hold"),
         "hindsight_check": block.get("hindsight_check"),
+        "calendar_years": block.get("calendar_years"),
         "note": (
             "Weights are what the tested portfolio holds at the latest completed daily bar: every market runs "
             "its verified rules, capital is shared equally, and the book is scaled toward "
             f"{block['target_vol_pct']:g}% annual volatility with total holdings capped at 100% (no leverage). "
+            "Cash it is not using is parked in a Treasury-bill fund (SGOV), as in the tested record. "
             "Paper money only — never advice."
         ),
     }

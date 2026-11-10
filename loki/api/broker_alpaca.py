@@ -411,7 +411,9 @@ def _plan_view(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "ok": True, "paper": True, "equity": ctx["equity"], "us_market_open": ctx["stocks_open"],
         "plan_as_of": plan.get("as_of"), "ai_invested_pct": round(float(plan.get("gross") or 0) * 100, 1),
         "targets": [{"symbol": r["symbol"], "weight_pct": round(float(r["weight"]) * 100, 2)}
-                    for r in plan.get("positions", []) if float(r.get("weight") or 0) > 0],
+                    for r in plan.get("positions", []) if float(r.get("weight") or 0) > 0]
+                   + [{"symbol": p["symbol"], "weight_pct": round(float(p["weight"]) * 100, 2), "cash_parking": True}
+                      for p in [plan.get("cash_parking") or {}] if float(p.get("weight") or 0) > 0],
         "trades": ctx["trades"], "notes": ctx["notes"],
     }
 
