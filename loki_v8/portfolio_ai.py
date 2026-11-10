@@ -249,6 +249,33 @@ def calendar_years(returns: pd.Series, start: str = "2005-01-01") -> List[Dict[s
     return out
 
 
+# Risk levels a user may pick. The protocol's own choice (best worst-case Sharpe on
+# 2005-2022) is the default; the others trade deeper drops for more return and
+# are published with their full record so the choice is informed, not hidden.
+RISK_LEVELS = (("steady", "Steady", 10.0), ("balanced", "Balanced", 15.0), ("growth", "Growth", 20.0))
+
+
+def risk_levels(sleeves: Dict[str, Dict[str, Any]], windows: Dict[str, Tuple[str, str]], vol_window: Optional[int],
+                default_target: float, cash_yield: Optional[pd.Series] = None) -> List[Dict[str, Any]]:
+    """The whole tested record at each selectable risk level (same rules, same costs)."""
+    out = []
+    first = min(a for a, _ in windows.values())
+    for key, label, target in RISK_LEVELS:
+        book = combine(sleeves, target, vol_window=vol_window, cash_yield=cash_yield)
+        years = calendar_years(book["returns"], first)
+        row: Dict[str, Any] = {"id": key, "label": label, "target_vol_pct": target,
+                               "default": abs(target - float(default_target)) < 1e-9,
+                               "average_invested": round(float(book["gross"].mean()), 3),
+                               "whole_record": window_stats(book["returns"], first, "2100-01-01"),
+                               "losing_years": [y for y in years if y["return_pct"] < 0 and not y["partial"]],
+                               "calendar_years": years,
+                               "expected_range": expected_range(book["returns"], windows["development"][0], windows["validation"][1])}
+        for name, (a, b) in windows.items():
+            row[name] = window_stats(book["returns"], a, b)
+        out.append(row)
+    return out
+
+
 NO_HINDSIGHT = ("SPY", "QQQ", "IWM", "DIA", "GLD", "TLT", "BTC-USD", "ETH-USD")
 
 

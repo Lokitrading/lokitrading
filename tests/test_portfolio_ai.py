@@ -198,3 +198,42 @@ def test_shipped_record_parks_cash_and_reports_every_year():
     assert block["cash_parking"]["symbol"] == "SGOV" and 0 < block["cash_parking"]["average_cash"] < 1
     years = block["calendar_years"]
     assert years[0]["year"] == 2005 and any(y["return_pct"] < 0 for y in years)  # honest: not every year is up
+
+
+def test_risk_levels_publish_the_whole_record_for_each_choice(sleeves):
+    idx = sleeves["S0"]["returns"].index
+    windows = {"development": (str(idx[100].date()), str(idx[350].date())),
+               "validation": (str(idx[351].date()), str(idx[480].date())),
+               "holdout": (str(idx[481].date()), "2100-01-01")}
+    levels = portfolio_ai.risk_levels(sleeves, windows, 63, 10.0)
+    assert [lv["id"] for lv in levels] == ["steady", "balanced", "growth"]
+    assert [lv["default"] for lv in levels] == [True, False, False]
+    assert levels[0]["average_invested"] <= levels[2]["average_invested"] + 1e-9  # more risk holds more
+    for lv in levels:
+        assert {"whole_record", "holdout", "losing_years", "calendar_years"} <= set(lv)
+
+
+def test_portfolio_endpoint_serves_each_risk_level(monkeypatch):
+    seen = []
+
+    def fake_plan(risk="steady"):
+        seen.append(risk)
+        return {"risk": risk, "positions": []}
+
+    monkeypatch.setattr(ai_paper, "_portfolio_plan", fake_plan)
+    ai_paper._PORTFOLIO_CACHE.clear()
+    client = TestClient(app)
+    assert client.get("/api/fusion/ai/portfolio").json()["risk"] == "steady"
+    assert client.get("/api/fusion/ai/portfolio?risk=growth").json()["risk"] == "growth"
+    assert client.get("/api/fusion/ai/portfolio?risk=growth").json()["risk"] == "growth" and seen == ["steady", "growth"]  # cached per level
+    assert client.get("/api/fusion/ai/portfolio?risk=yolo").status_code == 422
+
+
+def test_shipped_risk_levels_trade_return_for_deeper_drops():
+    from loki_v8.train import load_report
+    levels = load_report()["universal"]["portfolio"]["risk_levels"]
+    steady, balanced, growth = levels
+    assert steady["default"] and steady["target_vol_pct"] == 10.0
+    assert steady["whole_record"]["max_dd_pct"] > balanced["whole_record"]["max_dd_pct"] > growth["whole_record"]["max_dd_pct"]
+    assert steady["whole_record"]["cagr_pct"] < balanced["whole_record"]["cagr_pct"]
+    assert steady["whole_record"]["sharpe"] >= growth["whole_record"]["sharpe"]  # the default is the best risk-adjusted

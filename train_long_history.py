@@ -358,6 +358,11 @@ PORTFOLIO_REJECTED = [
     "fixed stock/crypto budgets (50-90% stocks): best 1.152 vs 1.151 — no real gain, rejected",
     "multi-horizon trend signal (21/63/126/252 days) blended into the rules: best 1.19 vs 1.15 (crypto only), "
     "under the 0.05 promotion margin — rejected",
+    # 2026-11-10, with Treasury-bill cash included (baseline 1.19):
+    "capital tilted to the strongest markets (6- and 12-month momentum rank): 0.99-1.17 vs 1.19 — rejected",
+    "drawdown brake (halve or stop the book after a 5% or 8% drop): 0.25-1.13 vs 1.19; smaller drops but worse risk-adjusted return — rejected",
+    "dip-buying sleeves on SPY/QQQ/IWM/DIA (2-day RSI under 10 above the 200-day average): no edge after costs, 1.04 vs 1.19 — rejected",
+    "crisis diversifiers added (dollar UUP, commodities DBC, 7-10y Treasuries IEF): best 1.20 vs 1.19, inside the noise — rejected",
 ]
 
 
@@ -391,6 +396,7 @@ def portfolio_stage(report: Dict[str, Any], data_dir: Optional[Path]) -> Dict[st
         out[name + "_buy_hold"] = portfolio_ai.window_stats(bh, a, b)
     out["hindsight_check"] = portfolio_ai.hindsight_check(sleeves, frames, PORTFOLIO_WINDOWS, cash_yield=cash_yield)
     out["calendar_years"] = portfolio_ai.calendar_years(book["returns"])
+    out["risk_levels"] = portfolio_ai.risk_levels(sleeves, PORTFOLIO_WINDOWS, vol_window, target, cash_yield=cash_yield)
     out["holdout_ci"] = portfolio_ai.bootstrap_ci(
         book["returns"][book["returns"].index >= PORTFOLIO_WINDOWS["holdout"][0]])
     out["expected_range"] = portfolio_ai.expected_range(

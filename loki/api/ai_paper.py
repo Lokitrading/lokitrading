@@ -458,9 +458,19 @@ _PORTFOLIO_BUILD_LOCK = threading.Lock()
 _PORTFOLIO_CACHE: Dict[str, Any] = {}
 
 
-def _portfolio_cached(refresh: bool) -> Optional[Dict[str, Any]]:
+DEFAULT_RISK = "steady"
+
+
+def _risk_level(block: Dict[str, Any], risk: str) -> Dict[str, Any]:
+    """The published record for a risk level; unknown names fall back to the tested default."""
+    levels = block.get("risk_levels") or []
+    chosen = next((lv for lv in levels if lv.get("id") == risk), None)
+    return chosen or next((lv for lv in levels if lv.get("default")), {}) or {}
+
+
+def _portfolio_cached(refresh: bool, risk: str = DEFAULT_RISK) -> Optional[Dict[str, Any]]:
     with _PORTFOLIO_LOCK:
-        cached = _PORTFOLIO_CACHE.get("plan")
+        cached = _PORTFOLIO_CACHE.get("plan" if risk == DEFAULT_RISK else f"plan:{risk}")
     if not cached:
         return None
     age = time.time() - cached[0]
@@ -468,14 +478,22 @@ def _portfolio_cached(refresh: bool) -> Optional[Dict[str, Any]]:
     return cached[1] if age < fresh_enough else None
 
 
-def _portfolio_plan() -> Dict[str, Any]:
-    """Replay every market's verified profile to the latest completed bar."""
+def _portfolio_inputs() -> Dict[str, Any]:
+    """Everything a plan needs that costs a download: sleeves, bill yields, quotes.
+
+    Shared by every risk level for a minute, so switching level never refetches 21 markets.
+    """
     from concurrent.futures import ThreadPoolExecutor
 
     from loki_v8 import portfolio_ai
     from loki_v8.data import get_provider, is_crypto
     from loki_v8.train import load_report
 
+    with _PORTFOLIO_LOCK:
+        held = _PORTFOLIO_CACHE.get("inputs")
+    if held and time.time() - held[0] < _PORTFOLIO_MIN_REFRESH_SECONDS:
+        shared: Dict[str, Any] = held[1]
+        return shared
     universal = (load_report() or {}).get("universal") or {}
     block = universal.get("portfolio") or {}
     if not block.get("verified") or not block.get("symbols"):
@@ -511,19 +529,40 @@ def _portfolio_plan() -> Dict[str, Any]:
             cash_yield = raw["close"] if raw is not None and not raw.empty else None
         except Exception as exc:  # noqa: BLE001 - without yields the cash is simply shown as cash
             logger.warning("T-bill yield unavailable: %s", exc.__class__.__name__)
-    book = portfolio_ai.combine(sleeves, float(block["target_vol_pct"]), vol_window=block.get("vol_window"),
-                                cash_yield=cash_yield)
     try:
         quotes = provider.get_quotes(list(sleeves))
     except Exception:  # noqa: BLE001 - last closes are an honest fallback
         quotes = {}
     prices = {s: float(p) for s, p in (quotes or {}).items() if p and math.isfinite(float(p)) and float(p) > 0}
-    alloc = portfolio_ai.allocation(sleeves, book, prices)
+    inputs = {"block": block, "sleeves": sleeves, "missing": missing, "cash_yield": cash_yield, "prices": prices}
+    with _PORTFOLIO_LOCK:
+        _PORTFOLIO_CACHE["inputs"] = (time.time(), inputs)
+    return inputs
+
+
+def _portfolio_plan(risk: str = DEFAULT_RISK) -> Dict[str, Any]:
+    """Replay every market's verified profile to the latest completed bar, at one risk level."""
+    from loki_v8 import portfolio_ai
+
+    inputs = _portfolio_inputs()
+    block, sleeves, missing = inputs["block"], inputs["sleeves"], inputs["missing"]
+    level = _risk_level(block, risk)
+    # Without published levels (older record) only the tested default exists.
+    target = float(level.get("target_vol_pct") or block["target_vol_pct"])
+    is_default = not level or bool(level.get("default"))
+    book = portfolio_ai.combine(sleeves, target, vol_window=block.get("vol_window"), cash_yield=inputs["cash_yield"])
+    alloc = portfolio_ai.allocation(sleeves, book, inputs["prices"])
     recent = portfolio_ai.window_stats(book["returns"], str(book["returns"].index[-260].date()), "2100-01-01")
-    health = portfolio_ai.health(book["returns"], block.get("expected_range") or {})
+    reference = (block.get("expected_range") if is_default else level.get("expected_range")) or {}
+    health = portfolio_ai.health(book["returns"], reference)
     changes = portfolio_ai.recent_changes(sleeves)
+    levels = [{k: v for k, v in lv.items() if k not in ("expected_range", "calendar_years")}
+              for lv in block.get("risk_levels") or []]
     return {
-        "target_vol_pct": block["target_vol_pct"],
+        "target_vol_pct": target,
+        "risk": level.get("id") or DEFAULT_RISK,
+        "risk_label": level.get("label") or "Steady",
+        "risk_levels": levels,
         "as_of": max((v["state"] or {}).get("as_of", "") for v in sleeves.values()),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         **alloc,
@@ -531,15 +570,16 @@ def _portfolio_plan() -> Dict[str, Any]:
         "replay_last_year": recent,
         "health": health,
         "changes": changes,
-        "holdout_ci": block.get("holdout_ci"),
-        "holdout": block.get("holdout"),
+        # The uncertainty band and the hindsight check were computed for the tested default only.
+        "holdout_ci": block.get("holdout_ci") if is_default else None,
+        "holdout": block.get("holdout") if is_default else level.get("holdout"),
         "holdout_buy_hold": block.get("holdout_buy_hold"),
-        "hindsight_check": block.get("hindsight_check"),
-        "calendar_years": block.get("calendar_years"),
+        "hindsight_check": block.get("hindsight_check") if is_default else None,
+        "calendar_years": block.get("calendar_years") if is_default else level.get("calendar_years"),
         "note": (
             "Weights are what the tested portfolio holds at the latest completed daily bar: every market runs "
             "its verified rules, capital is shared equally, and the book is scaled toward "
-            f"{block['target_vol_pct']:g}% annual volatility with total holdings capped at 100% (no leverage). "
+            f"{target:g}% annual volatility with total holdings capped at 100% (no leverage). "
             "Cash it is not using is parked in a Treasury-bill fund (SGOV), as in the tested record. "
             "Paper money only — never advice."
         ),
@@ -547,17 +587,19 @@ def _portfolio_plan() -> Dict[str, Any]:
 
 
 @router.get("/portfolio")
-def ai_portfolio(response: Response, refresh: bool = False) -> Dict[str, Any]:
+def ai_portfolio(response: Response, refresh: bool = False,
+                 risk: str = Query(DEFAULT_RISK, pattern="^(steady|balanced|growth)$")) -> Dict[str, Any]:
     _private_response(response)
-    hit = _portfolio_cached(refresh)
+    risk = risk if isinstance(risk, str) else DEFAULT_RISK  # direct (non-HTTP) callers get the default
+    hit = _portfolio_cached(refresh, risk)
     if hit is not None:
         return hit
     with _PORTFOLIO_BUILD_LOCK:
         # Another request may have finished a build while this one waited.
-        hit = _portfolio_cached(refresh)
+        hit = _portfolio_cached(refresh, risk)
         if hit is not None:
             return hit
-        plan = _portfolio_plan()
+        plan = _portfolio_plan() if risk == DEFAULT_RISK else _portfolio_plan(risk)
         with _PORTFOLIO_LOCK:
-            _PORTFOLIO_CACHE["plan"] = (time.time(), plan)
+            _PORTFOLIO_CACHE["plan" if risk == DEFAULT_RISK else f"plan:{risk}"] = (time.time(), plan)
         return plan

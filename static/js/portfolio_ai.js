@@ -18,7 +18,7 @@
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (v) => (window.LokiCurrency ? window.LokiCurrency.format(v) : (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const pct = (v, d = 1) => (Number.isFinite(Number(v)) ? `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(d)}%` : '—');
-  const fresh = (cash = 10000) => ({ cash, start: cash, running: false, holdings: {}, trades: [], curve: [], log: [], lastCheck: 0, interest: 0, accruedAt: 0 });
+  const fresh = (cash = 10000) => ({ cash, start: cash, running: false, holdings: {}, trades: [], curve: [], log: [], lastCheck: 0, interest: 0, accruedAt: 0, risk: 'steady' });
 
   let state = (() => { try { return { ...fresh(), ...(JSON.parse(localStorage.getItem(KEY) || 'null') || {}) }; } catch { return fresh(); } })();
   let plan = null, busy = false, timer = null;
@@ -104,7 +104,8 @@
   }
 
   async function loadPlan(force) {
-    const res = await fetch(`/api/fusion/ai/portfolio${force ? '?refresh=true' : ''}`, { cache: 'no-store', signal: AbortSignal.timeout(55000) });
+    const risk = ['steady', 'balanced', 'growth'].includes(state.risk) ? state.risk : 'steady';
+    const res = await fetch(`/api/fusion/ai/portfolio?risk=${risk}${force ? '&refresh=true' : ''}`, { cache: 'no-store', signal: AbortSignal.timeout(55000) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || 'Portfolio plan unavailable');
     plan = data;
@@ -145,6 +146,31 @@
       busy = false;
       render();
     }
+  }
+
+  // Risk level: the same tested rules, run hotter or cooler. Steady is the level the tests chose.
+  function renderRisk() {
+    const box = $('pf-risk');
+    if (!box) return;
+    const levels = (plan && plan.risk_levels) || [];
+    if (levels.length < 2) { box.innerHTML = ''; return; }
+    const current = (plan && plan.risk) || 'steady';
+    const buttons = levels.map((lv) => {
+      const w = lv.whole_record || {};
+      return `<button type="button" class="pf-risk-btn${lv.id === current ? ' on' : ''}" data-risk="${esc(lv.id)}" data-label="${esc(lv.label)}" aria-pressed="${lv.id === current}">` +
+        `<strong>${esc(lv.label)}${lv.default ? ' <em>tested default</em>' : ''}</strong>` +
+        `<span>${esc(pct(w.cagr_pct))} a year · worst drop ${esc(pct(w.max_dd_pct))}</span>` +
+        `<small>${lv.losing_years.length} losing year${lv.losing_years.length === 1 ? '' : 's'} of ${esc(String((plan.calendar_years || []).filter((y) => !y.partial).length || 21))} · Sharpe ${esc(Number(w.sharpe).toFixed(2))}</small></button>`;
+    }).join('');
+    box.innerHTML = `<p class="eyebrow">RISK LEVEL · SIMULATED 2005→NOW, SAME RULES AND COSTS</p><div class="pf-risk-row">${buttons}</div>` +
+      '<p class="caption">Higher levels hold more of each market: more return in good years, deeper drops in bad ones. Steady had the best return for its risk in testing, so it is the default. Nothing here uses borrowed money.</p>';
+    box.querySelectorAll('[data-risk]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.risk === state.risk || busy) return;
+      state.risk = b.dataset.risk;
+      log(`Risk level set to ${b.dataset.label}. The paper book moves to that plan at the next check.`);
+      save();
+      step(false);
+    }));
   }
 
   function renderRecord() {
@@ -254,7 +280,7 @@
     $('pf-start').disabled = state.running;
     $('pf-pause').disabled = !state.running;
     $('pf-capital').disabled = state.running || Object.keys(state.holdings).length > 0;
-    renderRecord(); renderAlloc(); renderBook();
+    renderRisk(); renderRecord(); renderAlloc(); renderBook();
   }
 
   $('pf-start').addEventListener('click', () => {
