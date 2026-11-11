@@ -204,8 +204,13 @@ def backtest(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1)) 
     return backtest_frame(bars, cost, sides)["return"]
 
 
-def backtest_frame(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1)) -> pd.DataFrame:
-    """Per day: return after costs, round trips and the first-signal features (for learning)."""
+def backtest_frame(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1),
+                   gate: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    """Per day: return after costs, round trips and the first-signal features (for learning).
+
+    With ``gate`` the fixed learn-from-mistakes model is applied to every day (used for the
+    forward record, where the model was frozen before those days happened).
+    """
     history: List[np.ndarray] = []
     rows: Dict[pd.Timestamp, Dict[str, Any]] = {}
     prev_close: Optional[float] = None
@@ -214,7 +219,7 @@ def backtest_frame(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1,
         noise = noise_profile(history)
         close = float(g["close"].iloc[-1])
         if noise is not None and prev_close:
-            out = replay_day(g, noise, prev_close, cost, sides, prev_ret=prev_ret)
+            out = replay_day(g, noise, prev_close, cost, sides, prev_ret=prev_ret, gate=gate)
             rows[day] = {"return": float(out["return"]), "turns": int(out["turns"]), "first": out["first"],
                          "noise": float(np.mean(noise))}
         history.append(day_moves(g))
@@ -290,3 +295,33 @@ def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = No
             "open": round(state["open"], 4), "prev_close": round(state["prev_close"], 4),
             "decisions": state["decisions"][-6:], "as_of": str(g.index[-1] + pd.Timedelta(minutes=5)),
             "skipped": bool(state["skipped"]), "rating": None if state["rating"] is None else round(state["rating"], 3)}
+
+
+def forward_record(bars: pd.DataFrame, symbol: str, since: str, gate: Optional[Dict[str, Any]] = None,
+                   now: Optional[pd.Timestamp] = None) -> Dict[str, float]:
+    """Results of completed sessions after ``since``: days the frozen rules had never seen."""
+    now = (now or pd.Timestamp.now(tz="UTC")).tz_convert(SESSION_TZ)
+    frame = backtest_frame(bars, cost_for(symbol), gate=gate)
+    if frame.empty:
+        return {}
+    today = now.normalize().tz_localize(None)
+    done = frame[(frame.index > pd.Timestamp(since)) & ((frame.index < today) | (now.time() >= pd.Timestamp("16:00").time()))]
+    return {str(day.date()): float(value) for day, value in done["return"].items()}
+
+
+def summarize_forward(per_market: Dict[str, Dict[str, float]], markets: int) -> Dict[str, Any]:
+    """Equal-capital book over the forward days (a market without data that day counts as flat)."""
+    days = sorted({d for series in per_market.values() for d in series})
+    if not days or markets <= 0:
+        return {"days": 0}
+    daily = [sum(series.get(d, 0.0) for series in per_market.values()) / markets for d in days]
+    equity, peak, worst = 1.0, 1.0, 0.0
+    for r in daily:
+        equity *= 1.0 + r
+        peak = max(peak, equity)
+        worst = min(worst, equity / peak - 1.0)
+    traded = [r for r in daily if r != 0.0]
+    return {"days": len(days), "from": days[0], "to": days[-1], "return_pct": round((equity - 1.0) * 100, 2),
+            "worst_drop_pct": round(worst * 100, 2), "winning_days": sum(1 for r in traded if r > 0),
+            "losing_days": sum(1 for r in traded if r < 0),
+            "daily": [{"day": d, "return_pct": round(r * 100, 3)} for d, r in zip(days, daily)][-30:]}

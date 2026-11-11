@@ -183,3 +183,18 @@ def test_day_trader_is_the_first_panel_and_loki_explains_it():
     answer = loki_brain.answer("is the bot any good at day trading?")
     assert answer["intent"] == "daytrade" and "never saw" in answer["text"] and "lost money on" in answer["text"]
     assert "learns from its mistakes" in answer["text"] and "Futures mode" in answer["text"] and "leveraged" in answer["text"]
+
+
+def test_forward_record_counts_only_completed_sessions_after_the_freeze():
+    bars = _history(22, last=lambda p: p * (1 + np.linspace(0.0005, 0.03, 78)))
+    days = [str(d.date()) for d, _ in daytrade.sessions(bars)]
+    last_open = (bars.index[-1].normalize() + pd.Timedelta(hours=13)).tz_convert("UTC")   # mid-session on the last day
+    fwd = daytrade.forward_record(bars, "QQQ", since=days[-4], now=last_open)
+    assert list(fwd) == days[-3:-1]  # after the freeze, and today's unfinished session is left out
+    after_close = (bars.index[-1].normalize() + pd.Timedelta(hours=17)).tz_convert("UTC")
+    full = daytrade.forward_record(bars, "QQQ", since=days[-4], now=after_close)
+    assert list(full) == days[-3:] and full[days[-1]] > 0.01
+    book = daytrade.summarize_forward({"QQQ": full, "TSLA": {days[-1]: -0.02}}, 2)
+    assert book["days"] == 3 and book["losing_days"] + book["winning_days"] <= 3 and book["daily"][-1]["day"] == days[-1]
+    assert book["daily"][-1]["return_pct"] == pytest.approx((full[days[-1]] - 0.02) / 2 * 100, abs=1e-3)
+    assert daytrade.summarize_forward({}, 5) == {"days": 0}

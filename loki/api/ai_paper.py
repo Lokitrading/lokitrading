@@ -647,7 +647,12 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
             if bars is None or bars.empty:
                 return {"symbol": symbol, "status": "no_data", "position": 0}
             gate = {"model": models[symbol], "threshold": learning.get("threshold", daytrade.SKIP_BELOW)} if symbol in models else None
-            return daytrade.live_state(bars, symbol, gate=gate)
+            state = daytrade.live_state(bars, symbol, gate=gate)
+            try:  # completed sessions since the record was frozen: days the rules never saw
+                state["_forward"] = daytrade.forward_record(bars, symbol, str(record.get("data_through") or "2100-01-01"), gate=gate)
+            except Exception as exc:  # noqa: BLE001 - the forward strip is additive
+                logger.warning("day-trade forward %s failed: %s", symbol, exc.__class__.__name__)
+            return state
         except Exception as exc:  # noqa: BLE001 - one bad feed must not sink the plan
             logger.warning("day-trade state %s failed: %s", symbol, exc.__class__.__name__)
             return {"symbol": symbol, "status": "no_data", "position": 0}
@@ -665,9 +670,13 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
             state.update(name=spec["name"], proxy=spec["proxy"], multiplier=spec["multiplier"],
                          contract_notional=round(float(index) * spec["multiplier"], 2) if index and float(index) > 0 else None)
     session_open = any(s.get("status") == "open" for s in states)
+    forward = daytrade.summarize_forward({s["symbol"]: s.pop("_forward", {}) or {} for s in states}, len(symbols))
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "mode": "futures" if futures else "stocks",
+        "forward": {**forward, "since": record.get("data_through"),
+                    "note": "Completed sessions after the tested record was frozen, replayed with the frozen rules on "
+                            "delayed 5-minute bars (the feed keeps about 60 days). Simulated, not real trades."},
         "market_open": session_open,
         "weight_per_market": round(1.0 / len(symbols), 5),
         "markets": states,

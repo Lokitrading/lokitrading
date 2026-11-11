@@ -208,3 +208,4 @@
 #dt-metrics span { font: 10px var(--mono, monospace); letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #a2b5c4); }
 #dt-metrics strong { font: 650 15px var(--mono, monospace); }
 .dt-mode { margin: 4px 0 10px; } .dt-futures-note { border-left: 3px solid #ff8a7a; padding: 8px 12px; background: rgba(255,138,122,.06); border-radius: 8px; } .dt-learn { border-left-color: #6fd3bf; background: rgba(111,211,191,.07); } .dt-learn strong { color: #a8f0c6; }
+.dt-forward { border-color: #3b6f63; } .dt-forward-bars { height: 52px; }
