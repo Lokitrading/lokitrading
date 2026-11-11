@@ -45,6 +45,7 @@
     { id: 'risk', label: 'Risk matrix', color: 0xff7a66, events: ['risk:update', 'risk:tripped', 'risk:healed'] },
     { id: 'execq', label: 'Execution monitor', color: 0x9ec5ff, events: ['execq:route'] },
     { id: 'arb', label: 'Arbitrage engine', color: 0xf3ba2f, events: ['arb:update'] },
+    { id: 'daytrader', label: 'Day Trader', color: 0x6fe3a1, events: ['daytrader:trade', 'daytrader:plan'] },
   ];
   const agentState = Object.fromEntries(AGENTS.map((a) => [a.id, { n: 0, at: 0, memory: '—' }]));
   const agentQueue = [];
@@ -52,6 +53,8 @@
     'consensus:vote': (r) => `${r.approved ? 'approved' : 'blocked'} · score ${r.score >= 0 ? '+' : ''}${(r.score || 0).toFixed(2)}`,
     'evolve:gen': (r) => { const h = (r.history || [])[(r.history || []).length - 1]; return h ? `gen ${r.gen} · unseen-data fitness ${h.val.toFixed(3)}` : String(r.status || 'evolving').slice(0, 40); },
     'evolve:deploy': () => 'champion deployed',
+    'daytrader:trade': (r) => `${r.action} ${r.symbol}${r.pnl != null ? ` · ${r.pnl >= 0 ? '+' : ''}${Number(r.pnl).toFixed(2)}` : ''}`,
+    'daytrader:plan': (r) => `${r.mode} · ${r.open ? `${r.long} long, ${r.short} short, ${r.skipped} skipped` : 'market closed, flat'}`,
     'mcrisk:update': (r) => r && r.var95 != null ? `VaR95 ${F.usd(r.var95)} · ×${(r.multiplier || 1).toFixed(2)}` : `${(r && r.positions) || 0} positions`,
     'risk:update': (r) => `${String(r.level).toUpperCase()} · size ×${(r.sizeMultiplier || 0).toFixed(2)}`,
     'risk:tripped': () => 'BREAKER TRIPPED', 'risk:healed': () => 'healed, ramping back',
@@ -116,7 +119,7 @@
         <div class="xm-vignette" aria-hidden="true"></div><div class="xm-scan" aria-hidden="true"></div>
         <div class="xm-hud xm-hud-tl" aria-live="polite"><span class="xm-live"><i></i>LIVE</span><div id="xm-kpis" class="xm-kpis"></div></div>
         <div class="xm-hud xm-hud-tr"><button type="button" class="xm-btn" id="xm-spin" aria-pressed="true" title="Pause the slow rotation">⟳ Auto-orbit</button><button type="button" class="xm-btn" id="xm-reset" title="Reset the camera (or double-click)">⌖ Reset</button><button type="button" class="xm-btn" id="xm-full" title="Fullscreen">⛶</button></div>
-        <div class="xm-hud xm-hud-bl xm-legend"><span><i class="ok"></i>answered</span><span><i class="slow"></i>slow &gt;1.5 s</span><span><i class="bad"></i>failed</span><span><i class="out"></i>sent</span><span><i class="agent"></i>agent fired</span></div>
+        <div class="xm-hud xm-hud-bl xm-legend"><span><i class="ok"></i>answered</span><span><i class="slow"></i>slow &gt;1.5 s</span><span><i class="bad"></i>failed</span><span><i class="out"></i>sent</span><span><i class="agent"></i>agent fired</span><span class="xm-deco">disk, shield &amp; shooting stars are decoration</span></div>
         <div class="xm-tip" id="xm-tip" hidden></div>
       </div>
       <div class="xm-side"><p class="eyebrow">LIVE CONNECTIONS FROM THIS DEVICE</p><table class="xm-table"><thead><tr><th>Venue</th><th>Calls</th><th>Avg ms</th><th>Last</th></tr></thead><tbody id="xm-rows"></tbody></table>
@@ -163,6 +166,7 @@
     renderer.setClearColor(0x03070c, 1);
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+    const small = Math.min(window.innerWidth, window.innerHeight) < 520;
     const scene = new T.Scene();
     scene.fog = new T.FogExp2(0x03070c, 0.022);
     const camera = new T.PerspectiveCamera(52, 1, 0.1, 400);
@@ -193,7 +197,13 @@
     scene.add(stars);
     const nebA = glow(0x1d6f6a, 120, 0.35); nebA.position.set(-40, 18, -70); nebA.material.fog = false; scene.add(nebA);
     const nebB = glow(0x4b2a7a, 110, 0.32); nebB.position.set(45, 8, -60); nebB.material.fog = false; scene.add(nebB);
-    const floor = new T.PolarGridHelper(15, 24, 10, 96, 0x1f6f6a, 0x0f2f33); floor.position.y = -3.2; floor.material.transparent = true; floor.material.opacity = 0.45; scene.add(floor);
+    const VS = 'varying vec2 vUv; varying vec3 vPos; varying vec3 vN; varying vec3 vView; void main(){ vUv = uv; vPos = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vView = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }';
+    const NOISE = 'float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); } float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y), mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); } float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * noise(p); p *= 2.02; a *= 0.5; } return s; }';
+    const uni = { uTime: { value: 0 }, uHeat: { value: 0 }, uAlarm: { value: 0 } };
+    // Floor: a polar holo-grid drawn in a shader, with a slow outward sweep and heat from real traffic.
+    const floor = new T.Mesh(new T.PlaneGeometry(64, 64), new T.ShaderMaterial({ uniforms: uni, vertexShader: VS, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide,
+      fragmentShader: 'uniform float uTime; uniform float uHeat; uniform float uAlarm; varying vec3 vPos; void main(){ float r = length(vPos.xy), a = atan(vPos.y, vPos.x); float rings = smoothstep(0.47, 0.5, abs(fract(r / 1.5) - 0.5)); float spokes = smoothstep(0.5 - 0.035 / max(r, 1.0), 0.5, abs(fract(a * 24.0 / 6.2831853) - 0.5)) * smoothstep(1.0, 3.0, r); float sweep = smoothstep(0.9, 0.0, abs(r - mod(uTime * 2.2, 34.0))) * 0.55; float fade = smoothstep(31.0, 4.0, r); vec3 base = mix(vec3(0.07, 0.42, 0.40), vec3(0.42, 0.30, 0.78), smoothstep(4.0, 24.0, r)); vec3 col = base * (rings * 0.55 + spokes * 0.28 + sweep * (1.0 + uHeat)) * fade; col = mix(col, vec3(1.0, 0.25, 0.2) * (rings + sweep) * fade, uAlarm * 0.7); gl_FragColor = vec4(col, 1.0); }' }));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -3.2; scene.add(floor);
     const ringMat = (c, o) => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: ADD, side: T.DoubleSide, depthWrite: false });
     const orbitRing = new T.Mesh(new T.RingGeometry(7.95, 8.05, 160), ringMat(0x8bdad4, 0.35)); orbitRing.rotation.x = -Math.PI / 2; orbitRing.position.y = -0.2; scene.add(orbitRing);
     const innerRing = new T.Mesh(new T.RingGeometry(3.55, 3.62, 120), ringMat(0xc3a6ff, 0.35)); innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = 2.1; scene.add(innerRing);
@@ -202,12 +212,27 @@
 
     /* ---------- the core: a small reactor ---------- */
     const coreGroup = new T.Group(); scene.add(coreGroup);
-    const heart = new T.Mesh(new T.SphereGeometry(0.55, 32, 32), new T.MeshBasicMaterial({ color: 0xc8fff0 })); coreGroup.add(heart);
+    // Plasma heart: animated noise, hotter with real traffic.
+    const heart = new T.Mesh(new T.SphereGeometry(0.62, 48, 48), new T.ShaderMaterial({ uniforms: uni, vertexShader: VS,
+      fragmentShader: NOISE + 'uniform float uTime; uniform float uHeat; uniform float uAlarm; varying vec3 vPos; varying vec3 vN; varying vec3 vView; void main(){ float n = fbm(vPos * 3.2 + vec3(0.0, uTime * 0.55, uTime * 0.3)); float veins = smoothstep(0.42, 0.62, n); float rim = pow(1.0 - max(dot(vN, vView), 0.0), 2.2); vec3 cool = vec3(0.35, 1.0, 0.86), hot = vec3(0.95, 0.85, 1.0); vec3 col = mix(cool * 0.55, hot * 1.25, veins) * (1.0 + uHeat * 0.5) + rim * vec3(0.5, 0.85, 1.0) * 0.9; col = mix(col, vec3(2.2, 0.5, 0.4) * (0.6 + veins), uAlarm * 0.6); gl_FragColor = vec4(col, 1.0); }' }));
+    coreGroup.add(heart);
+    // Energy shield: fresnel shell with a drifting lattice (decorative).
+    const shield = new T.Mesh(new T.SphereGeometry(2.85, 64, 48), new T.ShaderMaterial({ uniforms: uni, vertexShader: VS, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide,
+      fragmentShader: 'uniform float uTime; uniform float uHeat; uniform float uAlarm; varying vec2 vUv; varying vec3 vN; varying vec3 vView; void main(){ float rim = pow(1.0 - abs(dot(vN, vView)), 3.0); vec2 g = vec2(vUv.x * 36.0 + uTime * 0.25, vUv.y * 18.0); float lat = smoothstep(0.44, 0.5, abs(fract(g.x) - 0.5)) + smoothstep(0.44, 0.5, abs(fract(g.y + sin(g.x) * 0.12) - 0.5)); float band = smoothstep(0.08, 0.0, abs(vUv.y - fract(uTime * 0.12))) * 0.8; vec3 col = mix(vec3(0.30, 0.95, 0.85), vec3(0.75, 0.60, 1.0), vUv.y) * (rim * 0.42 + lat * 0.05 * (0.2 + rim) + band * rim * 0.5) * (0.5 + uHeat * 0.4); col = mix(col, vec3(1.0, 0.3, 0.25) * (rim + lat * 0.1), uAlarm); gl_FragColor = vec4(col, 1.0); }' }));
+    coreGroup.add(shield);
+    // Accretion disk: thousands of points orbiting in the vertex shader (decorative).
+    const DN = small ? 1400 : 3600, dA = new Float32Array(DN * 4), dP = new Float32Array(DN * 3);
+    for (let i = 0; i < DN; i++) { const r = 2.3 + Math.pow(Math.random(), 1.6) * 4.6; dA.set([r, Math.random() * 6.2831853, (Math.random() - 0.5) * 0.5 * Math.exp(-(r - 2.3) * 0.25), 0.5 + Math.random()], i * 4); }
+    const diskGeo = new T.BufferGeometry(); diskGeo.setAttribute('position', new T.BufferAttribute(dP, 3)); diskGeo.setAttribute('aOrb', new T.BufferAttribute(dA, 4));
+    const disk = new T.Points(diskGeo, new T.ShaderMaterial({ uniforms: { ...uni, uScale: { value: 1 } }, transparent: true, depthWrite: false, blending: ADD,
+      vertexShader: 'uniform float uTime; uniform float uHeat; uniform float uScale; attribute vec4 aOrb; varying float vR; varying float vTw; void main(){ float r = aOrb.x, a = aOrb.y + uTime * (0.9 + uHeat * 0.8) / pow(r, 1.4); vec3 p = vec3(cos(a) * r, aOrb.z + sin(a * 3.0 + uTime) * 0.05, sin(a) * r); vR = r; vTw = 0.6 + 0.4 * sin(uTime * 2.0 * aOrb.w + aOrb.y * 9.0); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_PointSize = uScale * aOrb.w * 46.0 / -mv.z; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'varying float vR; varying float vTw; void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); vec3 col = mix(vec3(0.75, 1.0, 0.95), vec3(0.55, 0.42, 1.0), smoothstep(2.3, 6.5, vR)); gl_FragColor = vec4(col * a * vTw * 0.55, 1.0); }' }));
+    disk.rotation.x = 0.16; disk.frustumCulled = false; coreGroup.add(disk);
     const shell = new T.Mesh(new T.IcosahedronGeometry(1.05, 1), new T.MeshBasicMaterial({ color: 0x8bdad4, wireframe: true, transparent: true, opacity: 0.55, blending: ADD })); coreGroup.add(shell);
     const shell2 = new T.Mesh(new T.IcosahedronGeometry(1.35, 0), new T.MeshBasicMaterial({ color: 0xc3a6ff, wireframe: true, transparent: true, opacity: 0.25, blending: ADD })); coreGroup.add(shell2);
     const torus = (r, c, tilt) => { const m = new T.Mesh(new T.TorusGeometry(r, 0.025, 8, 160), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, blending: ADD })); m.rotation.set(tilt[0], tilt[1], 0); coreGroup.add(m); return m; };
     const rings = [torus(1.7, 0x8bdad4, [1.2, 0.2]), torus(1.95, 0xc3a6ff, [0.4, 1.1]), torus(2.2, 0x6ea8ff, [2.0, 0.6])];
-    const coreHalo = glow(0x8bdad4, 7, 0.9); coreGroup.add(coreHalo);
+    const coreHalo = glow(0x8bdad4, 7, 0.38); coreGroup.add(coreHalo);
     const coreLabel = label('Your device · Loki engine', 0x8bdad4); coreLabel.position.set(0, -2.1, 0); scene.add(coreLabel);
 
     /* ---------- venues on the outer orbit, with curved light arcs ---------- */
@@ -223,13 +248,15 @@
       const node = new T.Mesh(new T.SphereGeometry(0.34, 24, 24), new T.MeshBasicMaterial({ color: v.color })); node.position.copy(p); scene.add(node);
       const cage = new T.Mesh(new T.OctahedronGeometry(0.62, 0), new T.MeshBasicMaterial({ color: v.color, wireframe: true, transparent: true, opacity: 0.5, blending: ADD })); cage.position.copy(p); scene.add(cage);
       const halo = glow(v.color, 2.2, 0.85); halo.position.copy(p); scene.add(halo);
+      const pillarH = p.y + 3.2, pillar = new T.Mesh(new T.CylinderGeometry(0.03, 0.14, pillarH, 12, 1, true), new T.MeshBasicMaterial({ color: v.color, transparent: true, opacity: 0.16, blending: ADD, depthWrite: false, side: T.DoubleSide })); pillar.position.set(p.x, -3.2 + pillarH / 2, p.z); scene.add(pillar);
+      const pad = new T.Mesh(new T.RingGeometry(0.5, 0.62, 48), ringMat(v.color, 0.5)); pad.rotation.x = -Math.PI / 2; pad.position.set(p.x, -3.18, p.z); scene.add(pad);
       const tag = label(v.label, v.color, 0.82); tag.position.copy(p).add(new T.Vector3(0, 0.95, 0)); scene.add(tag);
       // ambient flow: a few faint particles drifting along the arc (decorative only)
       const fg = new T.BufferGeometry(), fp = new Float32Array(5 * 3); fg.setAttribute('position', new T.BufferAttribute(fp, 3));
       const flow = new T.Points(fg, new T.PointsMaterial({ size: 0.22, map: dotTex, color: v.color, transparent: true, opacity: 0.55, blending: ADD, depthWrite: false })); scene.add(flow);
       node.userData = { kind: 'venue', id: v.id, label: v.label };
       pickables.push(node);
-      nodes[v.id] = { base: p.clone(), pos: p, node, cage, halo, tag, tube, curve, flow, phase: Math.random(), heat: 0, k };
+      nodes[v.id] = { base: p.clone(), pos: p, node, cage, halo, tag, tube, curve, flow, pillar, pad, phase: Math.random(), heat: 0, k };
     });
 
     /* ---------- neural ring of engine agents ---------- */
@@ -246,7 +273,7 @@
       solid.userData = { kind: 'agent', id: ag.id, label: ag.label }; pickables.push(solid);
       agentNodes[ag.id] = { pos: p, solid, wire, halo, line, curve, heat: 0 };
     });
-    const synapses = [['council', 'consensus'], ['swarm', 'consensus'], ['mcrisk', 'risk'], ['risk', 'consensus'], ['execq', 'consensus'], ['evolve', 'council'], ['swarm', 'risk'], ['execq', 'arb']].map(([a, b]) => {
+    const synapses = [['council', 'consensus'], ['swarm', 'consensus'], ['mcrisk', 'risk'], ['risk', 'consensus'], ['execq', 'consensus'], ['evolve', 'council'], ['swarm', 'risk'], ['execq', 'arb'], ['daytrader', 'risk'], ['daytrader', 'execq']].map(([a, b]) => {
       const A = agentNodes[a].pos, B = agentNodes[b].pos, m = A.clone().add(B).multiplyScalar(0.5); m.y += 0.8;
       const c = new T.QuadraticBezierCurve3(A, m, B);
       const mesh = new T.Mesh(new T.TubeGeometry(c, 24, 0.008, 4, false), new T.MeshBasicMaterial({ color: 0xc3a6ff, transparent: true, opacity: 0.14, blending: ADD, depthWrite: false }));
@@ -265,7 +292,7 @@
       scene.add(head);
       comets.push({ head, trail, curve: n.curve, out: kind === 'out', t: 0, speed: kind === 'out' ? 0.9 : 0.7, node: n });
       n.heat = Math.min(1, n.heat + 0.55);
-      if (kind === 'bad') spawnWave(0xff6b5b);
+      if (kind === 'bad') { spawnWave(0xff6b5b); alarm = 1; }
     }
     function agentPulse(id) {
       const n = agentNodes[id]; if (!n) return;
@@ -276,9 +303,32 @@
     }
 
     /* ---------- camera controls: orbit, zoom, pinch, focus ---------- */
-    let yaw = 0.7, pitch = 0.38, dist = 19, target = new T.Vector3(0, 0.6, 0), autoSpin = true;
-    let goal = null; // {target, dist}
-    const resize = () => { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 420; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+    let yaw = 0.7, pitch = 0.38, dist = reduce ? 19 : 44, target = new T.Vector3(0, 0.6, 0), autoSpin = true, alarm = 0;
+    let goal = reduce ? null : { target: new T.Vector3(0, 0.6, 0), dist: 19 }; // {target, dist}; starts with a fly-in
+    let post = null;
+    try {
+      const float = renderer.capabilities.isWebGL2 && renderer.extensions.has('EXT_color_buffer_float');
+      const opt = (depth) => ({ minFilter: T.LinearFilter, magFilter: T.LinearFilter, type: float ? T.HalfFloatType : T.UnsignedByteType, depthBuffer: depth, samples: depth && !small ? 4 : 0 });
+      const sceneRT = new T.WebGLRenderTarget(4, 4, opt(true)), rtA = new T.WebGLRenderTarget(4, 4, opt(false)), rtB = new T.WebGLRenderTarget(4, 4, opt(false));
+      const QVS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+      const pass = (fragmentShader, uniforms) => new T.ShaderMaterial({ vertexShader: QVS, fragmentShader, uniforms, depthTest: false, depthWrite: false });
+      const bright = pass('uniform sampler2D tMap; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(0.55, 1.05, l), 1.0); }', { tMap: { value: sceneRT.texture } });
+      const blur = pass('uniform sampler2D tMap; uniform vec2 uDir; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb * 0.227; c += (texture2D(tMap, vUv + uDir * 1.385).rgb + texture2D(tMap, vUv - uDir * 1.385).rgb) * 0.316; c += (texture2D(tMap, vUv + uDir * 3.231).rgb + texture2D(tMap, vUv - uDir * 3.231).rgb) * 0.070; gl_FragColor = vec4(c, 1.0); }', { tMap: { value: null }, uDir: { value: new T.Vector2() } });
+      const final = pass('uniform sampler2D tScene; uniform sampler2D tBloom; uniform float uTime; uniform float uAlarm; varying vec2 vUv; vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); } void main(){ vec2 d = vUv - 0.5; float r2 = dot(d, d); vec2 off = d * r2 * 0.012; vec3 c = vec3(texture2D(tScene, vUv + off).r, texture2D(tScene, vUv).g, texture2D(tScene, vUv - off).b); c += texture2D(tBloom, vUv).rgb * 0.85; c = aces(c * 1.05); c *= mix(1.0, 0.42, smoothstep(0.18, 0.62, r2)); c += vec3(0.25, 0.02, 0.0) * uAlarm * smoothstep(0.12, 0.5, r2); float g = fract(sin(dot(vUv * (uTime + 1.0), vec2(12.9898, 78.233))) * 43758.5453); c += (g - 0.5) * 0.022; gl_FragColor = vec4(pow(c, vec3(1.0 / 2.2)), 1.0); }', { tScene: { value: sceneRT.texture }, tBloom: { value: null }, uTime: uni.uTime, uAlarm: uni.uAlarm });
+      const quad = new T.Mesh(new T.PlaneGeometry(2, 2), bright), qScene = new T.Scene(), qCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1); quad.frustumCulled = false; qScene.add(quad);
+      const run = (material, targetRT) => { quad.material = material; renderer.setRenderTarget(targetRT); renderer.render(qScene, qCam); };
+      post = {
+        size(w, h) { const pr = renderer.getPixelRatio(); sceneRT.setSize(Math.round(w * pr), Math.round(h * pr)); const bw = Math.max(2, Math.round(w * pr / 2)), bh = Math.max(2, Math.round(h * pr / 2)); rtA.setSize(bw, bh); rtB.setSize(bw, bh); this.px = [1 / bw, 1 / bh]; },
+        render() {
+          renderer.toneMapping = T.NoToneMapping;
+          renderer.setRenderTarget(sceneRT); renderer.render(scene, camera);
+          run(bright, rtA);
+          for (let i = 0; i < (small ? 2 : 3); i++) { const s = 1 + i * 1.6; blur.uniforms.tMap.value = rtA.texture; blur.uniforms.uDir.value.set(this.px[0] * s, 0); run(blur, rtB); blur.uniforms.tMap.value = rtB.texture; blur.uniforms.uDir.value.set(0, this.px[1] * s); run(blur, rtA); }
+          final.uniforms.tBloom.value = rtA.texture; run(final, null);
+        },
+      };
+    } catch (error) { post = null; }
+    const resize = () => { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 420; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); disk.material.uniforms.uScale.value = renderer.getPixelRatio() * Math.min(1.4, h / 520); if (post) post.size(w, h); };
     resize(); window.addEventListener('resize', resize); document.addEventListener('fullscreenchange', () => setTimeout(resize, 50));
     const pointers = new Map(); let drag = null, pinch = null, moved = false;
     canvas.addEventListener('pointerdown', (e) => { pointers.set(e.pointerId, e); canvas.setPointerCapture(e.pointerId); moved = false;
@@ -319,7 +369,9 @@
     if (reduce) autoSpin = false; syncSpin();
 
     /* ---------- frame loop ---------- */
-    let last = performance.now(), waveClock = 0;
+    let last = performance.now(), waveClock = 0, starClock = 2;
+    const shooting = [];
+    const spawnStar = () => { const s = glow(0xcfe9ff, 1.6, 0.9); s.material.fog = false; const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 20; s.position.set(Math.cos(a) * r, 16 + Math.random() * 14, Math.sin(a) * r); const dir = new T.Vector3(-Math.sin(a) * (Math.random() < 0.5 ? 1 : -1), -0.25 - Math.random() * 0.2, Math.cos(a)).normalize().multiplyScalar(34); scene.add(s); shooting.push({ s, dir, t: 0 }); };
     const tmp = new T.Vector3();
     function frame(now) {
       requestAnimationFrame(frame);
@@ -333,6 +385,11 @@
       const wall = Date.now(), rate = recent.filter((r) => wall - r.t < 10000).length; // requests in the last 10 s
       const beat = 1 + Math.sin(time * (2 + Math.min(6, rate * 0.4))) * 0.06 * slow;
       heart.scale.setScalar(beat); coreHalo.scale.setScalar(6.5 + Math.min(4, rate * 0.25) + Math.sin(time * 2) * 0.3 * slow);
+      alarm *= Math.pow(0.12, dt);
+      uni.uTime.value = time * slow; uni.uHeat.value += (Math.min(1, rate / 14) - uni.uHeat.value) * 0.05; uni.uAlarm.value = alarm;
+      shield.rotation.y -= dt * 0.05 * slow;
+      starClock -= dt; if (!reduce && starClock <= 0) { starClock = 3 + Math.random() * 6; spawnStar(); }
+      for (let i = shooting.length - 1; i >= 0; i--) { const st = shooting[i]; st.t += dt / 1.1; st.s.position.addScaledVector(st.dir, dt); st.s.scale.set(5.5 * (1 - st.t) + 0.4, 0.5, 1); st.s.material.opacity = Math.max(0, 0.9 * (1 - st.t)); st.s.material.rotation = Math.atan2(st.dir.y, Math.hypot(st.dir.x, st.dir.z)); if (st.t >= 1) { scene.remove(st.s); st.s.material.dispose(); shooting.splice(i, 1); } }
       shell.rotation.y += dt * 0.35 * slow; shell.rotation.x += dt * 0.12 * slow; shell2.rotation.y -= dt * 0.2 * slow;
       rings[0].rotation.z += dt * 0.6 * slow; rings[1].rotation.z -= dt * 0.45 * slow; rings[2].rotation.z += dt * 0.3 * slow;
       stars.rotation.y += dt * 0.004 * slow;
@@ -345,6 +402,7 @@
         const bob = Math.sin(time * 0.8 + n.k) * 0.12 * slow; n.node.position.y = n.base.y + bob; n.cage.position.y = n.base.y + bob; n.halo.position.y = n.base.y + bob;
         n.cage.rotation.y += dt * (0.4 + n.heat * 3); n.cage.rotation.x += dt * 0.2;
         n.halo.scale.setScalar(2.2 + n.heat * 2.4); n.tube.material.opacity = 0.18 + n.heat * 0.6;
+        n.pillar.material.opacity = 0.12 + n.heat * 0.5; n.pad.material.opacity = 0.35 + n.heat * 0.6; n.pad.rotation.z += dt * (0.3 + n.heat * 2);
         const fp = n.flow.geometry.attributes.position;
         for (let j = 0; j < 5; j++) { const u = (n.phase + time * 0.06 * slow + j / 5) % 1; n.curve.getPoint(u, tmp); fp.setXYZ(j, tmp.x, tmp.y, tmp.z); }
         fp.needsUpdate = true;
@@ -374,7 +432,8 @@
         cube.rotation.x += dt * 2; cube.rotation.y += dt * 3;
       });
       for (const [key, cube] of cubes) if (!alive.has(key)) { scene.remove(cube); cube.geometry.dispose(); cube.material.dispose(); cubes.delete(key); }
-      renderer.render(scene, camera);
+      if (post) { try { post.render(); } catch (error) { post = null; renderer.setRenderTarget(null); renderer.toneMapping = T.ACESFilmicToneMapping; } }
+      else renderer.render(scene, camera);
     }
     requestAnimationFrame(frame);
   }

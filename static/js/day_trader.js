@@ -25,6 +25,7 @@
   let state = (() => { try { return { ...fresh(), ...(JSON.parse(localStorage.getItem(KEY) || 'null') || {}) }; } catch { return fresh(); } })();
   let plan = null, busy = false, timer = null;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full */ } };
+  const emit = (name, detail) => { try { if (window.Loki && window.Loki.emit) window.Loki.emit(name, detail); } catch { /* the map is optional */ } };
   const log = (text, kind = 'info') => { state.log.unshift({ t: new Date().toISOString(), text, kind }); state.log.length = Math.min(state.log.length, 120); };
 
   function claim() {
@@ -51,6 +52,7 @@
     const day = new Date().toISOString().slice(0, 10);
     state.days[day] = (state.days[day] || 0) + pnl;
     delete state.positions[sym];
+    emit('daytrader:trade', { action: 'closed', symbol: sym, pnl });
     log(`CLOSE ${p.side > 0 ? 'long' : 'short'} ${sym} @ ${px.toFixed(2)} — ${why} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)})`, pnl >= 0 ? 'good' : 'bad');
   }
 
@@ -59,6 +61,7 @@
     const qty = notional / px;
     state.realized -= qty * px * COST(sym);
     state.positions[sym] = { side, qty, entry: px, t: new Date().toISOString() };
+    emit('daytrader:trade', { action: side > 0 ? 'bought' : 'shorted', symbol: sym });
     log(`${side > 0 ? 'BUY' : 'SHORT'} ${qty.toFixed(4)} ${sym} @ ${px.toFixed(2)} — price broke ${side > 0 ? 'above' : 'below'} its normal range`, 'good');
   }
 
@@ -89,6 +92,7 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || 'Day Trader plan unavailable');
     plan = data;
+    emit('daytrader:plan', { mode: data.mode || 'stocks', open: data.market_open, long: data.markets.filter((m) => m.position > 0).length, short: data.markets.filter((m) => m.position < 0).length, skipped: data.markets.filter((m) => m.skipped).length });
     return data;
   }
 
