@@ -119,7 +119,7 @@
         <div class="xm-vignette" aria-hidden="true"></div><div class="xm-scan" aria-hidden="true"></div>
         <div class="xm-hud xm-hud-tl" aria-live="polite"><span class="xm-live"><i></i>LIVE</span><div id="xm-kpis" class="xm-kpis"></div></div>
         <div class="xm-hud xm-hud-tr"><button type="button" class="xm-btn" id="xm-spin" aria-pressed="true" title="Pause the slow rotation">⟳ Auto-orbit</button><button type="button" class="xm-btn" id="xm-reset" title="Reset the camera (or double-click)">⌖ Reset</button><button type="button" class="xm-btn" id="xm-full" title="Fullscreen">⛶</button></div>
-        <div class="xm-hud xm-hud-bl xm-legend"><span><i class="ok"></i>answered</span><span><i class="slow"></i>slow &gt;1.5 s</span><span><i class="bad"></i>failed</span><span><i class="out"></i>sent</span><span><i class="agent"></i>agent fired</span><span class="xm-deco">disk, shield &amp; shooting stars are decoration</span></div>
+        <div class="xm-hud xm-hud-bl xm-legend"><span><i class="ok"></i>answered</span><span><i class="slow"></i>slow &gt;1.5 s</span><span><i class="bad"></i>failed</span><span><i class="out"></i>sent</span><span><i class="agent"></i>agent fired</span><span class="xm-deco">disk, shield, rings, aurora &amp; shooting stars are decoration</span></div>
         <div class="xm-tip" id="xm-tip" hidden></div>
       </div>
       <div class="xm-side"><p class="eyebrow">LIVE CONNECTIONS FROM THIS DEVICE</p><table class="xm-table"><thead><tr><th>Venue</th><th>Calls</th><th>Avg ms</th><th>Last</th></tr></thead><tbody id="xm-rows"></tbody></table>
@@ -162,14 +162,17 @@
     const T = three, canvas = root.querySelector('#xm-canvas'), stage = root.querySelector('#xm-stage'), tip = root.querySelector('#xm-tip');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    const small = Math.min(window.innerWidth, window.innerHeight) < 520;
+    let quality = 0; // 0 full, 1 lower resolution, 2 no glow pass: stepped down automatically when frames run slow
+    const ratioFor = (q) => Math.min(q === 0 ? (small ? 1.25 : 1.5) : 1, window.devicePixelRatio || 1);
+    renderer.setPixelRatio(ratioFor(0));
     renderer.setClearColor(0x03070c, 1);
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
-    const small = Math.min(window.innerWidth, window.innerHeight) < 520;
     const scene = new T.Scene();
     scene.fog = new T.FogExp2(0x03070c, 0.022);
-    const camera = new T.PerspectiveCamera(52, 1, 0.1, 400);
+    const camera = new T.PerspectiveCamera(52, 1, 0.5, 400);
+    let fit = 1; // pulls the camera back on tall, narrow stages so the whole map stays in frame
     const ADD = T.AdditiveBlending;
 
     /* ---------- textures made on the fly (no image files) ---------- */
@@ -207,6 +210,16 @@
     const ringMat = (c, o) => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: ADD, side: T.DoubleSide, depthWrite: false });
     const orbitRing = new T.Mesh(new T.RingGeometry(7.95, 8.05, 160), ringMat(0x8bdad4, 0.35)); orbitRing.rotation.x = -Math.PI / 2; orbitRing.position.y = -0.2; scene.add(orbitRing);
     const innerRing = new T.Mesh(new T.RingGeometry(3.55, 3.62, 120), ringMat(0xc3a6ff, 0.35)); innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = 2.1; scene.add(innerRing);
+    // Aurora ribbons high in the sky (decorative).
+    const aurora = [0, 1].map((k) => { const m = new T.Mesh(new T.PlaneGeometry(150, 34, 1, 1), new T.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uSeed: { value: k * 3.7 } }, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide, fog: false,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float uTime; uniform float uSeed; varying vec2 vUv; void main(){ float x = vUv.x * 9.0 + uSeed; float w = sin(x + uTime * 0.25) * 0.5 + sin(x * 2.3 - uTime * 0.17) * 0.25 + sin(x * 5.1 + uTime * 0.4) * 0.08; float band = smoothstep(0.34, 0.0, abs(vUv.y - 0.5 - w * 0.22)); float rays = 0.55 + 0.45 * sin(vUv.x * 160.0 + uSeed * 9.0 + uTime * 0.6); float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x); vec3 col = mix(vec3(0.10, 0.85, 0.62), vec3(0.50, 0.32, 0.95), vUv.y + w * 0.3); gl_FragColor = vec4(col * band * rays * edge * 0.20, 1.0); }' }));
+      m.position.set(k ? 48 : -44, 30 + k * 6, k ? -62 : -72); m.rotation.set(0.25, k ? -0.5 : 0.45, 0); scene.add(m); return m; });
+    // Flat HUD rings around the core: dashes that counter-rotate (decorative).
+    const hudRing = (r, width, dashes, color, y) => { const m = new T.Mesh(new T.RingGeometry(r, r + width, 128, 1), new T.ShaderMaterial({ uniforms: { uDash: { value: dashes }, uColor: { value: new T.Color(color) } }, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide,
+      vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float uDash; uniform vec3 uColor; varying vec3 vP; void main(){ float a = atan(vP.y, vP.x) / 6.2831853 + 0.5; float d = step(0.45, fract(a * uDash)); gl_FragColor = vec4(uColor * d * 0.75, 1.0); }' })); m.rotation.x = -Math.PI / 2; m.position.y = y; scene.add(m); return m; };
+    const hudRings = [hudRing(5.4, 0.07, 48, 0x8bdad4, -3.1), hudRing(5.75, 0.03, 120, 0xc3a6ff, -3.1), hudRing(10.4, 0.09, 72, 0x6ea8ff, -3.1)];
     const waves = [];
     const spawnWave = (color = 0x8bdad4) => { const m = new T.Mesh(new T.RingGeometry(0.98, 1, 96), ringMat(color, 0.6)); m.rotation.x = -Math.PI / 2; m.position.y = -3.15; scene.add(m); waves.push({ m, t: 0 }); };
 
@@ -233,6 +246,9 @@
     const torus = (r, c, tilt) => { const m = new T.Mesh(new T.TorusGeometry(r, 0.025, 8, 160), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, blending: ADD })); m.rotation.set(tilt[0], tilt[1], 0); coreGroup.add(m); return m; };
     const rings = [torus(1.7, 0x8bdad4, [1.2, 0.2]), torus(1.95, 0xc3a6ff, [0.4, 1.1]), torus(2.2, 0x6ea8ff, [2.0, 0.6])];
     const coreHalo = glow(0x8bdad4, 7, 0.38); coreGroup.add(coreHalo);
+    const streak = glow(0xbfeaff, 1, 0.5); streak.scale.set(15, 0.5, 1); coreGroup.add(streak); // lens streak across the core
+    const shocks = [];
+    const spawnShock = (color) => { const m = new T.Mesh(new T.SphereGeometry(1, 32, 16), new T.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.5, blending: ADD, depthWrite: false })); coreGroup.add(m); shocks.push({ m, t: 0 }); };
     const coreLabel = label('Your device · Loki engine', 0x8bdad4); coreLabel.position.set(0, -2.1, 0); scene.add(coreLabel);
 
     /* ---------- venues on the outer orbit, with curved light arcs ---------- */
@@ -248,7 +264,7 @@
       const node = new T.Mesh(new T.SphereGeometry(0.34, 24, 24), new T.MeshBasicMaterial({ color: v.color })); node.position.copy(p); scene.add(node);
       const cage = new T.Mesh(new T.OctahedronGeometry(0.62, 0), new T.MeshBasicMaterial({ color: v.color, wireframe: true, transparent: true, opacity: 0.5, blending: ADD })); cage.position.copy(p); scene.add(cage);
       const halo = glow(v.color, 2.2, 0.85); halo.position.copy(p); scene.add(halo);
-      const pillarH = p.y + 3.2, pillar = new T.Mesh(new T.CylinderGeometry(0.03, 0.14, pillarH, 12, 1, true), new T.MeshBasicMaterial({ color: v.color, transparent: true, opacity: 0.16, blending: ADD, depthWrite: false, side: T.DoubleSide })); pillar.position.set(p.x, -3.2 + pillarH / 2, p.z); scene.add(pillar);
+      const pillarH = p.y + 3.2, pillar = new T.Mesh(new T.CylinderGeometry(0.03, 0.14, pillarH, 12, 1, true), new T.ShaderMaterial({ uniforms: { uTime: uni.uTime, uColor: { value: new T.Color(v.color) }, uHeatN: { value: 0 } }, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'uniform float uTime; uniform vec3 uColor; uniform float uHeatN; varying vec2 vUv; void main(){ float flow = smoothstep(0.75, 1.0, fract(vUv.y * 3.0 - uTime * (0.35 + uHeatN))); float base = 0.14 + 0.25 * (1.0 - vUv.y); gl_FragColor = vec4(uColor * (base + flow * (0.5 + uHeatN * 1.5)), 1.0); }' })); pillar.position.set(p.x, -3.2 + pillarH / 2, p.z); scene.add(pillar);
       const pad = new T.Mesh(new T.RingGeometry(0.5, 0.62, 48), ringMat(v.color, 0.5)); pad.rotation.x = -Math.PI / 2; pad.position.set(p.x, -3.18, p.z); scene.add(pad);
       const tag = label(v.label, v.color, 0.82); tag.position.copy(p).add(new T.Vector3(0, 0.95, 0)); scene.add(tag);
       // ambient flow: a few faint particles drifting along the arc (decorative only)
@@ -297,6 +313,7 @@
     function agentPulse(id) {
       const n = agentNodes[id]; if (!n) return;
       n.heat = Math.min(1, n.heat + 0.7);
+      if (shocks.length < 4) spawnShock(n.solid.material.color);
       const head = new T.Mesh(cometGeo, new T.MeshBasicMaterial({ color: 0xe7d8ff, transparent: true, blending: ADD })); head.add(glow(0xc3a6ff, 0.8, 0.9)); scene.add(head);
       comets.push({ head, trail: [], curve: n.curve, out: false, t: 0, speed: 1.2, node: null });
       synapses.forEach((s) => { if (s.a === id || s.b === id) s.heat = 1; });
@@ -308,27 +325,27 @@
     let post = null;
     try {
       const float = renderer.capabilities.isWebGL2 && renderer.extensions.has('EXT_color_buffer_float');
-      const opt = (depth) => ({ minFilter: T.LinearFilter, magFilter: T.LinearFilter, type: float ? T.HalfFloatType : T.UnsignedByteType, depthBuffer: depth, samples: depth && !small ? 4 : 0 });
+      const opt = (depth) => ({ minFilter: T.LinearFilter, magFilter: T.LinearFilter, type: float ? T.HalfFloatType : T.UnsignedByteType, depthBuffer: depth, samples: depth && !small ? 2 : 0 });
       const sceneRT = new T.WebGLRenderTarget(4, 4, opt(true)), rtA = new T.WebGLRenderTarget(4, 4, opt(false)), rtB = new T.WebGLRenderTarget(4, 4, opt(false));
       const QVS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
       const pass = (fragmentShader, uniforms) => new T.ShaderMaterial({ vertexShader: QVS, fragmentShader, uniforms, depthTest: false, depthWrite: false });
       const bright = pass('uniform sampler2D tMap; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(0.55, 1.05, l), 1.0); }', { tMap: { value: sceneRT.texture } });
       const blur = pass('uniform sampler2D tMap; uniform vec2 uDir; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb * 0.227; c += (texture2D(tMap, vUv + uDir * 1.385).rgb + texture2D(tMap, vUv - uDir * 1.385).rgb) * 0.316; c += (texture2D(tMap, vUv + uDir * 3.231).rgb + texture2D(tMap, vUv - uDir * 3.231).rgb) * 0.070; gl_FragColor = vec4(c, 1.0); }', { tMap: { value: null }, uDir: { value: new T.Vector2() } });
-      const final = pass('uniform sampler2D tScene; uniform sampler2D tBloom; uniform float uTime; uniform float uAlarm; varying vec2 vUv; vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); } void main(){ vec2 d = vUv - 0.5; float r2 = dot(d, d); vec2 off = d * r2 * 0.012; vec3 c = vec3(texture2D(tScene, vUv + off).r, texture2D(tScene, vUv).g, texture2D(tScene, vUv - off).b); c += texture2D(tBloom, vUv).rgb * 0.85; c = aces(c * 1.05); c *= mix(1.0, 0.42, smoothstep(0.18, 0.62, r2)); c += vec3(0.25, 0.02, 0.0) * uAlarm * smoothstep(0.12, 0.5, r2); float g = fract(sin(dot(vUv * (uTime + 1.0), vec2(12.9898, 78.233))) * 43758.5453); c += (g - 0.5) * 0.022; gl_FragColor = vec4(pow(c, vec3(1.0 / 2.2)), 1.0); }', { tScene: { value: sceneRT.texture }, tBloom: { value: null }, uTime: uni.uTime, uAlarm: uni.uAlarm });
+      const final = pass('uniform sampler2D tScene; uniform sampler2D tBloom; uniform float uTime; uniform float uAlarm; varying vec2 vUv; vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); } void main(){ vec2 d = vUv - 0.5; float r2 = dot(d, d); vec2 off = d * r2 * 0.003; vec3 c = vec3(texture2D(tScene, vUv + off).r, texture2D(tScene, vUv).g, texture2D(tScene, vUv - off).b); c += texture2D(tBloom, vUv).rgb * 0.85; c = aces(c * 1.05); c *= mix(1.0, 0.42, smoothstep(0.18, 0.62, r2)); c += vec3(0.25, 0.02, 0.0) * uAlarm * smoothstep(0.12, 0.5, r2); gl_FragColor = vec4(pow(c, vec3(1.0 / 2.2)), 1.0); }', { tScene: { value: sceneRT.texture }, tBloom: { value: null }, uTime: uni.uTime, uAlarm: uni.uAlarm });
       const quad = new T.Mesh(new T.PlaneGeometry(2, 2), bright), qScene = new T.Scene(), qCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1); quad.frustumCulled = false; qScene.add(quad);
       const run = (material, targetRT) => { quad.material = material; renderer.setRenderTarget(targetRT); renderer.render(qScene, qCam); };
       post = {
-        size(w, h) { const pr = renderer.getPixelRatio(); sceneRT.setSize(Math.round(w * pr), Math.round(h * pr)); const bw = Math.max(2, Math.round(w * pr / 2)), bh = Math.max(2, Math.round(h * pr / 2)); rtA.setSize(bw, bh); rtB.setSize(bw, bh); this.px = [1 / bw, 1 / bh]; },
+        size(w, h) { const pr = renderer.getPixelRatio(); sceneRT.setSize(Math.round(w * pr), Math.round(h * pr)); const bw = Math.max(2, Math.round(w * pr / 3)), bh = Math.max(2, Math.round(h * pr / 3)); rtA.setSize(bw, bh); rtB.setSize(bw, bh); this.px = [1 / bw, 1 / bh]; },
         render() {
           renderer.toneMapping = T.NoToneMapping;
           renderer.setRenderTarget(sceneRT); renderer.render(scene, camera);
           run(bright, rtA);
-          for (let i = 0; i < (small ? 2 : 3); i++) { const s = 1 + i * 1.6; blur.uniforms.tMap.value = rtA.texture; blur.uniforms.uDir.value.set(this.px[0] * s, 0); run(blur, rtB); blur.uniforms.tMap.value = rtB.texture; blur.uniforms.uDir.value.set(0, this.px[1] * s); run(blur, rtA); }
+          for (let i = 0; i < 2; i++) { const s = 1 + i * 1.8; blur.uniforms.tMap.value = rtA.texture; blur.uniforms.uDir.value.set(this.px[0] * s, 0); run(blur, rtB); blur.uniforms.tMap.value = rtB.texture; blur.uniforms.uDir.value.set(0, this.px[1] * s); run(blur, rtA); }
           final.uniforms.tBloom.value = rtA.texture; run(final, null);
         },
       };
     } catch (error) { post = null; }
-    const resize = () => { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 420; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); disk.material.uniforms.uScale.value = renderer.getPixelRatio() * Math.min(1.4, h / 520); if (post) post.size(w, h); };
+    const resize = () => { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 420; renderer.setSize(w, h, false); camera.aspect = w / h; fit = Math.max(1, Math.min(2.2, 1.25 / camera.aspect)); camera.updateProjectionMatrix(); disk.material.uniforms.uScale.value = renderer.getPixelRatio() * Math.min(1.4, h / 520); if (post) post.size(w, h); };
     resize(); window.addEventListener('resize', resize); document.addEventListener('fullscreenchange', () => setTimeout(resize, 50));
     const pointers = new Map(); let drag = null, pinch = null, moved = false;
     canvas.addEventListener('pointerdown', (e) => { pointers.set(e.pointerId, e); canvas.setPointerCapture(e.pointerId); moved = false;
@@ -369,7 +386,7 @@
     if (reduce) autoSpin = false; syncSpin();
 
     /* ---------- frame loop ---------- */
-    let last = performance.now(), waveClock = 0, starClock = 2;
+    let last = performance.now(), waveClock = 0, starClock = 2, slowFor = 0;
     const shooting = [];
     const spawnStar = () => { const s = glow(0xcfe9ff, 1.6, 0.9); s.material.fog = false; const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 20; s.position.set(Math.cos(a) * r, 16 + Math.random() * 14, Math.sin(a) * r); const dir = new T.Vector3(-Math.sin(a) * (Math.random() < 0.5 ? 1 : -1), -0.25 - Math.random() * 0.2, Math.cos(a)).normalize().multiplyScalar(34); scene.add(s); shooting.push({ s, dir, t: 0 }); };
     const tmp = new T.Vector3();
@@ -379,7 +396,8 @@
       const dt = Math.min(0.05, (now - last) / 1000), time = now / 1000, slow = reduce ? 0.25 : 1; last = now;
       if (goal) { target.lerp(goal.target, 0.06); dist += (goal.dist - dist) * 0.06; if (target.distanceTo(goal.target) < 0.01 && Math.abs(goal.dist - dist) < 0.05) goal = null; }
       if (autoSpin && !drag && !pinch) yaw += dt * 0.07 * slow;
-      camera.position.set(target.x + Math.cos(yaw) * Math.cos(pitch) * dist, target.y + Math.sin(pitch) * dist + Math.sin(time * 0.3) * 0.15 * slow, target.z + Math.sin(yaw) * Math.cos(pitch) * dist);
+      const far = dist * fit;
+      camera.position.set(target.x + Math.cos(yaw) * Math.cos(pitch) * far, target.y + Math.sin(pitch) * far + Math.sin(time * 0.3) * 0.15 * slow, target.z + Math.sin(yaw) * Math.cos(pitch) * far);
       camera.lookAt(target);
       // activity drives the core's heartbeat
       const wall = Date.now(), rate = recent.filter((r) => wall - r.t < 10000).length; // requests in the last 10 s
@@ -388,6 +406,13 @@
       alarm *= Math.pow(0.12, dt);
       uni.uTime.value = time * slow; uni.uHeat.value += (Math.min(1, rate / 14) - uni.uHeat.value) * 0.05; uni.uAlarm.value = alarm;
       shield.rotation.y -= dt * 0.05 * slow;
+      aurora.forEach((m) => { m.material.uniforms.uTime.value = time * slow; });
+      hudRings[0].rotation.z += dt * 0.12 * slow; hudRings[1].rotation.z -= dt * 0.2 * slow; hudRings[2].rotation.z -= dt * 0.04 * slow;
+      streak.material.opacity = 0.32 + uni.uHeat.value * 0.4 + Math.sin(time * 1.7) * 0.05 * slow;
+      for (let i = shocks.length - 1; i >= 0; i--) { const sh = shocks[i]; sh.t += dt * 0.9; sh.m.scale.setScalar(0.8 + sh.t * 3.4); sh.m.material.opacity = Math.max(0, 0.45 * (1 - sh.t)); if (sh.t >= 1) { coreGroup.remove(sh.m); sh.m.geometry.dispose(); sh.m.material.dispose(); shocks.splice(i, 1); } }
+      // quality governor: if frames stay slow, drop resolution, then the glow pass
+      slowFor = dt > 0.034 ? slowFor + dt : Math.max(0, slowFor - dt * 0.5);
+      if (slowFor > 2.5 && quality < 2) { quality += 1; slowFor = 0; renderer.setPixelRatio(ratioFor(quality)); if (quality === 2) { post = null; renderer.setRenderTarget(null); renderer.toneMapping = T.ACESFilmicToneMapping; } resize(); }
       starClock -= dt; if (!reduce && starClock <= 0) { starClock = 3 + Math.random() * 6; spawnStar(); }
       for (let i = shooting.length - 1; i >= 0; i--) { const st = shooting[i]; st.t += dt / 1.1; st.s.position.addScaledVector(st.dir, dt); st.s.scale.set(5.5 * (1 - st.t) + 0.4, 0.5, 1); st.s.material.opacity = Math.max(0, 0.9 * (1 - st.t)); st.s.material.rotation = Math.atan2(st.dir.y, Math.hypot(st.dir.x, st.dir.z)); if (st.t >= 1) { scene.remove(st.s); st.s.material.dispose(); shooting.splice(i, 1); } }
       shell.rotation.y += dt * 0.35 * slow; shell.rotation.x += dt * 0.12 * slow; shell2.rotation.y -= dt * 0.2 * slow;
@@ -402,7 +427,7 @@
         const bob = Math.sin(time * 0.8 + n.k) * 0.12 * slow; n.node.position.y = n.base.y + bob; n.cage.position.y = n.base.y + bob; n.halo.position.y = n.base.y + bob;
         n.cage.rotation.y += dt * (0.4 + n.heat * 3); n.cage.rotation.x += dt * 0.2;
         n.halo.scale.setScalar(2.2 + n.heat * 2.4); n.tube.material.opacity = 0.18 + n.heat * 0.6;
-        n.pillar.material.opacity = 0.12 + n.heat * 0.5; n.pad.material.opacity = 0.35 + n.heat * 0.6; n.pad.rotation.z += dt * (0.3 + n.heat * 2);
+        n.pillar.material.uniforms.uHeatN.value = n.heat; n.pad.material.opacity = 0.35 + n.heat * 0.6; n.pad.rotation.z += dt * (0.3 + n.heat * 2);
         const fp = n.flow.geometry.attributes.position;
         for (let j = 0; j < 5; j++) { const u = (n.phase + time * 0.06 * slow + j / 5) % 1; n.curve.getPoint(u, tmp); fp.setXYZ(j, tmp.x, tmp.y, tmp.z); }
         fp.needsUpdate = true;
