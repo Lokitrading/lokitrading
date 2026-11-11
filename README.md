@@ -19,6 +19,38 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.60: Day Trader AI (main mode)
+
+The AI trading page now leads with a **Day Trader**: in and out the same day, flat every night, paper money.
+
+**How it trades** (`loki_v8/daytrade.py`)
+- The method is published intraday momentum with noise bands (Zarattini, Aziz and Barbon, 2024), used as written with no tuning.
+- For every 5-minute slot it measures how far price normally sits from the day's open at that time (14-session average).
+- Every 30 minutes it goes long above that band and the session VWAP, short below, flat in between.
+- Orders fill at the next bar's open, and everything closes at the last bar.
+- One function, `replay_day`, runs both the 10-year test and the live plan (`GET /api/fusion/ai/daytrade`), so the page trades what was tested.
+
+**How it tested** (`train_daytrade.py` → `loki_v8/daytrade_record.json`; 10 years of 5-minute bars from Alpaca; 1 bp per side on index funds, 2 bp on stocks)
+- Twelve liquid stocks and funds were tested. Markets were chosen on 2016–2021 only (Sharpe above 0.3) and judged on 2022 onward.
+- The book holds QQQ, NVDA, TSLA, AMZN and AMD, with equal capital each.
+
+| Window | Return / yr | Sharpe | Worst drop |
+|---|---|---|---|
+| 2016–2021 (markets chosen here) | +13.0% | 1.34 | −8.9% |
+| **2022 → now (unseen)** | **+5.8%** | **0.55** | **−17.0%** |
+
+**What the record also says**
+- The rules lost money after costs on 7 of the 12 markets on unseen data. All 12 together made −0.8% a year since 2022.
+- 2025 was a losing year (−10.7%).
+- It is very sensitive to costs: at double the assumed cost most of the edge is gone.
+- It tested weaker than the Portfolio AI (+14.2% a year, worst drop −9.2% on its own unseen window).
+- Simpler rules were tested first on hourly bars and all lost after costs: opening-range breakout, first-hour and last-half-hour momentum, gap fades, and crypto breakout, dip-buying and trend rules. They are listed in the record and on the page.
+
+**On the site**
+- The browser keeps a paper book that mirrors the plan every minute: equal capital per market, long and short, closed before the bell.
+- Prices are delayed 5-minute bars. No orders leave the browser.
+- Talk to Loki answers day-trading questions from the same record.
+
 ## 2.59: risk levels; another round of honest research
 
 **Risk levels (AI trading page, `GET /api/fusion/ai/portfolio?risk=steady|balanced|growth`).**

@@ -113,7 +113,7 @@
 .pf-log { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: 12px; max-height: 220px; overflow: auto; }
 .pf-log li.good { color: #b8f0d8; } .pf-log time { color: var(--muted, #a2b5c4); margin-right: 6px; font-size: 11px; }
 @media (max-width: 900px) { .pf-record { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-grid { grid-template-columns: 1fr; } .pf-row { grid-template-columns: 64px minmax(0, 1fr) 50px; } .pf-meta { display: none; } }
-#ai-trading > #portfolio-ai { grid-column: 1 / -1; }
+#ai-trading > #portfolio-ai, #ai-trading > #day-trader { grid-column: 1 / -1; }
 
 /* ---- price alerts ---- */
 .lm-alert-form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0 6px; }
@@ -193,3 +193,17 @@
 .pf-risk-btn span { font: 12.5px var(--mono, monospace); }
 .pf-risk-btn small { color: var(--muted, #a2b5c4); font-size: 11.5px; }
 @media (max-width: 640px) { .pf-risk-row { grid-template-columns: 1fr; } }
+.day-trader { border-color: #a8f0c66b; background: linear-gradient(160deg, rgba(111,211,191,.07), transparent 45%), var(--panel, #0f1a22); }
+.dt-markets { display: grid; gap: 8px; }
+.dt-row { display: grid; grid-template-columns: 58px 62px minmax(60px, 1fr); grid-template-areas: "sym state band" "detail detail detail"; align-items: center; gap: 4px 10px; padding: 9px 11px; border: 1px solid var(--line, #263947); border-radius: 10px; background: var(--surface-inset, #0a131c); }
+.dt-row.idle { opacity: .72; grid-template-areas: "sym state detail"; }
+.dt-row .pf-sym { grid-area: sym; }
+.dt-state { grid-area: state; font: 650 11px var(--mono, monospace); letter-spacing: .08em; padding: 3px 6px; border-radius: 6px; text-align: center; background: #1d2b35; color: var(--muted, #a2b5c4); }
+.dt-state.up { background: rgba(168, 240, 198, .16); color: #a8f0c6; }
+.dt-state.down { background: rgba(255, 138, 122, .16); color: #ffb3a7; }
+.dt-band { grid-area: band; position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #ff8a7a 0, #2c3c48 18%, #2c3c48 82%, #6fd3bf 100%); }
+.dt-band i { position: absolute; top: -4px; width: 3px; height: 14px; margin-left: -1px; border-radius: 2px; background: #e8f1f7; }
+.dt-detail { grid-area: detail; font: 11.5px var(--mono, monospace); color: var(--muted, #a2b5c4); }
+#dt-metrics > div { display: grid; gap: 2px; padding: 9px 11px; border: 1px solid var(--line, #263947); border-radius: 10px; background: var(--surface-inset, #0a131c); }
+#dt-metrics span { font: 10px var(--mono, monospace); letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #a2b5c4); }
+#dt-metrics strong { font: 650 15px var(--mono, monospace); }
