@@ -140,7 +140,15 @@
       cell('Worst drop', pct(b.test.max_dd_pct), 'on unseen data', '#ffb3a7') +
       cell('Winning days', `${Number(b.test.win_days_pct).toFixed(0)}%`, 'most days lose a little; a few win big') +
       `<div class="pf-years"><p><strong>Year by year (simulated).</strong> Up in ${full.length - losers.length} of ${full.length} full years.${losers.length ? ` Losing years: ${esc(losers.map((y) => `${y.year} ${pct(y.return_pct)}`).join(', '))}.` : ''} No strategy can promise a profit every year.</p><div class="pf-year-bars" role="img" aria-label="Simulated return each calendar year">${bars}</div></div>` +
-      learnNote + honesty;
+      forwardNote(plan.forward) + learnNote + honesty;
+  }
+
+  // Sessions after the tested record was frozen: the only results the rules could not have been fitted to.
+  function forwardNote(f) {
+    if (!f || !f.days) return '';
+    const max = Math.max(0.2, ...f.daily.map((d) => Math.abs(d.return_pct)));
+    const bars = f.daily.map((d) => `<span class="pf-year${d.return_pct < 0 ? ' down' : ''}" title="${esc(`${d.day}: ${pct(d.return_pct, 2)}`)}" aria-label="${esc(`${d.day}: ${pct(d.return_pct, 2)}`)}"><i style="height:${Math.max(2, Math.round((Math.abs(d.return_pct) / max) * 34))}px"></i><small>${esc(d.day.slice(8))}</small></span>`).join('');
+    return `<div class="pf-years dt-forward"><p><strong>Since the record was frozen (${esc(f.since)}).</strong> ${esc(String(f.days))} completed session${f.days === 1 ? '' : 's'} the rules had never seen: ${esc(pct(f.return_pct, 2))} in total, ${esc(String(f.winning_days))} up and ${esc(String(f.losing_days))} down, worst drop ${esc(pct(f.worst_drop_pct, 2))}. ${f.days < 60 ? 'Far too few days to judge; it is shown so you can watch it build.' : ''} Simulated on delayed prices, not real trades.</p><div class="pf-year-bars dt-forward-bars" role="img" aria-label="Result of each session since the record was frozen">${bars}</div></div>`;
   }
 
   function renderMarkets() {

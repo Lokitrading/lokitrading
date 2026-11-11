@@ -19,6 +19,13 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.63: forward record for the Day Trader
+
+- The tested record ends on a fixed date (`data_through`). Every completed session after it is one the rules could not have been fitted to.
+- `GET /api/fusion/ai/daytrade` now returns `forward`: those sessions replayed with the frozen rules and the frozen mistake model, as an equal-capital book.
+- The page shows the total, up and down days, worst drop and a bar per day, with a plain note that a handful of days proves nothing.
+- Limits: the price feed keeps about 60 days of 5-minute bars, so the strip shows at most the last 60 days. It is simulated on delayed prices, not real trades.
+
 ## 2.62: 3D engine map, second upgrade
 
 **New look** (`engine/execmap.js`)
