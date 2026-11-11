@@ -190,5 +190,9 @@ def test_3d_map_has_glow_pipeline_a_safe_fallback_and_the_day_trader_node():
     js = (root / "static" / "js" / "engine" / "execmap.js").read_text(encoding="utf-8")
     for needle in ("WebGLRenderTarget", "tBloom", "post = null", "id: 'daytrader'", "daytrader:trade", "prefers-reduced-motion", "are decoration"):
         assert needle in js
+    assert "quality governor" in js and "43758.5453" not in js  # slow devices step down; the flickering grain is gone
+    assert "fit = Math.max(1" in js  # narrow stages pull the camera back
+    css = (root / "static" / "css" / "engine.css").read_text(encoding="utf-8")
+    assert "align-self: start; height: min(74vh, 720px)" in css  # the stage no longer stretches to the tables' height
     trader = (root / "static" / "js" / "day_trader.js").read_text(encoding="utf-8")
     assert "emit('daytrader:trade'" in trader and "emit('daytrader:plan'" in trader

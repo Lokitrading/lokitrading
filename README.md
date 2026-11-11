@@ -19,6 +19,24 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.64: 3D engine map, glitch fixes and a lighter, sharper look
+
+**Fixed**
+- **Flickering static.** A per-frame film-grain effect read as a glitch; it is removed.
+- **Rainbow edges.** Colour fringing is cut to a trace.
+- **Stretched stage.** The stage used to stretch to the height of the tables beside it, becoming a tall narrow strip with the camera far too close. It now has its own height, and the camera pulls back on narrow stages so the whole map stays in frame.
+- **Stutter.** Rendering is much lighter: a lower pixel ratio, the glow pass at one-third resolution with two blur passes, and less anti-aliasing.
+- **Quality governor.** If frames stay slow, it lowers the resolution first and then switches the glow pass off.
+
+**Added** (all cheap to draw)
+- Aurora ribbons.
+- Counter-rotating dashed HUD rings on the floor.
+- A lens streak across the core.
+- A shockwave from the core when an agent fires.
+- Energy running up each venue's pillar, faster when that venue is in use.
+
+The legend still says which parts are decoration.
+
 ## 2.63: forward record for the Day Trader
 
 - The tested record ends on a fixed date (`data_through`). Every completed session after it is one the rules could not have been fitted to.
