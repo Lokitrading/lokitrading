@@ -453,6 +453,19 @@ def daytrade_answer() -> str:
                      + (f"it had losing years ({', '.join(str(y['year']) + ' ' + _pct(y['return_pct']) for y in years)}), " if years else "")
                      + "simpler day-trading rules (opening-range breakout, gap fades, crypto breakouts) all lost after costs, and it "
                      "tested weaker than the Portfolio AI. Most people who day trade lose money; treat this as practice with paper money.")
+    learn, plain = rec.get("learning") or {}, (rec.get("book_plain") or {}).get("test") or {}
+    if learn.get("kept") and plain:
+        lessons = sum((learn.get("lessons") or {}).values())
+        lines.append(f"It learns from its mistakes: at each day's first signal it rates the setup against {lessons:,} past trading days "
+                     f"and sits out the ones that look like past losers. On the unseen years that lifted it from {_pct(plain.get('cagr_pct'))} "
+                     f"a year (worst drop {_pct(plain.get('max_dd_pct'))}) to the figures above, and it beat filters trained on scrambled results, "
+                     "so the gain is not just from trading less.")
+    fut = rec.get("futures") or {}
+    ftest = (fut.get("book") or {}).get("test") or {}
+    if ftest:
+        lines.append(f"Futures mode trades micro contracts ({', '.join(fut.get('symbols') or [])}) with the same rules: {_pct(ftest.get('cagr_pct'))} a year "
+                     f"on the unseen years with a worst drop of {_pct(ftest.get('max_dd_pct'))}, tested on each contract's index fund at futures costs. "
+                     "Futures are leveraged, so real losses can exceed your deposit.")
     lines.append("Start it with paper money on the AI trading page.\n" + FOOTER)
     return "\n".join(lines)
 

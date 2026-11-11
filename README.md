@@ -19,6 +19,31 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.61: Day Trader learns from its mistakes; futures mode
+
+**Learning from mistakes** (`daytrade.learn_from_mistakes`)
+- At each day's first signal the Day Trader rates the setup from what is known at that moment: the opening gap, the day's normal range, yesterday's move, the weekday, and the signal's side and time.
+- It sits out days that look like past losing days (estimated win chance under 40%).
+- Each year is traded with a model fitted only on earlier years' days. The live site uses the model fitted on all ~8,000 past trading days.
+- It is kept only where it earned it. It had to beat the plain rules on 2018–2021 **and** beat filters trained on scrambled outcomes; it won 29 of 30 and 30 of 30. That rules out "it only helped because it traded less".
+
+| Stocks book (QQQ, NVDA, TSLA, AMZN, AMD), 2022 → now, unseen | Return / yr | Sharpe | Worst drop |
+|---|---|---|---|
+| Plain rules | +5.8% | 0.55 | −17.0% |
+| **With learning** | **+8.0%** | **1.10** | **−9.8%** |
+
+**Futures mode** (`?mode=futures`)
+- It trades micro Nasdaq-100 (MNQ) and micro S&P 500 (MES) with the same rules, tested at futures costs (0.5 bp per side) on each contract's index fund during regular US hours.
+- Unseen 2022 → now: **+8.4%/yr, Sharpe 1.13, worst drop −9.0%**. On 2016–21 it made +6.2%/yr.
+- The fund is a stand-in for the contract. Checked against the real futures over the last 35 sessions, daily results correlate 0.98–0.99.
+- Micro Russell (M2K) and micro Dow (MYM) lost money and are left out.
+- The mistake filter is **off** for futures: it did not help there on 2018–21.
+- Sizing is shown in contracts, with a plain warning. One MNQ plus one MES controls about $95,000; the test used no leverage; real futures can lose more than the deposit.
+
+**Tested and rejected**
+- An adaptive market switch (trade a market only while its recent results are positive): worse than the fixed list.
+- Volatility-scaled position size: too small a gain to matter.
+
 ## 2.60: Day Trader AI (main mode)
 
 The AI trading page now leads with a **Day Trader**: in and out the same day, flat every night, paper money.

@@ -14,12 +14,13 @@
   const KEY = 'loki_day_trader_v1';
   const LEASE = 'loki_day_trader_lease';
   const CHECK_MS = 60 * 1000;
-  const COST = (sym) => (sym === 'QQQ' || sym === 'SPY' ? 1 : 2) / 10000; // per side, as in the test
+  const FUTURES = new Set(['MNQ', 'MES', 'M2K', 'MYM']);
+  const COST = (sym) => (FUTURES.has(sym) ? 0.5 : sym === 'QQQ' || sym === 'SPY' ? 1 : 2) / 10000; // per side, as in the test
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (v) => (window.LokiCurrency ? window.LokiCurrency.format(v) : (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const pct = (v, d = 1) => (Number.isFinite(Number(v)) ? `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(d)}%` : '—');
-  const fresh = (cash = 10000) => ({ start: cash, realized: 0, running: false, positions: {}, trades: [], log: [], days: {} });
+  const fresh = (cash = 10000, mode = 'stocks') => ({ start: cash, realized: 0, running: false, positions: {}, trades: [], log: [], days: {}, mode, skips: {} });
 
   let state = (() => { try { return { ...fresh(), ...(JSON.parse(localStorage.getItem(KEY) || 'null') || {}) }; } catch { return fresh(); } })();
   let plan = null, busy = false, timer = null;
@@ -68,6 +69,10 @@
     let n = 0;
     for (const m of plan.markets) {
       const have = state.positions[m.symbol], px = Number(m.last);
+      if (m.skipped) {
+        const key = `${new Date().toISOString().slice(0, 10)}:${m.symbol}`;
+        if (!state.skips[key]) { state.skips[key] = 1; log(`SKIP ${m.symbol} today — this setup looks like past losing days (rated ${Math.round((m.rating || 0) * 100)}% to win).`); }
+      }
       const want = m.status === 'open' ? Number(m.position) || 0 : 0;
       if (have && have.side !== want) { close(m.symbol, px > 0 ? px : have.entry, m.status === 'open' ? (want ? 'signal flipped' : 'back inside the range') : 'market closed: flat overnight'); n += 1; }
       if (want && !state.positions[m.symbol] && m.status === 'open') { open(m.symbol, want, px, eq * plan.weight_per_market); n += 1; }
@@ -79,7 +84,8 @@
   }
 
   async function loadPlan() {
-    const res = await fetch('/api/fusion/ai/daytrade', { cache: 'no-store', signal: AbortSignal.timeout(55000) });
+    const mode = state.mode === 'futures' ? 'futures' : 'stocks';
+    const res = await fetch(`/api/fusion/ai/daytrade?mode=${mode}`, { cache: 'no-store', signal: AbortSignal.timeout(55000) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || 'Day Trader plan unavailable');
     plan = data;
@@ -115,26 +121,37 @@
       const label = `${y.year}${y.partial ? ' (so far)' : ''}: ${pct(y.return_pct)}${y.unseen ? ' (unseen)' : ''}`;
       return `<span class="pf-year${y.return_pct < 0 ? ' down' : ''}" title="${esc(label)}" aria-label="${esc(label)}"><i style="height:${Math.max(2, Math.round((Math.abs(y.return_pct) / max) * 46))}px"></i><small>${String(y.year).slice(2)}</small></span>`;
     }).join('');
+    const plainTest = rec.book_plain && rec.book_plain.test, learn = rec.learning || {};
+    const lessons = Object.values(learn.lessons || {}).reduce((a, n) => a + n, 0);
+    const control = learn.shuffle_control;
+    const learnNote = learn.kept
+      ? `<p class="pf-hindsight dt-learn"><strong>Learns from its mistakes: ON.</strong> At each day's first signal it rates the setup against ${esc(lessons.toLocaleString())} past trading days and sits out the ones that look like past losers. Each year was tested using only earlier years. On unseen 2022→now data that turned ${esc(pct(plainTest && plainTest.cagr_pct))} a year (worst drop ${esc(pct(plainTest && plainTest.max_dd_pct))}) into ${esc(pct(b.test.cagr_pct))} (worst drop ${esc(pct(b.test.max_dd_pct))})${control ? `, and it beat ${esc(String(Math.min(control.real_beat_shuffled_select, control.real_beat_shuffled_test)))} of ${esc(String(control.runs))} filters trained on scrambled results, so it is not luck from simply trading less` : ''}.</p>`
+      : `<p class="pf-hindsight dt-learn"><strong>Learns from its mistakes: OFF here.</strong> The same filter was tested for ${esc(plan.mode === 'futures' ? 'futures' : 'this book')} and did not help on 2018–21 (Sharpe ${esc(String(learn.select_window_sharpe ? learn.select_window_sharpe.filtered : '—'))} with it, ${esc(String(learn.select_window_sharpe ? learn.select_window_sharpe.plain : '—'))} without), so it stays off rather than being switched on for show.</p>`;
+    const honesty = plan.mode === 'futures'
+      ? `<p class="pf-hindsight"><strong>Honesty check.</strong> ${esc(rec.note || '')} Four micro contracts were tested; Russell (M2K) and Dow (MYM) lost money and are left out. Checked against the real futures over the last 35 sessions, the fund's daily results matched 0.98–0.99. Futures are leveraged: one contract controls far more than its margin, and losses can exceed what you put in.</p>`
+      : `<p class="pf-hindsight"><strong>Honesty check.</strong> The same rules were tested on 12 stocks and funds. They lost money on ${esc(String(plan.stock_candidates_losing))} of them after costs, and all 12 together made ${esc(pct(rec.all_candidates_book && rec.all_candidates_book.test && rec.all_candidates_book.test.cagr_pct))} a year since 2022. This book holds only the ${esc(String(rec.symbols.length))} that worked in 2016–21 (${esc(rec.symbols.join(', '))}).</p>`;
     $('dt-record').innerHTML =
       cell('Simulated return / year (2022→now, unseen)', pct(b.test.cagr_pct), `2016–21: ${pct(b.select.cagr_pct)} (rules chosen here)`, '#a8f0c6') +
       cell('Sharpe ratio', Number(b.test.sharpe).toFixed(2), `2016–21: ${Number(b.select.sharpe).toFixed(2)}`) +
       cell('Worst drop', pct(b.test.max_dd_pct), 'on unseen data', '#ffb3a7') +
       cell('Winning days', `${Number(b.test.win_days_pct).toFixed(0)}%`, 'most days lose a little; a few win big') +
       `<div class="pf-years"><p><strong>Year by year (simulated).</strong> Up in ${full.length - losers.length} of ${full.length} full years.${losers.length ? ` Losing years: ${esc(losers.map((y) => `${y.year} ${pct(y.return_pct)}`).join(', '))}.` : ''} No strategy can promise a profit every year.</p><div class="pf-year-bars" role="img" aria-label="Simulated return each calendar year">${bars}</div></div>` +
-      `<p class="pf-hindsight"><strong>Honesty check.</strong> The same rules were tested on 12 stocks and funds. They lost money on ${esc(String((plan.candidates || []).filter((c) => c.test && c.test.cagr_pct < 0).length))} of them after costs, and all 12 together made ${esc(pct(rec.all_candidates_book && rec.all_candidates_book.test && rec.all_candidates_book.test.cagr_pct))} a year since 2022. This book holds only the ${esc(String(rec.symbols.length))} that worked in 2016–21 (${esc(rec.symbols.join(', '))}). Day trading tested weaker than the Portfolio AI below.</p>`;
+      learnNote + honesty;
   }
 
   function renderMarkets() {
     if (!plan) return;
     $('dt-markets').innerHTML = plan.markets.map((m) => {
       if (m.status !== 'open') {
-        return `<div class="dt-row idle"><span class="pf-sym">${esc(m.symbol)}</span><span class="dt-state flat">${m.status === 'closed' ? 'CLOSED' : 'NO DATA'}</span><span class="dt-detail">${m.last ? `last ${esc(Number(m.last).toFixed(2))} · flat overnight` : 'price feed unavailable'}</span></div>`;
+        const note = m.contract_notional ? ` · 1 contract ≈ $${Math.round(m.contract_notional).toLocaleString('en-US')} (${m.proxy} prices)` : '';
+        return `<div class="dt-row idle"><span class="pf-sym">${esc(m.symbol)}</span><span class="dt-state flat">${m.status === 'closed' ? 'CLOSED' : 'NO DATA'}</span><span class="dt-detail">${m.last ? `last ${esc(Number(m.last).toFixed(2))} · flat overnight${esc(note)}` : 'price feed unavailable'}</span></div>`;
       }
-      const word = m.position > 0 ? 'LONG' : m.position < 0 ? 'SHORT' : 'FLAT', cls = m.position > 0 ? 'up' : m.position < 0 ? 'down' : 'flat';
+      const word = m.skipped ? 'SKIP' : m.position > 0 ? 'LONG' : m.position < 0 ? 'SHORT' : 'FLAT', cls = m.skipped ? 'flat' : m.position > 0 ? 'up' : m.position < 0 ? 'down' : 'flat';
+      const size = m.contract_notional ? ` · 1 contract ≈ $${Math.round(m.contract_notional).toLocaleString('en-US')}; your share = ${((equity() * plan.weight_per_market) / m.contract_notional).toFixed(2)} contracts` : '';
       const span = Math.max(1e-9, m.upper - m.lower), at = Math.min(100, Math.max(0, ((m.last - m.lower) / span) * 100));
       return `<div class="dt-row"><span class="pf-sym">${esc(m.symbol)}</span><span class="dt-state ${cls}">${word}</span>` +
         `<span class="dt-band" title="Price against today's normal range"><i style="left:${at.toFixed(1)}%"></i></span>` +
-        `<span class="dt-detail">${esc(Number(m.last).toFixed(2))} · range ${esc(Number(m.lower).toFixed(2))}–${esc(Number(m.upper).toFixed(2))}${m.pending != null ? ` · ${m.pending > 0 ? 'buying' : m.pending < 0 ? 'shorting' : 'closing'} at the next bar` : ''}</span></div>`;
+        `<span class="dt-detail">${esc(Number(m.last).toFixed(2))} · range ${esc(Number(m.lower).toFixed(2))}–${esc(Number(m.upper).toFixed(2))}${m.skipped ? ` · sitting today out: rated ${Math.round((m.rating || 0) * 100)}% to win` : ''}${m.pending != null ? ` · ${m.pending > 0 ? 'buying' : m.pending < 0 ? 'shorting' : 'closing'} at the next bar` : ''}${esc(size)}</span></div>`;
     }).join('');
   }
 
@@ -161,7 +178,26 @@
       `<ul class="caption">${(rec.caveats || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
   }
 
+  const INTRO = {
+    stocks: 'Every 30 minutes the Day Trader checks five fast-moving US markets. It goes long when price breaks above its normal range for that time of day, short when it breaks below, and closes everything before the bell.',
+    futures: 'Futures mode trades micro Nasdaq (MNQ) and micro S&P 500 (MES) contracts with the same rules, during regular US hours only, and is flat by the close. Futures cost about half as much to trade, which is why this method tests better on them.',
+  };
+  function renderMode() {
+    const mode = state.mode === 'futures' ? 'futures' : 'stocks';
+    $('dt-mode').querySelectorAll('[data-dt-mode]').forEach((b) => { const on = b.dataset.dtMode === mode; b.classList.toggle('primary', on); b.classList.toggle('secondary', !on); b.setAttribute('aria-pressed', String(on)); });
+    $('dt-intro').textContent = INTRO[mode];
+    const lev = plan && plan.mode === 'futures' ? plan.markets.filter((m) => m.contract_notional) : [];
+    $('dt-futures-note').hidden = mode !== 'futures';
+    if (mode === 'futures') {
+      const need = lev.reduce((a, m) => a + m.contract_notional, 0);
+      $('dt-futures-note').textContent = lev.length
+        ? `Sizing, honestly: one contract each of ${lev.map((m) => m.symbol).join(' and ')} controls about $${Math.round(need).toLocaleString('en-US')}. The test used no leverage, so an account of about that size trades one of each; a smaller account trading whole contracts is leveraged and its swings (and losses) grow in proportion. The paper book here uses fractional contracts so it matches the tested, unleveraged record.`
+        : 'Contract sizes appear once index prices load.';
+    }
+  }
+
   function render() {
+    renderMode();
     $('dt-status').textContent = state.running ? (plan && plan.market_open ? 'Trading' : 'Waiting for the open') : 'Idle';
     $('dt-status').classList.toggle('good', state.running);
     $('dt-start').disabled = state.running;
@@ -173,7 +209,7 @@
   $('dt-start').addEventListener('click', () => {
     if (!state.trades.length && !Object.keys(state.positions).length) {
       const cap = Math.max(100, Number($('dt-capital').value) || 10000);
-      state = { ...fresh(cap), log: state.log };
+      state = { ...fresh(cap, state.mode), log: state.log };
     }
     state.running = true;
     log('Day Trader started with paper money.', 'good');
@@ -188,9 +224,18 @@
   });
   $('dt-refresh').addEventListener('click', () => step());
   $('dt-reset').addEventListener('click', () => {
-    state = fresh(Math.max(100, Number($('dt-capital').value) || 10000));
+    state = fresh(Math.max(100, Number($('dt-capital').value) || 10000), state.mode);
     save(); render();
     $('dt-message').textContent = 'Paper book reset.';
+  });
+  $('dt-mode').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-dt-mode]');
+    if (!button || button.dataset.dtMode === state.mode || busy) return;
+    for (const sym of Object.keys(state.positions)) { const m = market(sym); close(sym, m && Number(m.last) > 0 ? Number(m.last) : state.positions[sym].entry, 'switching mode'); }
+    state.mode = button.dataset.dtMode;
+    plan = null;
+    log(`Mode set to ${state.mode === 'futures' ? 'futures (MNQ, MES)' : 'stocks'}.`);
+    save(); render(); step();
   });
   document.addEventListener('loki:currency', render);
   document.addEventListener('loki:view', (e) => { if (e.detail && e.detail.view === 'ai-trading' && !plan) step(); });

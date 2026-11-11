@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-10T12:03:57+00:00",
+ "generated_at": "2026-11-11T12:34:36+00:00",
  "method": "Intraday momentum with noise bands (Zarattini, Aziz, Barbon 2024), as published: 14-session noise, decisions every 30 minutes, VWAP filter, long and short, flat at the close.",
  "data": "5-minute bars, regular US hours, Alpaca market data",
  "data_through": "2026-11-06",
@@ -469,12 +469,38 @@
  ],
  "book": {
   "select": {
-   "cagr_pct": 12.97,
-   "sharpe": 1.339,
+   "cagr_pct": 9.73,
+   "sharpe": 1.396,
+   "max_dd_pct": -7.41,
+   "win_days_pct": 43.6,
+   "days_traded_pct": 79.3,
+   "days": 1495
+  },
+  "test": {
+   "cagr_pct": 7.98,
+   "sharpe": 1.105,
+   "max_dd_pct": -9.8,
+   "win_days_pct": 41.8,
+   "days_traded_pct": 78.0,
+   "days": 1217
+  },
+  "all": {
+   "cagr_pct": 8.94,
+   "sharpe": 1.261,
+   "max_dd_pct": -9.8,
+   "win_days_pct": 42.8,
+   "days_traded_pct": 78.7,
+   "days": 2712
+  }
+ },
+ "book_plain": {
+  "select": {
+   "cagr_pct": 12.99,
+   "sharpe": 1.34,
    "max_dd_pct": -8.95,
    "win_days_pct": 43.0,
-   "days_traded_pct": 94.9,
-   "days": 1497
+   "days_traded_pct": 95.1,
+   "days": 1495
   },
   "test": {
    "cagr_pct": 5.82,
@@ -485,12 +511,231 @@
    "days": 1217
   },
   "all": {
-   "cagr_pct": 9.7,
+   "cagr_pct": 9.71,
    "sharpe": 0.946,
    "max_dd_pct": -17.03,
    "win_days_pct": 42.0,
-   "days_traded_pct": 94.7,
-   "days": 2714
+   "days_traded_pct": 94.8,
+   "days": 2712
+  }
+ },
+ "learning": {
+  "kept": true,
+  "threshold": 0.4,
+  "features": [
+   "gap",
+   "absgap",
+   "noise",
+   "prev",
+   "absprev",
+   "side",
+   "slot",
+   "mon",
+   "fri"
+  ],
+  "how": "Each year is traded with a model fitted only on earlier years' days; it skips a day whose first signal looks like past losing days. Kept only if it beat the plain rules on 2018-2021 and beat filters trained on scrambled outcomes.",
+  "select_window_sharpe": {
+   "plain": 1.464,
+   "filtered": 1.651
+  },
+  "shuffle_control": {
+   "runs": 30,
+   "real_beat_shuffled_select": 29,
+   "real_beat_shuffled_test": 30
+  },
+  "models": {
+   "QQQ": {
+    "w": [
+     -0.308007,
+     0.13738,
+     0.20248,
+     0.094181,
+     0.090818,
+     -0.145001,
+     0.127774,
+     0.005311,
+     -0.066578,
+     0.043114
+    ],
+    "mu": [
+     0.054501,
+     0.514281,
+     0.558389,
+     -0.034464,
+     0.981989,
+     0.057341,
+     0.24056,
+     0.192817,
+     0.200378
+    ],
+    "sd": [
+     0.764244,
+     0.567939,
+     0.250554,
+     1.446616,
+     1.062819,
+     0.998355,
+     0.222856,
+     0.39451,
+     0.400283
+    ],
+    "lessons": 1587
+   },
+   "NVDA": {
+    "w": [
+     -0.380259,
+     -0.050941,
+     0.173717,
+     -0.088549,
+     0.081148,
+     0.030234,
+     0.085775,
+     0.029247,
+     -0.003214,
+     0.053063
+    ],
+    "mu": [
+     0.182419,
+     1.085783,
+     1.383747,
+     0.099243,
+     2.238472,
+     0.065134,
+     0.228018,
+     0.201149,
+     0.196041
+    ],
+    "sd": [
+     1.669958,
+     1.281839,
+     0.498623,
+     3.237219,
+     2.340658,
+     0.997877,
+     0.217745,
+     0.400859,
+     0.397
+    ],
+    "lessons": 1566
+   },
+   "TSLA": {
+    "w": [
+     -0.366355,
+     -0.012206,
+     0.019412,
+     0.066604,
+     0.067192,
+     -0.247264,
+     0.157071,
+     0.077215,
+     0.043918,
+     0.1345
+    ],
+    "mu": [
+     0.118007,
+     1.290995,
+     1.653169,
+     0.065758,
+     2.679077,
+     0.014033,
+     0.230488,
+     0.216595,
+     0.186699
+    ],
+    "sd": [
+     2.089253,
+     1.646887,
+     0.581895,
+     3.852204,
+     2.768816,
+     0.999902,
+     0.221518,
+     0.411925,
+     0.38967
+    ],
+    "lessons": 1639
+   },
+   "AMZN": {
+    "w": [
+     -0.488055,
+     0.07818,
+     -0.01289,
+     0.016119,
+     0.007464,
+     -0.148818,
+     0.013059,
+     -0.02422,
+     -0.015525,
+     0.107498
+    ],
+    "mu": [
+     0.110175,
+     0.727496,
+     0.926903,
+     0.074919,
+     1.479097,
+     0.016781,
+     0.233016,
+     0.203853,
+     0.176507
+    ],
+    "sd": [
+     1.263636,
+     1.039069,
+     0.368046,
+     2.152525,
+     1.565646,
+     0.999859,
+     0.21826,
+     0.402861,
+     0.381251
+    ],
+    "lessons": 1609
+   },
+   "AMD": {
+    "w": [
+     -0.398889,
+     0.000776,
+     0.194979,
+     -0.053176,
+     0.186763,
+     -0.086917,
+     0.105838,
+     0.027808,
+     0.005107,
+     0.009715
+    ],
+    "mu": [
+     0.186587,
+     1.264057,
+     1.740092,
+     0.137024,
+     2.613856,
+     0.04,
+     0.222759,
+     0.19619,
+     0.184762
+    ],
+    "sd": [
+     1.972717,
+     1.525971,
+     0.562638,
+     3.938498,
+     2.949288,
+     0.9992,
+     0.211165,
+     0.397114,
+     0.388104
+    ],
+    "lessons": 1575
+   }
+  },
+  "lessons": {
+   "QQQ": 1587,
+   "NVDA": 1566,
+   "TSLA": 1639,
+   "AMZN": 1609,
+   "AMD": 1575
   }
  },
  "all_candidates_book": {
@@ -526,71 +771,366 @@
   },
   {
    "year": 2018,
-   "return_pct": 22.25,
+   "return_pct": 10.04,
    "unseen": false,
    "partial": false
   },
   {
    "year": 2019,
-   "return_pct": 14.59,
+   "return_pct": 9.73,
    "unseen": false,
    "partial": false
   },
   {
    "year": 2020,
-   "return_pct": 3.56,
+   "return_pct": 8.33,
    "unseen": false,
    "partial": false
   },
   {
    "year": 2021,
-   "return_pct": 21.27,
+   "return_pct": 13.09,
    "unseen": false,
    "partial": false
   },
   {
    "year": 2022,
-   "return_pct": 31.07,
+   "return_pct": 17.74,
    "unseen": true,
    "partial": false
   },
   {
    "year": 2023,
-   "return_pct": 6.54,
+   "return_pct": 9.23,
    "unseen": true,
    "partial": false
   },
   {
    "year": 2024,
-   "return_pct": 1.67,
+   "return_pct": 9.15,
    "unseen": true,
    "partial": false
   },
   {
    "year": 2025,
-   "return_pct": -10.69,
+   "return_pct": -2.35,
    "unseen": true,
    "partial": false
   },
   {
    "year": 2026,
-   "return_pct": 3.63,
+   "return_pct": 5.69,
    "unseen": true,
    "partial": true
   }
  ],
+ "futures": {
+  "symbols": [
+   "MES",
+   "MNQ"
+  ],
+  "candidates": [
+   {
+    "symbol": "MES",
+    "name": "Micro E-mini S&P 500",
+    "proxy": "SPY",
+    "cost_bps_per_side": 0.5,
+    "select": {
+     "cagr_pct": 2.89,
+     "sharpe": 0.463,
+     "max_dd_pct": -11.98,
+     "win_days_pct": 40.1,
+     "days_traded_pct": 59.0,
+     "days": 1496
+    },
+    "test": {
+     "cagr_pct": 4.59,
+     "sharpe": 0.702,
+     "max_dd_pct": -12.61,
+     "win_days_pct": 43.3,
+     "days_traded_pct": 62.4,
+     "days": 1217
+    },
+    "all": {
+     "cagr_pct": 3.65,
+     "sharpe": 0.571,
+     "max_dd_pct": -12.61,
+     "win_days_pct": 41.6,
+     "days_traded_pct": 60.5,
+     "days": 2713
+    },
+    "chosen": true
+   },
+   {
+    "symbol": "MNQ",
+    "name": "Micro E-mini Nasdaq-100",
+    "proxy": "QQQ",
+    "cost_bps_per_side": 0.5,
+    "select": {
+     "cagr_pct": 9.52,
+     "sharpe": 1.154,
+     "max_dd_pct": -9.74,
+     "win_days_pct": 41.6,
+     "days_traded_pct": 57.8,
+     "days": 1494
+    },
+    "test": {
+     "cagr_pct": 12.26,
+     "sharpe": 1.329,
+     "max_dd_pct": -8.19,
+     "win_days_pct": 46.6,
+     "days_traded_pct": 59.4,
+     "days": 1217
+    },
+    "all": {
+     "cagr_pct": 10.74,
+     "sharpe": 1.236,
+     "max_dd_pct": -9.74,
+     "win_days_pct": 43.9,
+     "days_traded_pct": 58.5,
+     "days": 2711
+    },
+    "chosen": true
+   },
+   {
+    "symbol": "M2K",
+    "name": "Micro E-mini Russell 2000",
+    "proxy": "IWM",
+    "cost_bps_per_side": 0.5,
+    "select": {
+     "cagr_pct": -3.93,
+     "sharpe": -0.425,
+     "max_dd_pct": -41.33,
+     "win_days_pct": 39.5,
+     "days_traded_pct": 62.4,
+     "days": 1486
+    },
+    "test": {
+     "cagr_pct": -6.91,
+     "sharpe": -0.776,
+     "max_dd_pct": -33.67,
+     "win_days_pct": 39.0,
+     "days_traded_pct": 64.3,
+     "days": 1212
+    },
+    "all": {
+     "cagr_pct": -5.28,
+     "sharpe": -0.584,
+     "max_dd_pct": -58.67,
+     "win_days_pct": 39.3,
+     "days_traded_pct": 63.3,
+     "days": 2698
+    },
+    "chosen": false
+   },
+   {
+    "symbol": "MYM",
+    "name": "Micro E-mini Dow",
+    "proxy": "DIA",
+    "cost_bps_per_side": 0.5,
+    "select": {
+     "cagr_pct": -2.48,
+     "sharpe": -0.346,
+     "max_dd_pct": -15.09,
+     "win_days_pct": 37.6,
+     "days_traded_pct": 58.3,
+     "days": 1485
+    },
+    "test": {
+     "cagr_pct": -1.99,
+     "sharpe": -0.295,
+     "max_dd_pct": -12.85,
+     "win_days_pct": 37.8,
+     "days_traded_pct": 62.6,
+     "days": 1208
+    },
+    "all": {
+     "cagr_pct": -2.26,
+     "sharpe": -0.324,
+     "max_dd_pct": -25.32,
+     "win_days_pct": 37.7,
+     "days_traded_pct": 60.2,
+     "days": 2693
+    },
+    "chosen": false
+   }
+  ],
+  "book": {
+   "select": {
+    "cagr_pct": 6.2,
+    "sharpe": 0.923,
+    "max_dd_pct": -8.84,
+    "win_days_pct": 37.2,
+    "days_traded_pct": 71.2,
+    "days": 1496
+   },
+   "test": {
+    "cagr_pct": 8.4,
+    "sharpe": 1.132,
+    "max_dd_pct": -8.98,
+    "win_days_pct": 42.0,
+    "days_traded_pct": 70.3,
+    "days": 1217
+   },
+   "all": {
+    "cagr_pct": 7.18,
+    "sharpe": 1.02,
+    "max_dd_pct": -8.98,
+    "win_days_pct": 39.3,
+    "days_traded_pct": 70.8,
+    "days": 2713
+   }
+  },
+  "book_plain": {
+   "select": {
+    "cagr_pct": 6.2,
+    "sharpe": 0.923,
+    "max_dd_pct": -8.84,
+    "win_days_pct": 37.2,
+    "days_traded_pct": 71.2,
+    "days": 1496
+   },
+   "test": {
+    "cagr_pct": 8.4,
+    "sharpe": 1.132,
+    "max_dd_pct": -8.98,
+    "win_days_pct": 42.0,
+    "days_traded_pct": 70.3,
+    "days": 1217
+   },
+   "all": {
+    "cagr_pct": 7.18,
+    "sharpe": 1.02,
+    "max_dd_pct": -8.98,
+    "win_days_pct": 39.3,
+    "days_traded_pct": 70.8,
+    "days": 2713
+   }
+  },
+  "learning": {
+   "kept": false,
+   "threshold": 0.4,
+   "features": [
+    "gap",
+    "absgap",
+    "noise",
+    "prev",
+    "absprev",
+    "side",
+    "slot",
+    "mon",
+    "fri"
+   ],
+   "how": "Each year is traded with a model fitted only on earlier years' days; it skips a day whose first signal looks like past losing days. Kept only if it beat the plain rules on 2018-2021 and beat filters trained on scrambled outcomes.",
+   "select_window_sharpe": {
+    "plain": 1.277,
+    "filtered": 0.888
+   },
+   "shuffle_control": null,
+   "models": {},
+   "lessons": {
+    "MES": 1641,
+    "MNQ": 1587
+   }
+  },
+  "calendar_years": [
+   {
+    "year": 2016,
+    "return_pct": -2.73,
+    "unseen": false,
+    "partial": false
+   },
+   {
+    "year": 2017,
+    "return_pct": 0.6,
+    "unseen": false,
+    "partial": false
+   },
+   {
+    "year": 2018,
+    "return_pct": 28.48,
+    "unseen": false,
+    "partial": false
+   },
+   {
+    "year": 2019,
+    "return_pct": 0.33,
+    "unseen": false,
+    "partial": false
+   },
+   {
+    "year": 2020,
+    "return_pct": 4.05,
+    "unseen": false,
+    "partial": false
+   },
+   {
+    "year": 2021,
+    "return_pct": 8.88,
+    "unseen": false,
+    "partial": false
+   },
+   {
+    "year": 2022,
+    "return_pct": 15.23,
+    "unseen": true,
+    "partial": false
+   },
+   {
+    "year": 2023,
+    "return_pct": 12.68,
+    "unseen": true,
+    "partial": false
+   },
+   {
+    "year": 2024,
+    "return_pct": 7.88,
+    "unseen": true,
+    "partial": false
+   },
+   {
+    "year": 2025,
+    "return_pct": 3.01,
+    "unseen": true,
+    "partial": false
+   },
+   {
+    "year": 2026,
+    "return_pct": 2.32,
+    "unseen": true,
+    "partial": true
+   }
+  ],
+  "contracts": {
+   "MES": {
+    "proxy": "SPY",
+    "name": "Micro E-mini S&P 500",
+    "multiplier": 5.0,
+    "index": "ES=F"
+   },
+   "MNQ": {
+    "proxy": "QQQ",
+    "name": "Micro E-mini Nasdaq-100",
+    "multiplier": 2.0,
+    "index": "NQ=F"
+   }
+  },
+  "note": "Tested on each contract's index fund during regular US hours (09:30-16:00 New York) at futures costs. Futures also trade overnight; this method does not. A fund is a close stand-in, not the contract itself."
+ },
  "rejected_rules": [
   "opening-range breakout (first-hour high/low, stop at the other side): -5.8%/yr on unseen data",
   "first-hour momentum held to the close: -9.3%/yr",
   "last-half-hour momentum: -11.8%/yr (costs alone exceed the edge)",
   "fading the opening gap: -6.7%/yr; following the gap: -4.1%/yr",
-  "crypto 24-hour breakout: -16.7%/yr; crypto dip-buying (RSI): -9.2%/yr; crypto hourly trend: -51.5%/yr"
+  "crypto 24-hour breakout: -16.7%/yr; crypto dip-buying (RSI): -9.2%/yr; crypto hourly trend: -51.5%/yr",
+  "adaptive market switch (trade a market only while its own trailing 3-12 month result is positive): +2.5% to +4.2%/yr on unseen data vs +5.8% for the fixed list",
+  "volatility-scaled position size: Sharpe 0.61 vs 0.55 on unseen data, too small to matter"
  ],
  "verified": true,
  "caveats": [
   "Simulated on historical data with assumed costs; not real trading.",
   "Very sensitive to costs: doubling the assumed cost removes most of the edge.",
   "It lost money on 7 of the 12 symbols tested; the book holds only those that worked on 2016-2021.",
-  "No leverage. Short positions need a margin account at a real broker."
+  "No leverage in the test. Short positions need a margin account; futures need a futures account."
  ]
 }
