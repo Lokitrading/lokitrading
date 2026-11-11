@@ -603,3 +603,74 @@ def ai_portfolio(response: Response, refresh: bool = False,
         with _PORTFOLIO_LOCK:
             _PORTFOLIO_CACHE["plan" if risk == DEFAULT_RISK else f"plan:{risk}"] = (time.time(), plan)
         return plan
+
+
+# --- Day Trader: intraday momentum, flat every night ---------------------------
+_DAYTRADE_TTL_SECONDS = 45.0
+_DAYTRADE_LOCK = threading.Lock()
+_DAYTRADE_CACHE: Dict[str, Any] = {}
+
+
+def _daytrade_record() -> Dict[str, Any]:
+    path = Path(__file__).resolve().parents[2] / "loki_v8" / "daytrade_record.json"
+    try:
+        loaded: Dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        return loaded
+    except (OSError, ValueError):
+        return {}
+
+
+def _daytrade_plan() -> Dict[str, Any]:
+    """What the tested day-trading rules hold right now in each of their markets."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from loki_v8 import daytrade
+    from loki_v8.data import get_provider
+
+    record = _daytrade_record()
+    symbols = list(record.get("symbols") or [])
+    if not record.get("verified") or not symbols:
+        raise HTTPException(503, "The Day Trader has no tested record on this server yet.")
+    provider = get_provider()
+
+    def read(symbol: str) -> Dict[str, Any]:
+        try:
+            bars = provider.fetch_history(symbol, "60d", "5m")
+            if bars is None or bars.empty:
+                return {"symbol": symbol, "status": "no_data", "position": 0}
+            return daytrade.live_state(bars, symbol)
+        except Exception as exc:  # noqa: BLE001 - one bad feed must not sink the plan
+            logger.warning("day-trade state %s failed: %s", symbol, exc.__class__.__name__)
+            return {"symbol": symbol, "status": "no_data", "position": 0}
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        states = list(pool.map(read, symbols))
+    session_open = any(s.get("status") == "open" for s in states)
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "market_open": session_open,
+        "weight_per_market": round(1.0 / len(symbols), 5),
+        "markets": states,
+        "record": {k: record.get(k) for k in ("method", "data_through", "windows", "selection_rule", "symbols", "book",
+                                              "all_candidates_book", "calendar_years", "caveats", "rejected_rules")},
+        "candidates": [{"symbol": c["symbol"], "chosen": c["chosen"], "select": c.get("select"), "test": c.get("test")}
+                       for c in record.get("candidates") or []],
+        "note": (
+            "Each market gets an equal share of capital. Every 30 minutes the rules go long above the noise band, "
+            "short below it, flat in between, and close everything before the bell. Prices are delayed 5-minute "
+            "bars; paper money only — never advice."
+        ),
+    }
+
+
+@router.get("/daytrade")
+def ai_daytrade(response: Response) -> Dict[str, Any]:
+    _private_response(response)
+    with _DAYTRADE_LOCK:
+        cached = _DAYTRADE_CACHE.get("plan")
+        if cached and time.time() - cached[0] < _DAYTRADE_TTL_SECONDS:
+            hit: Dict[str, Any] = cached[1]
+            return hit
+        plan = _daytrade_plan()
+        _DAYTRADE_CACHE["plan"] = (time.time(), plan)
+        return plan

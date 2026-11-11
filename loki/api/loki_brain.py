@@ -430,6 +430,33 @@ def how_ai_works() -> str:
             "Ask 'how did the AI do?' for its track record, or name any ticker for a live read.\n" + FOOTER)
 
 
+def daytrade_answer() -> str:
+    """The Day Trader: what it does and how it really tested."""
+    try:
+        from loki.api import ai_paper
+
+        rec = ai_paper._daytrade_record()
+    except Exception:  # noqa: BLE001 - the answer degrades to the method only
+        rec = {}
+    lines = ["The Day Trader is the main mode on the AI trading page. Every 30 minutes it checks a few fast-moving US markets: "
+             "it goes long when price breaks above its normal range for that time of day, short when it breaks below, and "
+             "closes everything before the market shuts, so nothing is held overnight."]
+    book = rec.get("book") or {}
+    test, select = book.get("test") or {}, book.get("select") or {}
+    if test:
+        lines.append(f"How it tested (simulated, 5-minute prices, costs included): {_pct(select.get('cagr_pct'))} a year on 2016-2021, "
+                     f"where its markets were chosen, and {_pct(test.get('cagr_pct'))} a year on 2022 onward, which it never saw, "
+                     f"with a worst drop of {_pct(test.get('max_dd_pct'))}. It holds {', '.join(rec.get('symbols') or [])}.")
+        losers = [c["symbol"] for c in rec.get("candidates") or [] if (c.get("test") or {}).get("cagr_pct", 0) < 0]
+        years = [y for y in rec.get("calendar_years") or [] if y["return_pct"] < 0 and not y.get("partial")]
+        lines.append(f"The honest part: the same rules lost money on {len(losers)} of the 12 markets tested, "
+                     + (f"it had losing years ({', '.join(str(y['year']) + ' ' + _pct(y['return_pct']) for y in years)}), " if years else "")
+                     + "simpler day-trading rules (opening-range breakout, gap fades, crypto breakouts) all lost after costs, and it "
+                     "tested weaker than the Portfolio AI. Most people who day trade lose money; treat this as practice with paper money.")
+    lines.append("Start it with paper money on the AI trading page.\n" + FOOTER)
+    return "\n".join(lines)
+
+
 def portfolio_answer() -> str:
     uni = _universal().get("portfolio") or {}
     h, b = uni.get("holdout") or {}, uni.get("holdout_buy_hold") or {}
@@ -831,6 +858,8 @@ def _answer(msg: str, name: str, allow_data: bool, last_symbol: Optional[str] = 
         return {"intent": "broker", "text": BROKER_TEXT}
     if _GAME.search(msg) and not symbols and len(msg.split()) <= 8:
         return {"intent": "game", "text": GAME_TEXT}
+    if re.search(r"\b(day ?trad\w*|intraday|scalp\w*)\b", low) and not symbols:
+        return {"intent": "daytrade", "text": daytrade_answer()}
     if allow_data and _PORTFOLIO_Q.search(msg) and not symbols and not re.search(r"\bmy\b", low):
         return {"intent": "portfolio", "text": portfolio_answer()}
     if _EVOLVE.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):
