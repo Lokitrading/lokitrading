@@ -36,11 +36,50 @@ DECIDE_EVERY = 6  # bars: decisions on the half hour
 SESSION_TZ = "America/New_York"
 ETF_COST = 1e-4  # per side: spread + slippage on the big index funds
 STOCK_COST = 2e-4  # per side on large single stocks
+FUTURES_COST = 0.5e-4  # per side on micro index futures: about one tick plus commission
 ETFS = {"SPY", "QQQ", "IWM", "DIA"}
+# Micro index futures and the fund whose regular-hours prices stand in for them in the test.
+FUTURES: Dict[str, Dict[str, Any]] = {"MNQ": {"proxy": "QQQ", "name": "Micro E-mini Nasdaq-100", "multiplier": 2.0, "index": "NQ=F"},
+           "MES": {"proxy": "SPY", "name": "Micro E-mini S&P 500", "multiplier": 5.0, "index": "ES=F"},
+           "M2K": {"proxy": "IWM", "name": "Micro E-mini Russell 2000", "multiplier": 5.0, "index": "RTY=F"},
+           "MYM": {"proxy": "DIA", "name": "Micro E-mini Dow", "multiplier": 0.5, "index": "YM=F"}}
+# Learning from mistakes: what is known at a day's first signal, and whether such days made money.
+FEATURES = ("gap", "absgap", "noise", "prev", "absprev", "side", "slot", "mon", "fri")
+SKIP_BELOW = 0.40  # skip a day whose estimated chance of a winning day is under this
 
 
 def cost_for(symbol: str) -> float:
-    return ETF_COST if symbol.upper() in ETFS else STOCK_COST
+    symbol = symbol.upper()
+    return FUTURES_COST if symbol in FUTURES else ETF_COST if symbol in ETFS else STOCK_COST
+
+
+def price_symbol(symbol: str) -> str:
+    """The market whose 5-minute bars drive the rules for ``symbol`` (futures use their fund proxy)."""
+    return str(FUTURES.get(symbol.upper(), {}).get("proxy", symbol.upper()))
+
+
+def features(gap: float, noise_mean: float, prev_ret: float, weekday: int, side: int, slot: int) -> List[float]:
+    return [gap * 100.0, abs(gap) * 100.0, noise_mean * 100.0, prev_ret * 100.0, abs(prev_ret) * 100.0,
+            float(side), slot / float(SLOTS), 1.0 if weekday == 0 else 0.0, 1.0 if weekday == 4 else 0.0]
+
+
+def fit_filter(rows: Sequence[Sequence[float]], wins: Sequence[float], l2: float = 1.0, steps: int = 300) -> Dict[str, Any]:
+    """Small ridge-regularised logistic model: which first-signal conditions led to winning days."""
+    x, y = np.asarray(rows, dtype=float), np.asarray(wins, dtype=float)
+    mu, sd = x.mean(axis=0), np.maximum(x.std(axis=0), 1e-6)  # a feature that never varies must not divide by zero
+    z = np.c_[np.ones(len(x)), (x - mu) / sd]
+    w = np.zeros(z.shape[1])
+    for _ in range(steps):
+        p = 1.0 / (1.0 + np.exp(-z @ w))
+        w -= 0.5 * (z.T @ (p - y) / len(y) + l2 * np.r_[0.0, w[1:]] / len(y))
+    return {"w": [round(float(v), 6) for v in w], "mu": [round(float(v), 6) for v in mu],
+            "sd": [round(float(v), 6) for v in sd], "lessons": int(len(y))}
+
+
+def rate(model: Dict[str, Any], row: Sequence[float]) -> float:
+    """Estimated chance that a day starting like ``row`` ends as a winner."""
+    z = (np.asarray(row, dtype=float) - np.asarray(model["mu"])) / np.asarray(model["sd"])
+    return float(1.0 / (1.0 + math.exp(-(model["w"][0] + float(np.dot(model["w"][1:], z))))))
 
 
 def sessions(bars: pd.DataFrame, min_bars: int = 70) -> List[Tuple[pd.Timestamp, pd.DataFrame]]:
@@ -93,12 +132,16 @@ def _vwap(g: pd.DataFrame) -> np.ndarray:
 
 
 def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: float,
-               sides: Tuple[int, ...] = (1, -1), session_complete: bool = True) -> Dict[str, Any]:
+               sides: Tuple[int, ...] = (1, -1), session_complete: bool = True,
+               gate: Optional[Dict[str, Any]] = None, prev_ret: float = 0.0) -> Dict[str, Any]:
     """Run the rules over one session's bars (completed bars only).
 
     Returns the day's return after costs, the position now, the decisions made
     and the bands at the latest bar. With ``session_complete`` False (live, mid
     session) the open position is left open and marked to the last close.
+
+    ``gate`` ({"model", "threshold"}) is the learn-from-mistakes filter: at the
+    day's first signal the setup is rated, and a poorly rated day is sat out.
     """
     slot = slots_of(g)
     o, c = g["open"].to_numpy(dtype=float), g["close"].to_numpy(dtype=float)
@@ -109,11 +152,25 @@ def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: floa
     vwap = _vwap(g)
     pos, equity, turns = 0, 1.0, 0
     decisions: List[Dict[str, Any]] = []
+    first: Optional[List[float]] = None
+    rating: Optional[float] = None
+    skipped = False
+    weekday = int(g.index[0].dayofweek)
+    noise_mean = float(np.mean(noise))
     n = len(c)
     for k in range(n - 1):
-        if slot[k] % DECIDE_EVERY == DECIDE_EVERY - 1:  # the bar that ends on :00 or :30
+        if slot[k] % DECIDE_EVERY == DECIDE_EVERY - 1 and not skipped:  # the bar that ends on :00 or :30
             want = (1 if (c[k] > max(upper[k], vwap[k]) and 1 in sides)
                     else -1 if (c[k] < min(lower[k], vwap[k]) and -1 in sides) else 0)
+            if want != pos and first is None:
+                first = features(day_open / prev_close - 1.0, noise_mean, prev_ret, weekday, want, int(slot[k]) + 1)
+                if gate:
+                    rating = rate(gate["model"], first)
+                    if rating < float(gate.get("threshold", SKIP_BELOW)):
+                        skipped = True
+                        decisions.append({"time": g.index[k + 1].isoformat(), "from": 0, "to": 0, "skipped": want,
+                                          "why": "setup rated poorly from past mistakes", "rating": round(rating, 3)})
+                        continue
             if want != pos:
                 equity *= 1.0 - cost * abs(want - pos)
                 turns += abs(want - pos)
@@ -125,7 +182,7 @@ def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: floa
         equity *= 1.0 + pos * (c[k + 1] / c[k] - 1.0)
     # A decision on the latest completed bar fills at the next bar's open, which has not printed yet.
     pending = None
-    if not session_complete and n and slot[-1] % DECIDE_EVERY == DECIDE_EVERY - 1 and slot[-1] < SLOTS - 1:
+    if not session_complete and not skipped and n and slot[-1] % DECIDE_EVERY == DECIDE_EVERY - 1 and slot[-1] < SLOTS - 1:
         want = (1 if (c[-1] > max(upper[-1], vwap[-1]) and 1 in sides)
                 else -1 if (c[-1] < min(lower[-1], vwap[-1]) and -1 in sides) else 0)
         if want != pos:
@@ -137,22 +194,54 @@ def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: floa
                           "why": "session close"})
         pos = 0
     return {"return": equity - 1.0, "position": pos, "pending": pending, "turns": turns, "decisions": decisions,
+            "first": first, "rating": rating, "skipped": skipped,
             "upper": float(upper[-1]), "lower": float(lower[-1]), "vwap": float(vwap[-1]), "last": float(c[-1]),
             "open": day_open, "prev_close": float(prev_close)}
 
 
 def backtest(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1)) -> pd.Series:
     """Daily returns after costs over every session with enough history behind it."""
+    return backtest_frame(bars, cost, sides)["return"]
+
+
+def backtest_frame(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1)) -> pd.DataFrame:
+    """Per day: return after costs, round trips and the first-signal features (for learning)."""
     history: List[np.ndarray] = []
-    out: Dict[pd.Timestamp, float] = {}
+    rows: Dict[pd.Timestamp, Dict[str, Any]] = {}
     prev_close: Optional[float] = None
+    prev_ret = 0.0
     for day, g in sessions(bars):
         noise = noise_profile(history)
+        close = float(g["close"].iloc[-1])
         if noise is not None and prev_close:
-            out[day] = float(replay_day(g, noise, prev_close, cost, sides)["return"])
+            out = replay_day(g, noise, prev_close, cost, sides, prev_ret=prev_ret)
+            rows[day] = {"return": float(out["return"]), "turns": int(out["turns"]), "first": out["first"],
+                         "noise": float(np.mean(noise))}
         history.append(day_moves(g))
-        prev_close = float(g["close"].iloc[-1])
-    return pd.Series(out, dtype=float)
+        prev_ret = close / prev_close - 1.0 if prev_close else 0.0
+        prev_close = close
+    return pd.DataFrame.from_dict(rows, orient="index", columns=["return", "turns", "first", "noise"])
+
+
+def learn_from_mistakes(frame: pd.DataFrame, first_year: int = 2018, threshold: float = SKIP_BELOW,
+                        min_lessons: int = 200) -> Tuple[pd.Series, Optional[Dict[str, Any]]]:
+    """Walk-forward filter: each year is traded with a model fitted only on earlier years' days.
+
+    Returns the filtered daily returns and the model fitted on every traded day (for live use).
+    """
+    traded = frame[frame["turns"] > 0]
+    kept = frame["return"].copy()
+    for year in range(first_year, int(frame.index[-1].year) + 1):
+        past = traded[traded.index < pd.Timestamp(f"{year}-01-01")]
+        now = traded[(traded.index >= pd.Timestamp(f"{year}-01-01")) & (traded.index < pd.Timestamp(f"{year + 1}-01-01"))]
+        if len(past) < min_lessons or now.empty:
+            continue
+        model = fit_filter(list(past["first"]), (past["return"] > 0).astype(float).to_numpy())
+        for day, row in now.iterrows():
+            if rate(model, row["first"]) < threshold:
+                kept.loc[day] = 0.0
+    final = fit_filter(list(traded["first"]), (traded["return"] > 0).astype(float).to_numpy()) if len(traded) >= min_lessons else None
+    return kept, final
 
 
 def stats(returns: pd.Series) -> Dict[str, Any]:
@@ -171,7 +260,8 @@ def stats(returns: pd.Series) -> Dict[str, Any]:
     }
 
 
-def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = None) -> Dict[str, Any]:
+def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = None,
+               gate: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """What the tested rules hold in ``symbol`` right now, from recent 5-minute bars."""
     now = (now or pd.Timestamp.now(tz="UTC")).tz_convert(SESSION_TZ)
     days = sessions(bars, min_bars=1)
@@ -189,11 +279,14 @@ def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = No
     if not in_session:
         return {"symbol": symbol, "status": "closed", "position": 0, "as_of": str(days[-1][1].index[-1]),
                 "last": round(float(days[-1][1]["close"].iloc[-1]), 4)}
-    state = replay_day(g, noise, float(prior[-1]["close"].iloc[-1]), cost_for(symbol), session_complete=False)
+    prev_ret = (float(prior[-1]["close"].iloc[-1]) / float(prior[-2]["close"].iloc[-1]) - 1.0) if len(prior) > 1 else 0.0
+    state = replay_day(g, noise, float(prior[-1]["close"].iloc[-1]), cost_for(symbol), session_complete=False,
+                       gate=gate, prev_ret=prev_ret)
     flat_time = now.time() >= pd.Timestamp("15:55").time()
     position = 0 if flat_time else int(state["position"])
     return {"symbol": symbol, "status": "open", "position": position, "pending": None if flat_time else state["pending"],
             "day_return_pct": round(state["return"] * 100, 3), "last": round(state["last"], 4),
             "upper": round(state["upper"], 4), "lower": round(state["lower"], 4), "vwap": round(state["vwap"], 4),
             "open": round(state["open"], 4), "prev_close": round(state["prev_close"], 4),
-            "decisions": state["decisions"][-6:], "as_of": str(g.index[-1] + pd.Timedelta(minutes=5))}
+            "decisions": state["decisions"][-6:], "as_of": str(g.index[-1] + pd.Timedelta(minutes=5)),
+            "skipped": bool(state["skipped"]), "rating": None if state["rating"] is None else round(state["rating"], 3)}

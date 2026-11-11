@@ -207,3 +207,4 @@
 #dt-metrics > div { display: grid; gap: 2px; padding: 9px 11px; border: 1px solid var(--line, #263947); border-radius: 10px; background: var(--surface-inset, #0a131c); }
 #dt-metrics span { font: 10px var(--mono, monospace); letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #a2b5c4); }
 #dt-metrics strong { font: 650 15px var(--mono, monospace); }
+.dt-mode { margin: 4px 0 10px; } .dt-futures-note { border-left: 3px solid #ff8a7a; padding: 8px 12px; background: rgba(255,138,122,.06); border-radius: 8px; } .dt-learn { border-left-color: #6fd3bf; background: rgba(111,211,191,.07); } .dt-learn strong { color: #a8f0c6; }
