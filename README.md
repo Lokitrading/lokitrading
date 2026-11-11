@@ -19,6 +19,25 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.62: 3D engine map, second upgrade
+
+**New look** (`engine/execmap.js`)
+- **Post-processing glow.** A bloom pipeline written for this page (bright pass, separable blur, filmic tone mapping, vignette, light film grain). No extra libraries; it falls back to plain rendering if the device cannot do it.
+- **Plasma core.** The heart is an animated noise shader that runs hotter with real request traffic.
+- **Energy shield and particle disk.** A fresnel shell and thousands of orbiting points around the core.
+- **Holo floor.** A shader-drawn polar grid with an outward sweep.
+- **Light pillars.** Each venue stands on a pillar with a landing ring that brightens when it is used.
+- **Shooting stars** and a fly-in when the map opens.
+
+**New data on the map**
+- The Day Trader is now a live node. It pulses when the paper book buys, shorts or closes, and its tooltip shows the current plan.
+- A failed request flashes the shield and the screen edge red.
+
+**Still honest**
+- Bright comets are real requests and agent events only.
+- The disk, shield and shooting stars are decoration, and the legend says so.
+- Reduced-motion settings skip the fly-in and shooting stars and slow everything down. Small screens use fewer particles and a lighter glow.
+
 ## 2.61: Day Trader learns from its mistakes; futures mode
 
 **Learning from mistakes** (`daytrade.learn_from_mistakes`)

@@ -182,3 +182,13 @@ def test_retired_desk_scenario_and_research_endpoints_are_gone():
                          ("post", "/api/fusion/narrative"), ("get", "/api/fusion/native-mirofish/reports"), ("get", "/api/fusion/mirofish/status")):
         res = client.post(path, json={}) if method == "post" else client.get(path)
         assert res.status_code in (404, 405), path
+
+
+def test_3d_map_has_glow_pipeline_a_safe_fallback_and_the_day_trader_node():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    js = (root / "static" / "js" / "engine" / "execmap.js").read_text(encoding="utf-8")
+    for needle in ("WebGLRenderTarget", "tBloom", "post = null", "id: 'daytrader'", "daytrader:trade", "prefers-reduced-motion", "are decoration"):
+        assert needle in js
+    trader = (root / "static" / "js" / "day_trader.js").read_text(encoding="utf-8")
+    assert "emit('daytrader:trade'" in trader and "emit('daytrader:plan'" in trader
