@@ -19,6 +19,39 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
+## 2.65: Day Trader v3 — feed-proof signals, a wider test, and what slow fills cost
+
+**The rules**
+- **Same signals from every price feed.** The rules compare price with the session's average price. The published method weights that average by volume, but free feeds disagree about intraday volume (two servers of the same provider differed on about 20% of bars), so a signal could depend on which server answered. The average is now time-weighted and uses no volume. In the 10-year test the two versions give near-identical results (daily correlation 0.97–0.99).
+- **Exact accounting.** A position is tracked from its fill price to its exit price. A short is a fixed number of shares; nothing is compounded bar by bar. The paper book on the page has always worked this way, and the test now matches it.
+
+**A wider, stricter test** (`train_daytrade.py`)
+- 28 markets instead of 12: index funds, large stocks, sector funds, gold, silver, bonds, oil, gas, emerging markets and China.
+- A market is traded only if it passed on 2016–2021 with instant fills *and* with fills 5 minutes late (Sharpe above 0.3 both ways). Six passed: QQQ, NVDA, TSLA, AMZN, AMD, ARKK.
+- On unseen data the rules lost money on 20 of the 28 markets. All 28 together made −3.6% a year.
+
+**Results on unseen data (2022 → November 2026, simulated, after costs)**
+
+| Book | Instant fills | 1 min late | 2 min late | 3 min late | 5 min late |
+|---|---|---|---|---|---|
+| Stocks and funds (6 markets, mistake filter on) | +7.4%/yr, Sharpe 1.00, worst drop −9.0% | +6.0% | +4.8% | +4.4% | +4.2%, Sharpe 0.61 |
+| Futures (MES and MNQ, filter off) | +7.9%/yr, Sharpe 1.06, worst drop −9.2% | +6.3% | +5.1% | +4.0% | +5.1%, Sharpe 0.74 |
+
+- Without the mistake filter the stock book made +3.2% a year with instant fills and −0.9% with fills 5 minutes late.
+- The 1–3 minute columns use 1-minute bars: each order is re-priced at the open of the minute N minutes after its signal. Two cross-checks hold exactly: at 0 minutes this method reproduces the main test, and at 5 minutes it reproduces the 5-minute-bar late test.
+- In 2016–21 a one-minute delay cost almost nothing. Since 2022 it costs about a fifth of the result: the edge goes to whoever acts first.
+- Futures are tested on each contract's index fund at futures costs. Over the last 35 sessions the funds' daily results matched the real contracts' (NQ=F, ES=F) with a correlation of 0.99.
+
+**So the live trader acts faster**
+- A decision on the bar that just closed is reported at once (`pending`), and the paper book acts on it straight away at the latest price in the feed (`now_price`). Before, it waited five minutes for the next bar to print.
+- The page checks again 12 and 40 seconds after every half hour, when the rules decide. For two minutes after each half hour the server re-reads prices every 15 seconds, and a plan built before the latest 5-minute bar closed is never reused.
+- Between full history reads (every ten minutes) only today's bars are fetched, which is a small request.
+- The mistake filter rates a pending first signal too, so the book never opens a trade the tested rules would have skipped.
+- Every paper fill logs how many seconds after the signal it happened. The page shows the running average beside the fill-speed figures.
+- If the feed stops printing bars for 30 minutes during a session (a halt or an early close), the market is treated as closed and the book goes flat.
+
+**Honest summary.** The day-trading edge is real in the test, thin, and dependent on speed. A browser on a free price feed cannot be instant, so expect the paper book between the "instant" and "1 min late" columns at best. The Portfolio AI (unseen +14.2% a year, Sharpe 1.29) remains the stronger tested strategy.
+
 ## 2.64: 3D engine map, glitch fixes and a lighter, sharper look
 
 **Fixed**

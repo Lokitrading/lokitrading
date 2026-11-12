@@ -413,7 +413,7 @@
       <section class="panel day-trader" id="day-trader" aria-label="Day Trader AI">
         <div class="section-title"><div><p class="eyebrow">DAY TRADER AI · MAIN MODE · IN AND OUT THE SAME DAY · PAPER MONEY <span class="sim-tag" title="Simulated with paper money — not a real account">SIMULATED</span></p><h2>Trades the day. Flat every night.</h2></div><span class="tag" id="dt-status">Idle</span></div>
         <div class="button-row dt-mode" id="dt-mode" role="group" aria-label="What the Day Trader trades"><button type="button" class="button primary" data-dt-mode="stocks" aria-pressed="true">Stocks &amp; funds</button><button type="button" class="button secondary" data-dt-mode="futures" aria-pressed="false">Futures (MNQ · MES)</button></div>
-        <p class="muted" id="dt-intro">Every 30 minutes the Day Trader checks five fast-moving US markets. It goes long when price breaks above its normal range for that time of day, short when it breaks below, and closes everything before the bell.</p>
+        <p class="muted" id="dt-intro">Every 30 minutes the Day Trader checks a short list of fast-moving US markets. It goes long when price breaks above its normal range for that time of day, short when it breaks below, and closes everything before the bell.</p>
         <p class="caption dt-futures-note" id="dt-futures-note" hidden></p>
         <div class="pf-record" id="dt-record"></div>
         <div class="pf-controls"><label>Paper capital (USD)<input id="dt-capital" type="number" min="100" max="100000000" step="100" value="10000"></label><div class="button-row"><button class="button primary loki-sheen" id="dt-start" type="button">Start Day Trader</button><button class="button secondary" id="dt-pause" type="button" disabled>Pause</button><button class="button secondary" id="dt-refresh" type="button">Check now ↻</button><button class="button secondary" id="dt-reset" type="button">Reset</button></div></div>
@@ -424,7 +424,7 @@
         </div>
         <details class="pf-log-box"><summary>Trade log</summary><ul id="dt-log" class="pf-log"></ul></details>
         <details class="pf-log-box"><summary>How it was tested, and what failed</summary><div id="dt-tested"></div></details>
-        <p class="caption">Hypothetical performance: simulated on 10 years of 5-minute prices with assumed costs (per trade: 1 basis point on QQQ, 2 on stocks, 0.5 on futures) — not actual trading. Results are very sensitive to costs. Futures are leveraged products and can lose more than you deposit. Live prices here are delayed. Not financial advice.</p>
+        <p class="caption">Hypothetical performance: simulated on 10 years of 5-minute prices with assumed costs (per trade: 1 basis point on QQQ, 2 on stocks, 0.5 on futures) — not actual trading. Results are very sensitive to costs and to how quickly orders fill. Futures are leveraged products and can lose more than you deposit. Live prices come from a free feed and can lag. Not financial advice.</p>
       </section>
       <section class="panel portfolio-ai" id="portfolio-ai" aria-label="Portfolio AI">
         <div class="section-title"><div><p class="eyebrow">PORTFOLIO AI · 21 MARKETS AT ONCE · PAPER MONEY <span class="sim-tag" title="Simulated with paper money — not a real account">SIMULATED</span></p><h2>One AI rulebook across 21 markets.</h2></div><span class="tag" id="pf-status">Idle</span></div>

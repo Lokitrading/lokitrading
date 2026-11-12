@@ -441,15 +441,21 @@ def daytrade_answer() -> str:
     lines = ["The Day Trader is the main mode on the AI trading page. Every 30 minutes it checks a few fast-moving US markets: "
              "it goes long when price breaks above its normal range for that time of day, short when it breaks below, and "
              "closes everything before the market shuts, so nothing is held overnight."]
-    book = rec.get("book") or {}
+    book, late = rec.get("book") or {}, (rec.get("book_late") or {}).get("test") or {}
     test, select = book.get("test") or {}, book.get("select") or {}
+    wait = rec.get("late_fill_minutes") or 5
     if test:
         lines.append(f"How it tested (simulated, 5-minute prices, costs included): {_pct(select.get('cagr_pct'))} a year on 2016-2021, "
                      f"where its markets were chosen, and {_pct(test.get('cagr_pct'))} a year on 2022 onward, which it never saw, "
                      f"with a worst drop of {_pct(test.get('max_dd_pct'))}. It holds {', '.join(rec.get('symbols') or [])}.")
-        losers = [c["symbol"] for c in rec.get("candidates") or [] if (c.get("test") or {}).get("cagr_pct", 0) < 0]
+        if late:
+            lines.append(f"Speed matters: those figures assume every order fills the moment the rules decide. Filled {wait} minutes "
+                         f"late, the unseen years made {_pct(late.get('cagr_pct'))} a year instead.")
+        everything = rec.get("all_candidates_book") or {}
+        tested = everything.get("count") or len(rec.get("candidates") or [])
         years = [y for y in rec.get("calendar_years") or [] if y["return_pct"] < 0 and not y.get("partial")]
-        lines.append(f"The honest part: the same rules lost money on {len(losers)} of the 12 markets tested, "
+        lines.append(f"The honest part: on unseen data the same rules lost money on {everything.get('losing_on_unseen', 'most')} of the "
+                     f"{tested} markets tested, "
                      + (f"it had losing years ({', '.join(str(y['year']) + ' ' + _pct(y['return_pct']) for y in years)}), " if years else "")
                      + "simpler day-trading rules (opening-range breakout, gap fades, crypto breakouts) all lost after costs, and it "
                      "tested weaker than the Portfolio AI. Most people who day trade lose money; treat this as practice with paper money.")
@@ -461,11 +467,12 @@ def daytrade_answer() -> str:
                      f"a year (worst drop {_pct(plain.get('max_dd_pct'))}) to the figures above, and it beat filters trained on scrambled results, "
                      "so the gain is not just from trading less.")
     fut = rec.get("futures") or {}
-    ftest = (fut.get("book") or {}).get("test") or {}
+    ftest, flate = (fut.get("book") or {}).get("test") or {}, (fut.get("book_late") or {}).get("test") or {}
     if ftest:
         lines.append(f"Futures mode trades micro contracts ({', '.join(fut.get('symbols') or [])}) with the same rules: {_pct(ftest.get('cagr_pct'))} a year "
-                     f"on the unseen years with a worst drop of {_pct(ftest.get('max_dd_pct'))}, tested on each contract's index fund at futures costs. "
-                     "Futures are leveraged, so real losses can exceed your deposit.")
+                     f"on the unseen years with a worst drop of {_pct(ftest.get('max_dd_pct'))}"
+                     + (f" ({_pct(flate.get('cagr_pct'))} a year filled {wait} minutes late)" if flate else "")
+                     + ", tested on each contract's index fund at futures costs. Futures are leveraged, so real losses can exceed your deposit.")
     lines.append("Start it with paper money on the AI trading page.\n" + FOOTER)
     return "\n".join(lines)
 

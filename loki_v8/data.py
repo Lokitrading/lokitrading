@@ -26,8 +26,7 @@ except Exception:  # noqa: BLE001
     pass
 
 try:
-# certifi ships no stubs; ignore_missing_imports covers it
-    import certifi
+    import certifi  # ships no type stubs; mypy's ignore_missing_imports covers it
 
     os.environ.setdefault("SSL_CERT_FILE", certifi.where())
     os.environ.setdefault("CURL_CA_BUNDLE", certifi.where())
@@ -84,11 +83,14 @@ class MarketDataProvider:
     # ------------------------------------------------------------------
     # Historical bars
     # ------------------------------------------------------------------
-    def fetch_history(self, symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
-        """Return normalized OHLCV DataFrame (datetime index)."""
+    def fetch_history(self, symbol: str, period: str = "2y", interval: str = "1d", max_age: float = 60.0) -> pd.DataFrame:
+        """Return normalized OHLCV DataFrame (datetime index).
+
+        A copy fetched less than ``max_age`` seconds ago is reused instead of asking again.
+        """
         ticker = normalize_symbol(symbol)
         cache_key = f"{ticker}:{period}:{interval}"
-        if cache_key in self._cache and time.monotonic() - self._cached_at.get(cache_key, 0) < 60:
+        if cache_key in self._cache and time.monotonic() - self._cached_at.get(cache_key, 0) < max_age:
             return self._cache[cache_key].copy()
 
         try:

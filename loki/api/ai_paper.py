@@ -606,9 +606,12 @@ def ai_portfolio(response: Response, refresh: bool = False,
 
 
 # --- Day Trader: intraday momentum, flat every night ---------------------------
-_DAYTRADE_TTL_SECONDS = 45.0
 _DAYTRADE_LOCK = threading.Lock()
-_DAYTRADE_CACHE: Dict[str, Any] = {}
+_DAYTRADE_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}  # mode -> (built at, plan)
+_DAYTRADE_BARS: Dict[str, Tuple[float, Any]] = {}  # price symbol -> (read at, 60 days of 5-minute bars)
+_DAYTRADE_FORWARD: Dict[Tuple[str, str], Tuple[float, Dict[str, float]]] = {}  # (mode, symbol) -> (bars read at, results)
+_DAYTRADE_HISTORY_SECONDS = 600.0  # the 60-day history only changes when a session ends
+_DAYTRADE_STATS = ("cagr_pct", "sharpe", "max_dd_pct")  # what the candidates table shows per window
 
 
 def _daytrade_record() -> Dict[str, Any]:
@@ -620,11 +623,44 @@ def _daytrade_record() -> Dict[str, Any]:
         return {}
 
 
+def _daytrade_max_age(now: Optional[float] = None) -> float:
+    """How many seconds old the Day Trader's prices may be.
+
+    The rules decide on the half hour. For two minutes after each one the feed is re-read
+    every 15 seconds, so a new signal is acted on quickly; the rest of the time 45 is enough.
+    """
+    return 15.0 if (time.time() if now is None else now) % 1800 < 120 else 45.0
+
+
+def _daytrade_bars(provider: Any, symbol: str, max_age: float) -> Any:
+    """60 days of 5-minute bars whose latest session is at most ``max_age`` seconds old.
+
+    The long history is re-read every ten minutes; in between only today's session (a small request) is.
+    """
+    import pandas as pd
+
+    now = time.monotonic()
+    held = _DAYTRADE_BARS.get(symbol)
+    if held is not None and now - held[0] <= max_age:
+        return held[1]
+    if held is not None and now - held[0] <= _DAYTRADE_HISTORY_SECONDS:
+        try:
+            today = provider.fetch_history(symbol, "1d", "5m", max_age=max_age)
+            if today is not None and not today.empty:
+                return pd.concat([held[1][held[1].index < today.index[0]], today])
+        except Exception as exc:  # noqa: BLE001 - fall through to a full re-read
+            logger.warning("day-trade today's bars %s failed: %s", symbol, exc.__class__.__name__)
+    bars = provider.fetch_history(symbol, "60d", "5m", max_age=max_age)
+    if bars is not None and not bars.empty:
+        _DAYTRADE_BARS[symbol] = (now, bars)
+    return bars
+
+
 def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
     """What the tested day-trading rules hold right now in each of their markets.
 
-    ``mode`` is "stocks" (the five-market book, with the learn-from-mistakes filter) or
-    "futures" (micro index futures, read from their fund's regular-hours prices).
+    ``mode`` is "stocks" (the stock-and-fund book, with the learn-from-mistakes filter where it
+    earned its place) or "futures" (micro index futures, read from their fund's regular-hours prices).
     """
     from concurrent.futures import ThreadPoolExecutor
 
@@ -639,26 +675,38 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
         raise HTTPException(503, "The Day Trader has no tested record for this mode on this server yet.")
     learning = block.get("learning") or {}
     models = learning.get("models") or {} if learning.get("kept") else {}
+    since = str(record.get("data_through") or "2100-01-01")
+    max_age = _daytrade_max_age()
     provider = get_provider()
 
     def read(symbol: str) -> Dict[str, Any]:
+        feed = daytrade.price_symbol(symbol)
         try:
-            bars = provider.fetch_history(daytrade.price_symbol(symbol), "60d", "5m")
+            bars = _daytrade_bars(provider, feed, max_age)
             if bars is None or bars.empty:
                 return {"symbol": symbol, "status": "no_data", "position": 0}
             gate = {"model": models[symbol], "threshold": learning.get("threshold", daytrade.SKIP_BELOW)} if symbol in models else None
             state = daytrade.live_state(bars, symbol, gate=gate)
-            try:  # completed sessions since the record was frozen: days the rules never saw
-                state["_forward"] = daytrade.forward_record(bars, symbol, str(record.get("data_through") or "2100-01-01"), gate=gate)
-            except Exception as exc:  # noqa: BLE001 - the forward strip is additive
-                logger.warning("day-trade forward %s failed: %s", symbol, exc.__class__.__name__)
+            # Completed sessions since the record was frozen: days the rules never saw. They only
+            # change when the history is re-read, so the replay is not repeated on every poll.
+            read_at = _DAYTRADE_BARS.get(feed, (0.0, None))[0]
+            held = _DAYTRADE_FORWARD.get((mode, symbol))
+            if held is None or held[0] != read_at:
+                try:
+                    held = (read_at, daytrade.forward_record(bars, symbol, since, gate=gate))
+                    _DAYTRADE_FORWARD[(mode, symbol)] = held
+                except Exception as exc:  # noqa: BLE001 - the forward strip is additive
+                    logger.warning("day-trade forward %s failed: %s", symbol, exc.__class__.__name__)
+            state["_forward"] = held[1] if held else {}
             return state
         except Exception as exc:  # noqa: BLE001 - one bad feed must not sink the plan
             logger.warning("day-trade state %s failed: %s", symbol, exc.__class__.__name__)
             return {"symbol": symbol, "status": "no_data", "position": 0}
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         states = list(pool.map(read, symbols))
+    for state in states:
+        state["cost_bps"] = round(daytrade.cost_for(state["symbol"]) * 1e4, 2)  # per side, as in the test
     if futures:  # contract size: what one micro contract controls at the index's last price
         try:
             quotes = provider.get_quotes([daytrade.FUTURES[s]["index"] for s in symbols]) or {}
@@ -669,31 +717,37 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
             index = quotes.get(spec["index"])
             state.update(name=spec["name"], proxy=spec["proxy"], multiplier=spec["multiplier"],
                          contract_notional=round(float(index) * spec["multiplier"], 2) if index and float(index) > 0 else None)
-    session_open = any(s.get("status") == "open" for s in states)
     forward = daytrade.summarize_forward({s["symbol"]: s.pop("_forward", {}) or {} for s in states}, len(symbols))
+
+    def window(stats: Any) -> Dict[str, Any]:
+        return {k: (stats or {}).get(k) for k in _DAYTRADE_STATS}
+
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "mode": "futures" if futures else "stocks",
-        "forward": {**forward, "since": record.get("data_through"),
-                    "note": "Completed sessions after the tested record was frozen, replayed with the frozen rules on "
-                            "delayed 5-minute bars (the feed keeps about 60 days). Simulated, not real trades."},
-        "market_open": session_open,
+        "market_open": any(s.get("status") == "open" for s in states),
         "weight_per_market": round(1.0 / len(symbols), 5),
         "markets": states,
+        "forward": {**forward, "since": record.get("data_through"),
+                    "note": "Completed sessions after the tested record was frozen, replayed with the frozen rules on "
+                            "5-minute bars (the feed keeps about 60 days). Simulated, not real trades."},
         "record": {
-            **{k: record.get(k) for k in ("method", "data_through", "windows", "selection_rule", "caveats", "rejected_rules",
-                                         "all_candidates_book")},
-            "symbols": symbols, "book": block.get("book"), "book_plain": block.get("book_plain"),
-            "calendar_years": block.get("calendar_years"), "note": block.get("note"),
+            **{k: record.get(k) for k in ("method", "data_through", "windows", "selection_rule", "late_fill_minutes",
+                                         "caveats", "rejected_rules", "all_candidates_book")},
+            **{k: block.get(k) for k in ("book", "book_late", "book_plain", "book_plain_late", "calendar_years",
+                                        "calendar_years_late", "note")},
+            "symbols": symbols,
             "learning": {k: v for k, v in learning.items() if k != "models"},
+            # Results with fills 1-3 minutes after the signal, priced on 1-minute bars.
+            "fill_speed": [{"minutes": step.get("minutes"), "select": window(step.get("select")), "test": window(step.get("test"))}
+                           for step in (block.get("fill_speed") or {}).get("steps") or []],
         },
-        "candidates": [{"symbol": c["symbol"], "chosen": c["chosen"], "select": c.get("select"), "test": c.get("test"),
-                        "name": c.get("name"), "proxy": c.get("proxy")} for c in block.get("candidates") or []],
-        "stock_candidates_losing": sum(1 for c in record.get("candidates") or [] if (c.get("test") or {}).get("cagr_pct", 0) < 0),
+        "candidates": [{"symbol": c["symbol"], "name": c.get("name"), "proxy": c.get("proxy"), "chosen": c["chosen"],
+                        **{k: window(c.get(k)) for k in ("select", "select_late", "test", "test_late")}}
+                       for c in block.get("candidates") or []],
         "note": (
             "Each market gets an equal share of capital. Every 30 minutes the rules go long above the noise band, "
-            "short below it, flat in between, and close everything before the bell. Prices are delayed 5-minute "
-            "bars; paper money only — never advice."
+            "short below it, flat in between, and close everything before the bell. Paper money only; never advice."
         ),
     }
 
@@ -702,11 +756,11 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
 def ai_daytrade(response: Response, mode: str = Query("stocks", pattern="^(stocks|futures)$")) -> Dict[str, Any]:
     _private_response(response)
     mode = mode if isinstance(mode, str) else "stocks"
+    now = time.time()
     with _DAYTRADE_LOCK:
         cached = _DAYTRADE_CACHE.get(mode)
-        if cached and time.time() - cached[0] < _DAYTRADE_TTL_SECONDS:
-            hit: Dict[str, Any] = cached[1]
-            return hit
-        plan = _daytrade_plan() if mode == "stocks" else _daytrade_plan(mode)
-        _DAYTRADE_CACHE[mode] = (time.time(), plan)
-        return plan
+        # A plan built before the latest 5-minute bar closed is never reused: a new bar can carry a new signal.
+        if not (cached and now - cached[0] < _daytrade_max_age(now) and int(cached[0] // 300) == int(now // 300)):
+            cached = (now, _daytrade_plan(mode))
+            _DAYTRADE_CACHE[mode] = cached
+    return {**cached[1], "served_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
