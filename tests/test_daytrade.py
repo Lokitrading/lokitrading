@@ -1,6 +1,7 @@
 """Day Trader: intraday noise-band momentum, flat every night; live plan mirrors the tested rules."""
 
 import json
+import pickle
 from pathlib import Path
 
 import numpy as np
@@ -8,12 +9,23 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+import train_daytrade
 from loki.api import ai_paper, loki_brain
 from loki.api.rate_limit import rule_for
 from loki.api.server import app
 from loki_v8 import daytrade
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def _fresh_day_trader_caches():
+    """Each test reads its own prices: nothing is carried over from another test's plan."""
+    for cache in (ai_paper._DAYTRADE_CACHE, ai_paper._DAYTRADE_BARS, ai_paper._DAYTRADE_FORWARD):
+        cache.clear()
+    yield
+    for cache in (ai_paper._DAYTRADE_CACHE, ai_paper._DAYTRADE_BARS, ai_paper._DAYTRADE_FORWARD):
+        cache.clear()
 
 
 def _session(day: str, path: np.ndarray, volume: float = 1000.0) -> pd.DataFrame:
@@ -75,12 +87,30 @@ def test_live_state_is_flat_when_closed_and_mirrors_the_rules_mid_session():
 
 def test_shipped_record_is_honest_about_what_failed():
     rec = json.loads((ROOT / "loki_v8" / "daytrade_record.json").read_text(encoding="utf-8"))
-    assert rec["verified"] and rec["windows"]["select"][1] < rec["windows"]["test"][0]
-    chosen = {c["symbol"] for c in rec["candidates"] if c["chosen"]}
-    assert chosen == set(rec["symbols"]) and all(c["select"]["sharpe"] > 0.3 for c in rec["candidates"] if c["chosen"])
-    assert len(rec["candidates"]) == 12 and sum(1 for c in rec["candidates"] if c["test"]["cagr_pct"] < 0) >= 5
+    assert rec["verified"] and rec["windows"]["select"][1] < rec["windows"]["test"][0] and rec["anchor"] == "twap"
+    chosen = [c for c in rec["candidates"] if c["chosen"]]
+    assert {c["symbol"] for c in chosen} == set(rec["symbols"])
+    # A market is in the book only if it passed on the choosing years with instant fills AND with late ones.
+    assert all(min(c["select"]["sharpe"], c["select_late"]["sharpe"]) > 0.3 for c in chosen)
+    assert not any(min(c["select"]["sharpe"], c["select_late"]["sharpe"]) > 0.3 for c in rec["candidates"] if not c["chosen"])
+    everything = rec["all_candidates_book"]
+    losers = sum(1 for c in rec["candidates"] if c["test"]["cagr_pct"] < 0)
+    assert everything["count"] == len(rec["candidates"]) >= 20 and everything["losing_on_unseen"] == losers > len(rec["candidates"]) / 2
+    assert everything["test"]["cagr_pct"] < 0 and str(losers) in rec["caveats"][1]  # most markets lose, and it says so
     assert rec["book"]["test"]["cagr_pct"] < rec["book"]["select"]["cagr_pct"]  # weaker on unseen data, and it says so
     assert any(y["return_pct"] < 0 for y in rec["calendar_years"]) and rec["rejected_rules"] and rec["caveats"]
+
+
+def test_record_shows_what_slow_fills_cost():
+    rec = json.loads((ROOT / "loki_v8" / "daytrade_record.json").read_text(encoding="utf-8"))
+    assert rec["late_fill_minutes"] == 5
+    for block in (rec, rec["futures"]):
+        instant, late = block["book"]["test"], block["book_late"]["test"]
+        assert late["cagr_pct"] < instant["cagr_pct"] and late["sharpe"] < instant["sharpe"]  # speed matters, and it says so
+        steps = block["fill_speed"]["steps"]
+        assert [s["minutes"] for s in steps] == [1, 2, 3] and all(s["test"]["days"] == instant["days"] for s in steps)
+        assert steps[0]["test"]["cagr_pct"] < instant["cagr_pct"]  # even one minute late costs something
+        assert len(block["calendar_years_late"]) == len(block["calendar_years"])
 
 
 def test_learning_is_kept_only_where_it_earned_it():
@@ -125,7 +155,7 @@ def test_futures_mode_reads_the_fund_and_sizes_in_contracts(monkeypatch):
     asked = []
 
     class Provider:
-        def fetch_history(self, symbol, period, interval):
+        def fetch_history(self, symbol, period, interval, max_age=60.0):
             asked.append(symbol)
             return bars
 
@@ -145,25 +175,66 @@ def test_futures_mode_reads_the_fund_and_sizes_in_contracts(monkeypatch):
 def test_daytrade_endpoint_serves_and_caches_the_plan(monkeypatch):
     calls = []
 
-    def fake_plan():
-        calls.append(1)
+    def fake_plan(mode="stocks"):
+        calls.append(mode)
         return {"market_open": False, "markets": [{"symbol": "QQQ", "status": "closed", "position": 0}], "weight_per_market": 0.2}
 
-    monkeypatch.setattr(ai_paper, "_daytrade_plan", lambda mode="stocks": fake_plan())
-    ai_paper._DAYTRADE_CACHE.clear()
+    clock = [1_000_000_000.0 - (1_000_000_000.0 % 1800) + 400]  # mid-bar, well after a half hour
+    monkeypatch.setattr(ai_paper, "_daytrade_plan", fake_plan)
+    monkeypatch.setattr(ai_paper.time, "time", lambda: clock[0])
     client = TestClient(app)
     first = client.get("/api/fusion/ai/daytrade")
     assert first.status_code == 200 and first.headers["cache-control"].startswith("private") or "no-store" in first.headers["cache-control"]
-    assert client.get("/api/fusion/ai/daytrade").json()["markets"][0]["symbol"] == "QQQ" and len(calls) == 1
+    assert first.json()["served_at"]
+    clock[0] += 30
+    assert client.get("/api/fusion/ai/daytrade").json()["markets"][0]["symbol"] == "QQQ" and len(calls) == 1  # reused
+    clock[0] += 30  # older than 45 seconds: rebuilt
+    client.get("/api/fusion/ai/daytrade")
+    assert len(calls) == 2
+    clock[0] = clock[0] - (clock[0] % 300) + 299
+    client.get("/api/fusion/ai/daytrade")
+    clock[0] += 2  # only two seconds later, but a new 5-minute bar has closed: never reused across it
+    client.get("/api/fusion/ai/daytrade")
+    assert len(calls) == 4
     assert rule_for("GET", "/api/fusion/ai/daytrade")
-    ai_paper._DAYTRADE_CACHE.clear()
+
+
+def test_prices_are_read_more_often_just_after_a_decision():
+    half_hour = 1_000_000_000.0 - (1_000_000_000.0 % 1800)
+    assert ai_paper._daytrade_max_age(half_hour + 10) == 15.0 and ai_paper._daytrade_max_age(half_hour + 119) == 15.0
+    assert ai_paper._daytrade_max_age(half_hour + 121) == 45.0 and ai_paper._daytrade_max_age(half_hour + 1700) == 45.0
+
+
+def test_only_todays_bars_are_re_read_between_history_reads(monkeypatch):
+    bars = _history(20)
+    today = bars[bars.index >= bars.index[-1].normalize()]
+    asked = []
+
+    class Provider:
+        def fetch_history(self, symbol, period, interval, max_age=60.0):
+            asked.append(period)
+            return bars if period == "60d" else today.assign(close=today["close"] + 1.0)
+
+    clock = [5000.0]
+    monkeypatch.setattr(ai_paper.time, "monotonic", lambda: clock[0])
+    first = ai_paper._daytrade_bars(Provider(), "QQQ", 15.0)
+    assert asked == ["60d"] and first.equals(bars)
+    clock[0] += 5
+    assert ai_paper._daytrade_bars(Provider(), "QQQ", 15.0).equals(bars) and asked == ["60d"]  # fresh enough: no request
+    clock[0] += 30
+    merged = ai_paper._daytrade_bars(Provider(), "QQQ", 15.0)
+    assert asked == ["60d", "1d"] and len(merged) == len(bars)  # the small request, spliced onto the kept history
+    assert merged["close"].iloc[-1] == bars["close"].iloc[-1] + 1.0 and merged["close"].iloc[0] == bars["close"].iloc[0]
+    clock[0] += 700
+    ai_paper._daytrade_bars(Provider(), "QQQ", 15.0)
+    assert asked == ["60d", "1d", "60d"]  # the history itself is re-read every ten minutes
 
 
 def test_live_plan_uses_the_tested_engine(monkeypatch):
     bars = _history(20)
 
     class Provider:
-        def fetch_history(self, symbol, period, interval):
+        def fetch_history(self, symbol, period, interval, max_age=60.0):
             assert (period, interval) == ("60d", "5m")
             return bars
 
@@ -198,3 +269,85 @@ def test_forward_record_counts_only_completed_sessions_after_the_freeze():
     assert book["days"] == 3 and book["losing_days"] + book["winning_days"] <= 3 and book["daily"][-1]["day"] == days[-1]
     assert book["daily"][-1]["return_pct"] == pytest.approx((full[days[-1]] - 0.02) / 2 * 100, abs=1e-3)
     assert daytrade.summarize_forward({}, 5) == {"days": 0}
+
+
+# --- Feed-proof signals, fill speed and reacting quickly -----------------------------
+def _trend_day(sign: float = 1.0):
+    """A history ending in a steady 3% trend day, split so the last session can be replayed on its own."""
+    bars = _history(20, last=lambda p: p * (1 + sign * np.linspace(0.0005, 0.03, 78)))
+    days = daytrade.sessions(bars)
+    noise = daytrade.noise_profile([daytrade.day_moves(g) for _, g in days[:-1]])
+    return bars, days[-1][1], noise, float(days[-2][1]["close"].iloc[-1])
+
+
+def test_the_average_line_ignores_volume_so_every_feed_gives_the_same_trades():
+    bars, session, _, _ = _trend_day()
+    other_feed = bars.assign(volume=np.random.default_rng(9).integers(1, 10_000_000, len(bars)).astype(float))
+    assert daytrade.backtest(bars, 1e-4).equals(daytrade.backtest(other_feed, 1e-4))
+    theirs = daytrade.sessions(other_feed)[-1][1]
+    assert np.allclose(daytrade._anchor(session, "twap"), daytrade._anchor(theirs, "twap"))
+    assert not np.allclose(daytrade._anchor(session, "vwap"), daytrade._anchor(theirs, "vwap"))  # the published line would have moved
+
+
+def test_late_fills_earn_less_and_a_short_is_a_fixed_number_of_shares():
+    _, session, noise, prev = _trend_day()
+    instant = daytrade.replay_day(session, noise, prev, 1e-4)
+    late = daytrade.replay_day(session, noise, prev, 1e-4, fill_delay=1)
+    assert late["return"] < instant["return"] and late["turns"] == instant["turns"]
+    assert pd.Timestamp(late["decisions"][0]["time"]) - pd.Timestamp(instant["decisions"][0]["time"]) == pd.Timedelta(minutes=5)
+    _, session, noise, prev = _trend_day(-1.0)
+    out = daytrade.replay_day(session, noise, prev, 0.0)
+    sold, bought_back = out["decisions"][0], out["decisions"][-1]
+    assert len(out["decisions"]) == 2 and sold["to"] == -1 and bought_back["why"] == "session close"
+    assert out["return"] == pytest.approx(1 - bought_back["price"] / sold["price"], abs=1e-5)  # entry to exit, nothing compounded in between
+
+
+def test_a_new_signal_is_reported_at_once_and_rated_before_anything_is_bought():
+    _, session, noise, prev = _trend_day()
+    so_far = session.iloc[:6]  # 09:30-09:55: the first decision bar has just closed
+    live = daytrade.replay_day(so_far, noise, prev, 1e-4, session_complete=False)
+    assert live["position"] == 0 and live["pending"] == 1  # decided; fills at the next bar
+    never = {"model": {"w": [-9.0] + [0.0] * len(daytrade.FEATURES), "mu": [0.0] * len(daytrade.FEATURES), "sd": [1.0] * len(daytrade.FEATURES)}, "threshold": 0.4}
+    held_back = daytrade.replay_day(so_far, noise, prev, 1e-4, session_complete=False, gate=never)
+    assert held_back["pending"] is None and held_back["skipped"] and "past mistakes" in held_back["decisions"][0]["why"]
+
+
+def test_live_state_gives_the_latest_price_the_signal_time_and_goes_flat_when_the_feed_stops():
+    bars, session, _, _ = _trend_day()
+    day = bars.index[-1].normalize()
+
+    def at(hour, minute, second=0):
+        return (day + pd.Timedelta(hours=hour, minutes=minute, seconds=second)).tz_convert("UTC")
+
+    def feed(now):  # what a live feed holds at ``now``: nothing from the future
+        return bars[bars.index <= now]
+
+    first_bar = daytrade.live_state(feed(at(9, 32)), "QQQ", now=at(9, 32))
+    assert first_bar["status"] == "open" and first_bar["waiting"] and first_bar["position"] == 0
+    decided = daytrade.live_state(feed(at(10, 0, 20)), "QQQ", now=at(10, 0, 20))  # 20 seconds after the first decision
+    assert decided["position"] == 0 and decided["pending"] == 1 and pd.Timestamp(decided["signal_at"]) == at(10, 0)
+    assert decided["last"] == pytest.approx(session["close"].iloc[5], abs=1e-4)  # the bar the rules decided on
+    assert decided["now_price"] == pytest.approx(session["close"].iloc[6], abs=1e-4)  # the bar still forming: a paper fill uses this
+    filled = daytrade.live_state(feed(at(10, 6)), "QQQ", now=at(10, 6))
+    assert filled["position"] == 1 and filled["pending"] is None and pd.Timestamp(filled["signal_at"]) == at(10, 0)
+    stalled = daytrade.live_state(feed(at(11, 0)), "QQQ", now=at(11, 50))  # no bar for 45 minutes: halted, or closed early
+    assert stalled["status"] == "closed" and stalled["position"] == 0
+
+
+def test_minute_repricing_matches_the_instant_test_when_price_stands_still(tmp_path):
+    bars, _, _, _ = _trend_day()
+    (tmp_path / "QQQ.pkl").write_bytes(pickle.dumps(bars))
+
+    def tape(drift):  # 1-minute opens for the seven minutes after each half hour
+        rows = {stamp + pd.Timedelta(minutes=m): row["open"] * (1 + drift * m)
+                for stamp, row in bars.iterrows() if stamp.minute % 30 == 0 for m in range(7)}
+        return pd.DataFrame({"open": pd.Series(rows)}).tz_convert("UTC")
+
+    instant = daytrade.backtest(bars, 1e-4)
+    (tmp_path / "QQQ.1min.pkl").write_bytes(pickle.dumps(tape(0.0)))
+    still = train_daytrade.late_fills("QQQ", 1e-4, tmp_path)
+    assert list(still.columns) == list(train_daytrade.SPEED_MINUTES)
+    assert all(np.allclose(still[m], instant, atol=1e-5) for m in still.columns)  # same prices, same result
+    (tmp_path / "QQQ.1min.pkl").write_bytes(pickle.dumps(tape(0.0005)))  # price runs away 5 bp a minute after each signal
+    chased = train_daytrade.late_fills("QQQ", 1e-4, tmp_path)
+    assert chased[1].iloc[-1] < instant.iloc[-1] and chased[3].iloc[-1] < chased[1].iloc[-1]  # the later the fill, the less is left
