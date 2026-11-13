@@ -41,6 +41,7 @@ from core.strategy_lab import evaluate_strategy
 from loki.api import rate_limit, site_access
 from loki.api.ai_chat import router as ai_chat_router
 from loki.api.ai_paper import router as ai_paper_router
+from loki.api.alpaca_daytrade import router as alpaca_daytrade_router
 from loki.api.analogue import router as analogue_router
 from loki.api.broker_alpaca import router as broker_alpaca_router
 from loki.api.broker_tradovate import router as broker_tradovate_router
@@ -88,6 +89,7 @@ for _router in (
     engine_feeds_router,
     feed_status_router,
     broker_alpaca_router,
+    alpaca_daytrade_router,
     broker_tradovate_router,
     replay_router,
     news_desk_router,

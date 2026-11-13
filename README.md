@@ -428,6 +428,20 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.67: auto day trading on your Alpaca paper account
+
+- The Day Trader panel has a **Start auto day trading** button. With your Alpaca **paper** keys saved on the Real account page, it trades that account by itself with the Day Trader's tested rules. While the tab is open it checks every 30 seconds and right after each half hour, and it closes everything before the bell.
+- The server does the work (`loki/api/alpaca_daytrade.py`, `POST /api/broker/alpaca/daytrade`). Each check reads the plan and the account, then sends the orders that make the account hold what the rules hold. It only acts when the rules change direction, so one check never fights another.
+- **Guards, checked on every call:**
+  - Paper host only.
+  - It trades only the Day Trader's six markets. It refuses to start if the account already holds any of them.
+  - At least US$25,000 of equity, because US pattern-day-trader rules block repeated same-day trades below that.
+  - A 2% daily loss stop. In the 10-year test the book fell that far on one day out of about 2,700.
+  - At most US$50,000 and 5,000 shares per market, in whole shares.
+  - Shorts only in stocks Alpaca lists as easy to borrow.
+- **Stop and close positions** closes the Day Trader's positions and nothing else. If the tab was closed mid-day, the first check next time flattens the leftovers.
+- Real money is not wired up: anything that trades by itself stays on paper (section 3).
+
 ### 2.66: a tidy-up — dead code out, scripts untangled, labels fixed
 
 **Removed** (nothing in the app used any of it)
