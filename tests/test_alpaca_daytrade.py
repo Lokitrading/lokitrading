@@ -17,13 +17,21 @@ def market(symbol, position=0, pending=None, status="open", price=100.0, **extra
 class FakeAlpaca:
     """Just enough of Alpaca's paper API: account, clock, positions, orders, assets."""
 
-    def __init__(self, equity=100_000.0, last_equity=100_000.0, is_open=True, held=None, open_orders=(), easy=True):
+    def __init__(self, equity=100_000.0, last_equity=100_000.0, is_open=True, held=None, open_orders=(), easy=True,
+                 bid=99.99, ask=100.01, account=None):
         self.equity, self.last_equity, self.is_open = equity, last_equity, is_open
         self.held = dict(held or {})
         self.open_orders, self.easy, self.sent = list(open_orders), easy, []
+        self.bid, self.ask, self.account, self.order_ids = bid, ask, account, set()
+
+    def data(self, method, path, keys, body=None, base=None):
+        assert "data.alpaca.markets" in base and path.endswith("/quotes/latest?feed=iex")
+        return {"symbol": path.split("/")[3], "quote": {"bp": self.bid, "ap": self.ask}}
 
     def __call__(self, method, path, keys, body=None):
         assert keys.key_id == KEYS["key_id"]
+        if path == "/v2/account" and self.account is not None:
+            return self.account
         if path == "/v2/account":
             return {"equity": str(self.equity), "last_equity": str(self.last_equity), "status": "ACTIVE"}
         if path == "/v2/clock":
@@ -39,6 +47,9 @@ class FakeAlpaca:
             self.sent.append(("close", symbol, self.held.pop(symbol, 0)))
             return {"id": "00000000-0000-0000-0000-000000000001", "symbol": symbol, "status": "accepted"}
         if method == "POST" and path == "/v2/orders":
+            if body["client_order_id"] in self.order_ids:
+                raise HTTPException(422, "Alpaca refused this order: client_order_id must be unique")
+            self.order_ids.add(body["client_order_id"])
             shares = int(body["qty"]) * (1 if body["side"] == "buy" else -1)
             assert body["type"] == "market" and body["time_in_force"] == "day" and not body["extended_hours"]
             self.sent.append(("order", body["symbol"], shares))
@@ -55,6 +66,7 @@ def run(monkeypatch):
         plan = {"markets": markets, "weight_per_market": round(1 / len(markets), 5), "served_at": "2026-11-12T15:00:20+00:00",
                 "generated_at": "2026-11-12T15:00:20+00:00", "record": {}}
         monkeypatch.setattr(adt, "_paper_exchange", alpaca)
+        monkeypatch.setattr(adt, "_exchange", alpaca.data)
         from loki.api import ai_paper
         monkeypatch.setattr(ai_paper, "ai_daytrade", lambda response, mode="stocks": plan)
         return adt._check(adt.AlpacaDayTradeCheck(**KEYS, **flags))
@@ -126,3 +138,60 @@ def test_endpoint_needs_the_typed_confirmation_and_is_rate_limited():
         adt.AlpacaDayTradeCheck(key_id=KEYS["key_id"], secret_key=KEYS["secret_key"], confirm="yes")
     assert rule_for("POST", "/api/broker/alpaca/daytrade")
     assert adt._paper_exchange.__module__ == "loki.api.broker_alpaca"  # the paper-only host is the only one used
+
+
+# --- The risk firewall: stale signals, spreads, malformed answers, duplicates, receipts --------------
+def test_sizes_use_exact_decimals_and_bad_prices_never_size_an_order():
+    assert adt.target_shares(1, 100_000.0, 1 / 6, 0.1 + 0.2) == 5_000  # capped, and no float drift
+    assert adt.target_shares(1, 30_000.0, 0.5, 15.0) == 950  # 15,000 x 0.95 / 15 exactly, not 949
+    for price in (0.0, -5.0, float("nan"), float("inf")):
+        assert adt.target_shares(1, 100_000.0, 1 / 6, price) == 0
+    assert adt.target_shares(1, float("nan"), 1 / 6, 100.0) == 0 and adt.target_shares(1, 0.0, 1 / 6, 100.0) == 0
+
+
+def test_a_stale_signal_never_opens_but_a_close_still_goes_through(run):
+    old = "2026-11-12T14:50:00+00:00"  # ten minutes before the check
+    alpaca = FakeAlpaca(held={"TSLA": 100})
+    out = run(alpaca, [market("QQQ", pending=1, signal_at=old), market("TSLA", pending=-1, signal_at=old)])
+    by = {r["symbol"]: r for r in out["markets"]}
+    assert by["QQQ"]["action"] == "none" and "missed this signal" in by["QQQ"]["note"]
+    assert by["TSLA"]["action"] == "close"  # out of the old long, but no late short
+    assert alpaca.held == {} and [s[0] for s in alpaca.sent] == ["close"]
+
+
+def test_a_wide_spread_or_missing_quote_holds_the_entry_back(run):
+    wide = FakeAlpaca(bid=99.5, ask=100.5)
+    out = run(wide, [market("QQQ", pending=1)])
+    assert wide.sent == [] and out["actions"][0]["status"] == "held back" and "spread" in out["actions"][0]["detail"]
+    crossed = FakeAlpaca(bid=101.0, ask=100.0)
+    assert run(crossed, [market("QQQ", pending=1)])["actions"][0]["detail"].startswith("no clean quote")
+
+
+def test_a_malformed_alpaca_answer_trades_nothing(run):
+    for broken in ({"equity": "NaN", "last_equity": "100000"}, {"equity": None}, {"last_equity": "1"}, "maintenance"):
+        alpaca = FakeAlpaca(account=broken)
+        with pytest.raises(HTTPException) as caught:
+            run(alpaca, [market("QQQ", pending=1)])
+        assert caught.value.status_code == 502 and "malformed" in caught.value.detail and alpaca.sent == []
+
+
+def test_a_retried_check_cannot_place_the_same_order_twice(run):
+    alpaca = FakeAlpaca()
+    first = run(alpaca, [market("QQQ", pending=1)])
+    alpaca.held.clear()  # as if the fill had not shown up yet when the request was retried
+    again = run(alpaca, [market("QQQ", pending=1)])
+    orders = [s for s in alpaca.sent if s[0] == "order"]
+    assert len(orders) == 1 and again["actions"][0]["order"]["status"] == "already sent"
+    assert first["actions"][0]["order"]["client_order_id"] == again["actions"][0]["order"]["client_order_id"]
+
+
+def test_every_order_carries_a_receipt_bound_to_the_policy(run):
+    out = run(FakeAlpaca(held={"TSLA": 10}), [market("QQQ", pending=1), market("TSLA", pending=0)])
+    receipts = [a["receipt"] for a in out["actions"]]
+    assert len(receipts) == 2 and all(r["policy"] == adt.POLICY_HASH == out["policy_hash"] for r in receipts)
+    opened = next(r for r in receipts if r["action"] == "open")
+    assert opened["snapshot"]["spread_pct"] == pytest.approx(0.02, abs=1e-3) and "spread <= 0.1%" in opened["checks_passed"]
+    body = {k: v for k, v in opened.items() if k != "hash"}
+    import hashlib, json
+    assert opened["hash"] == hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert all(r["trace_id"] == out["trace_id"] for r in receipts)

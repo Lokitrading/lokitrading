@@ -57,7 +57,9 @@
         const what = a.did === 'close' ? `CLOSE ${a.symbol} (${a.shares > 0 ? 'bought back' : 'sold'} ${Math.abs(a.shares)} shares)`
           : `${a.shares > 0 ? 'BUY' : 'SHORT'} ${Math.abs(a.shares)} ${a.symbol}`;
         const lag = lagText(data.markets.find((m) => m.symbol === a.symbol), data.checked_at);
-        log(`${what} — ${a.status}${a.detail ? `: ${a.detail}` : ''}${a.status === 'sent' ? lag : ''}`, a.status === 'refused' ? 'bad' : 'good');
+        const sealed = a.receipt ? ` · receipt ${a.receipt.hash.slice(0, 12)}` : '';
+        log(`${what} — ${a.status}${a.detail ? `: ${a.detail}` : ''}${a.status === 'sent' ? lag + sealed : ''}`, a.status === 'refused' ? 'bad' : a.status === 'sent' ? 'good' : 'info');
+        if (a.receipt) record(a, data);
       }
       if (data.stopped_for_loss && state.running) {
         state.running = false;
@@ -72,6 +74,17 @@
       if (/rejected those keys|blocked|already holds|at least US\$/.test(error.message || '')) { state.running = false; log(error.message, 'bad'); }
       return null;
     } finally { busy = false; save(); render(); }
+  }
+
+  /** Add an order's receipt to this device's signed, hash-chained trade log (engine/audit.js). */
+  function record(action, data) {
+    try {
+      if (!window.Loki || !window.Loki.audit) return;
+      window.Loki.audit.append({ kind: 'paper', venue: 'alpaca', source: 'day-trader', action: action.did, symbol: action.symbol,
+        qty: action.shares, broker_order_id: (action.order && action.order.id) || null,
+        client_order_id: (action.order && action.order.client_order_id) || null,
+        receipt: action.receipt.hash, policy: data.policy_hash, trace_id: data.trace_id });
+    } catch { /* the log is a record, never a reason to stop trading */ }
   }
 
   function lagText(market, checkedAt) {
@@ -97,9 +110,27 @@
       const word = (n) => (n > 0 ? 'Long' : n < 0 ? 'Short' : 'Flat');
       out.append(table(['Market', 'Rules', 'Holding (shares)', 'Price', 'Note'],
         last.markets.map((m) => [m.symbol, word(m.rules), m.held ? `${m.held > 0 ? '+' : ''}${m.held}` : '0', number(m.price), m.note || (m.action === 'wait' ? 'order filling' : '')])));
+      if (last.policy) out.append(policyBox(last.policy, last.policy_hash));
     }
     $('#dta-log').innerHTML = '';
     $('#dta-log').append(...(state.log.length ? state.log.slice(0, 60).map((l) => element('li', `${new Date(l.t).toLocaleString()} ${l.text}`, l.kind)) : [element('li', 'No Alpaca orders yet.')]));
+  }
+
+  function policyBox(p, hash) {
+    const box = element('details', null, 'pf-log-box');
+    const usd = (n) => `US$${Number(n).toLocaleString('en-US')}`;
+    box.append(element('summary', `Risk policy v${p.version} · ${String(hash).slice(0, 12)}`));
+    box.append(element('p', [
+      'Checked on the server for every order, before anything reaches Alpaca:',
+      `paper account only; at least ${usd(p.min_equity_usd)} of equity;`,
+      `stop for the day at a ${p.daily_loss_stop_pct}% loss;`,
+      `at most ${usd(p.max_per_market_usd)} and ${Number(p.max_shares).toLocaleString('en-US')} shares a market;`,
+      `a new position only within ${Math.round(p.signal_ttl_seconds / 60)} minutes of the signal;`,
+      `no new position while the spread is wider than ${p.max_spread_pct}%; shorts ${p.shorts}; ${p.order_type}.`,
+      'Each order gets a receipt (a SHA-256 hash of the market snapshot, this policy and the checks it passed),',
+      "added to this device's signed trade log, and a fixed order id, so a retried request can never place it twice.",
+    ].join(' '), 'caption'));
+    return box;
   }
 
   // --- Controls -------------------------------------------------------------------------

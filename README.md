@@ -428,6 +428,20 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.68: a risk firewall for auto trading
+
+Every order the Alpaca auto day trader sends now passes these server-side checks first (`loki/api/alpaca_daytrade.py`):
+
+- **One written risk policy.** Every limit sits in one versioned `POLICY`, and its SHA-256 hash goes into each order's receipt. The page shows the policy and its hash.
+- **No duplicate orders.** Each order carries a fixed `client_order_id` built from the market, the signal time and the side. If a request is retried after a dropped connection, Alpaca refuses the copy, and the check reports "already sent".
+- **Malformed answers stop everything.** Alpaca's account, clock, position and quote answers are validated with Pydantic before use. A `NaN`, a missing field or a maintenance page stops the check before any order.
+- **Exact sizes.** Position sizes are worked out in `Decimal`, with the budget rounded to the cent first. A float version made one-sixth of $120,000 come out at $19,999.99, one share short. A zero, negative or infinite price never sizes an order.
+- **Stale signals expire.** A new position opens only within 5 minutes of the rules' signal, the delay the test measured. A missed signal waits for the next decision. Closing never expires.
+- **Spread guard.** No new position while Alpaca's latest quote spread is wider than 0.10% of the price, or when there is no clean quote.
+- **Receipts.** Each order gets a receipt: a SHA-256 hash of the market snapshot (bid, ask, spread, equity), the policy hash and the list of checks it passed. The page adds it to this device's signed, hash-chained trade log (`engine/audit.js`) with the broker's order id.
+- **Trace ids.** Each check gets a trace id that appears in the server's JSON log lines and in every receipt from that check.
+- 6 new tests cover these guards: duplicate retries, malformed answers, stale signals, wide or crossed spreads, Decimal sizing, and receipt hashes.
+
 ### 2.67: auto day trading on your Alpaca paper account
 
 - The Day Trader panel has a **Start auto day trading** button. With your Alpaca **paper** keys saved on the Real account page, it trades that account by itself with the Day Trader's tested rules. While the tab is open it checks every 30 seconds and right after each half hour, and it closes everything before the bell.
