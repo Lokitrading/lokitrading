@@ -69,7 +69,7 @@ jobs:
       run: black --check main.py
     
     - name: Type check with mypy
-      run: mypy loki
+      run: mypy loki loki_v8 core tools alpaca_forward.py crosscheck_alpaca.py evolve.py evolve_daytrade.py main.py train_analogue.py train_daytrade.py train_long_history.py train_public_derivatives.py
     
     - name: Run tests with pytest
       run: |

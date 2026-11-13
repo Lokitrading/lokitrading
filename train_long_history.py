@@ -34,7 +34,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -59,7 +59,7 @@ PRESETS = {
     "trend_momentum": {"trend": 0.50, "momentum": 0.40, "volume_flow": 0.05, "squeeze": 0.0, "volatility": 0.05},
 }
 
-GRID = {
+GRID: Dict[str, Sequence[Any]] = {
     "preset": list(PRESETS),
     "signal_threshold": [3.0, 8.0, 15.0, 30.0],
     "stop_loss_atr": [3.0, 6.0, 10.0],
@@ -67,7 +67,7 @@ GRID = {
     "target_vol_pct": [12.0, 20.0, 30.0],
     "exit_mode": ["signal", "trend"],
 }
-FIXED = dict(
+FIXED: Dict[str, Any] = dict(
     sizing_mode="vol_target",
     max_exposure_pct=100.0,
     take_profit_atr=0.0,  # no fixed target: winners run until trend/stop exit
@@ -275,7 +275,8 @@ def _pooled(holdout: List[Dict[str, Any]]) -> Dict[str, Any]:
 META_THRESHOLDS = (0.30, 0.35, 0.40, 0.45, 0.50)
 
 
-def _run_all(data: Dict[str, pd.DataFrame], kind: str, params: Dict[str, Any], meta: Optional[Dict[str, Any]] = None):
+def _run_all(data: Dict[str, pd.DataFrame], kind: str, params: Dict[str, Any],
+             meta: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
     """Backtest every symbol with the winning params (optionally filtered)."""
     bpy = 365 if kind == "crypto" else 252
     base = {k: v for k, v in params.items() if k in LokiConfig.__dataclass_fields__ and k != "factor_weights"}
@@ -286,7 +287,7 @@ def _run_all(data: Dict[str, pd.DataFrame], kind: str, params: Dict[str, Any], m
         res = run_backtest(df, cfg, symbol=sym, bars_per_year=bpy, frame=frame)
         equity = _fee_adjusted_equity(res.equity_curve, res.trades)
         _apply_fees(res.trades)
-        rows = {"symbol": sym}
+        rows: Dict[str, Any] = {"symbol": sym}
         for name, (start, end) in WINDOWS[kind].items():
             rows[name] = _period_stats(equity, res.trades, start, end, bpy)
             rows[name + "_bh"] = _buy_hold(df, start, end, bpy)
@@ -295,7 +296,7 @@ def _run_all(data: Dict[str, pd.DataFrame], kind: str, params: Dict[str, Any], m
 
 
 def learn_from_mistakes(kind: str, data: Dict[str, pd.DataFrame], params: Dict[str, Any],
-                        thresholds: Tuple[float, ...] = None) -> Dict[str, Any]:
+                        thresholds: Optional[Tuple[float, ...]] = None) -> Dict[str, Any]:
     """Fit the trade filter walk-forward and decide honestly whether to keep it.
 
     1. Replay the winning profile; every closed trade becomes a lesson.

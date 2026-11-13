@@ -431,6 +431,13 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.70: tidy-up and type checks across the whole codebase
+
+- **Removed unused code:** an unused response model in the Loki Dive API, an unused slippage helper in the browser risk engine, an unused `reset()` in the browser guard, and an outdated list of modules in `loki/api/__init__.py`.
+- **Fixed every type error outside `loki/`.** The training scripts, `loki_v8/`, `core/` and `tools/` now pass `mypy`, as `loki/` already did. The fixes tightened a few loose spots: the Alpaca forward test now checks that Alpaca answered with an object before reading it, and the Day Trader's fill-delay study no longer passes a possibly missing price frame along.
+- **CI now type-checks all of it**, so new type errors in these files fail the build.
+- No change to trading rules, records or results.
+
 ### 2.69: the Day Trader reviews itself every week; a code-health sweep
 
 **Weekly self-review** (`evolve_daytrade.py`, `.github/workflows/daytrade-evolution.yml`, Sundays). A new setting reaches the live rules only through three gates:

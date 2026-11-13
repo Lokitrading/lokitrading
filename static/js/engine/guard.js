@@ -107,8 +107,7 @@
   function snapshot() {
     return { strategies: Object.keys(S.strategies).map((id) => ({ ...status(id), quarantine: quarantineCheck(id) })), drift: driftStats(), news: newsLock(), events: allEvents().filter((e) => e.ts > Date.now() - 3600e3).slice(0, 12), calendarError: calendar.error };
   }
-  function reset() { S = fresh(); save(); }
 
   loadCalendar().then(() => Loki.emit('guard:update', snapshot()));
-  Loki.guard = { record, status, release, sizeScale, drift, driftStats, newsLock, loadCalendar, addEvent, removeEvent, canEnter, snapshot, reset, STREAK, LOCK_MS };
+  Loki.guard = { record, status, release, sizeScale, drift, driftStats, newsLock, loadCalendar, addEvent, removeEvent, canEnter, snapshot, STREAK, LOCK_MS };
 })();

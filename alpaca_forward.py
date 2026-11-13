@@ -43,17 +43,26 @@ class Alpaca:
             raise RuntimeError(f"Alpaca {method} {path} -> {response.status_code}: {response.text[:200]}")
         return response.json() if response.content else None
 
+    def _dict(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any]:
+        """A call whose answer must be a JSON object (an empty one for an empty answer)."""
+        data = self._call(method, path, **kwargs)
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Alpaca {method} {path} answered with {type(data).__name__}, not an object")
+        return data
+
     def account(self) -> Dict[str, Any]:
-        return self._call("GET", "/v2/account")
+        return self._dict("GET", "/v2/account")
 
     def clock(self) -> Dict[str, Any]:
-        return self._call("GET", "/v2/clock")
+        return self._dict("GET", "/v2/clock")
 
     def positions(self) -> Dict[str, Dict[str, Any]]:
         return {p["symbol"]: p for p in self._call("GET", "/v2/positions")}
 
     def history(self) -> Dict[str, Any]:
-        return self._call("GET", "/v2/account/portfolio/history", params={"period": "1A", "timeframe": "1D"})
+        return self._dict("GET", "/v2/account/portfolio/history", params={"period": "1A", "timeframe": "1D"})
 
     def order(self, symbol: str, side: str, notional: Optional[float] = None, qty: Optional[float] = None,
               crypto: bool = False) -> Dict[str, Any]:
@@ -63,10 +72,10 @@ class Alpaca:
             body["qty"] = f"{qty:.9f}".rstrip("0").rstrip(".")
         else:
             body["notional"] = f"{notional:.2f}"
-        return self._call("POST", "/v2/orders", json=body)
+        return self._dict("POST", "/v2/orders", json=body)
 
     def close(self, symbol: str) -> Dict[str, Any]:
-        return self._call("DELETE", "/v2/positions/" + symbol.replace("/", ""))
+        return self._dict("DELETE", "/v2/positions/" + symbol.replace("/", ""))
 
 
 def main() -> int:

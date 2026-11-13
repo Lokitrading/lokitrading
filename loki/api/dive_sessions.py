@@ -256,14 +256,6 @@ def daily_order(day: str) -> Tuple[int, ...]:
     return tuple(order[:ROUNDS_PER_DIVE])
 
 
-class ChallengeOrderResponse(BaseModel):
-    date: str
-    rounds: int
-    timer_ms: int
-    order: List[int]
-    prompts: List[Dict[str, Any]]
-
-
 @router.get("/challenge/order")
 async def challenge_order(date: Optional[str] = None) -> Dict[str, Any]:
     """The day's shared run: same prompts, same order, same clock for all."""

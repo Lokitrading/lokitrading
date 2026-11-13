@@ -8,16 +8,17 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from typing import Any, Dict, List, Optional, Sequence
 
 from core.fusion import analogue, analogue_store
 from core.fusion.instrument_history import yahoo_history
 
 
-def write_snapshot(report,rows):
+def write_snapshot(report: Dict[str, Any], rows: List[Dict[str, Any]]) -> Path:
     data=json.dumps(rows,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
     if hashlib.sha256(data).hexdigest()!=report['data_sha256']:
         raise ValueError('Training snapshot does not match its report fingerprint')
-    target=analogue_store.directory()/(report['id']+'.data.json.gz')
+    target: Path=analogue_store.directory()/(report['id']+'.data.json.gz')
     if target.exists():
         digest=hashlib.sha256()
         total=0
@@ -45,12 +46,12 @@ def write_snapshot(report,rows):
     return target
 
 
-def read_csv(path):
-    path=Path(path)
-    if path.stat().st_size>80000000:
+def read_csv(path: str) -> List[Dict[str, Any]]:
+    source_path=Path(path)
+    if source_path.stat().st_size>80000000:
         raise ValueError('CSV must be at most 80 MB')
-    rows=[]
-    with path.open(encoding='utf-8-sig',newline='') as stream:
+    rows: List[Dict[str, Any]]=[]
+    with source_path.open(encoding='utf-8-sig',newline='') as stream:
         reader=csv.DictReader(stream)
         required={'timestamp','open','high','low','close','volume'}
         if not required<=set(reader.fieldnames or []) or len(set(reader.fieldnames or []))!=len(reader.fieldnames or []):
@@ -58,7 +59,7 @@ def read_csv(path):
         for item in reader:
             if len(rows)>=analogue.MAX_BARS:
                 raise ValueError('CSV exceeds 500000 candles')
-            row={key:float(item[key]) for key in ('open','high','low','close','volume')}
+            row: Dict[str, Any]={key:float(item[key]) for key in ('open','high','low','close','volume')}
             row['timestamp']=item['timestamp']
             for key in ('session','contract'):
                 if key in item:
@@ -67,7 +68,8 @@ def read_csv(path):
     return rows
 
 
-def train(symbols,*,years=20,horizon=3,timeframe='1d',commission=0.01,slippage_ticks=1.0,csv_path=None,source=None):
+def train(symbols: Sequence[str], *, years: int = 20, horizon: int = 3, timeframe: str = '1d', commission: float = 0.01,
+          slippage_ticks: float = 1.0, csv_path: Optional[str] = None, source: Optional[str] = None) -> List[Dict[str, Any]]:
     if csv_path and len(symbols)!=1:
         raise ValueError('A CSV contains one instrument; select exactly one symbol')
     if not csv_path and (timeframe!='1d' or any(symbol not in {'SPY','QQQ','AAPL','MSFT','NVDA','TSLA'} for symbol in symbols)):
@@ -93,7 +95,7 @@ def train(symbols,*,years=20,horizon=3,timeframe='1d',commission=0.01,slippage_t
     return results
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--symbols',nargs='+',default=['SPY','QQQ','AAPL','MSFT'])
     parser.add_argument('--years',type=int,choices=[10,15,20],default=20)

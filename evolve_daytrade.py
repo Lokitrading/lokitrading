@@ -34,7 +34,7 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -130,7 +130,7 @@ def _why_not(wf: Dict[str, Any]) -> str:
 
 # --- Gate 2: shadow twin --------------------------------------------------------------------------
 def shadow(symbols: List[str], candidate: Dict[str, Any], champion: Dict[str, Any], since: str,
-           bars_for=None) -> Dict[str, Any]:
+           bars_for: Optional[Callable[[str], Any]] = None) -> Dict[str, Any]:
     """The candidate and the current rules replayed side by side on live bars since ``since``."""
     if bars_for is None:
         from loki_v8.data import get_provider
@@ -162,7 +162,7 @@ def shadow(symbols: List[str], candidate: Dict[str, Any], champion: Dict[str, An
 
 # --- One generation ----------------------------------------------------------------------------------
 def generation(state: Dict[str, Any], record: Dict[str, Any], cache: Optional[Path], workers: int,
-               bars_for=None) -> Dict[str, Any]:
+               bars_for: Optional[Callable[[str], Any]] = None) -> Dict[str, Any]:
     symbols = list(record.get("symbols") or [])
     champion = record.get("params") or {"lookback": daytrade.LOOKBACK, "band": daytrade.BAND}
     gen: Dict[str, Any] = {"generation": len(state.get("generations", [])) + 1,
