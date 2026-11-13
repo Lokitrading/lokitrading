@@ -327,7 +327,16 @@ def stats(returns: pd.Series) -> Dict[str, Any]:
         "win_days_pct": round(float((active > 0).mean() * 100), 1) if len(active) else 0.0,
         "days_traded_pct": round(float(len(active) / len(x) * 100), 1),
         "days": int(len(x)),
+        "payoff": payoff(active),
     }
+
+
+def payoff(active: pd.Series) -> Optional[float]:
+    """Average winning day divided by the average losing day's size (None without both)."""
+    wins, losses = active[active > 0], active[active < 0]
+    if wins.empty or losses.empty:
+        return None
+    return round(float(wins.mean() / -losses.mean()), 3)
 
 
 # --- Live state -----------------------------------------------------------------------

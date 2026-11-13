@@ -149,8 +149,12 @@ def _exchange(
         with urllib.request.urlopen(request, timeout=15) as res:
             raw = res.read().decode()
     except urllib.error.HTTPError as error:
-        if error.code in (401, 403):
+        if error.code == 401:
             raise HTTPException(401, "Alpaca rejected those keys — copy them again from the Alpaca dashboard (paper keys).") from error
+        if error.code == 403:
+            # Alpaca's 403 is a refusal of this request (not enough buying power, an intraday margin
+            # deficit, a pattern-day-trader block, a data plan without SIP), not a sign of bad keys.
+            raise HTTPException(422, f"Alpaca refused this (403): {_alpaca_error_detail(error)}") from error
         if error.code in (400, 422):
             raise HTTPException(422, f"Alpaca refused this order: {_alpaca_error_detail(error)}") from error
         if error.code == 429:

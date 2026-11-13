@@ -696,3 +696,29 @@ class TestManageAndAi:
         response = client.post("/api/broker/alpaca/ai-apply", json={**KEYS, "confirm": "nope"})
         assert response.status_code == 422
         assert KEYS["secret_key"] not in response.text and KEYS["key_id"] not in response.text
+
+
+def test_a_403_is_a_refused_request_not_bad_keys(monkeypatch):
+    """Alpaca answers 403 for buying power, intraday margin or day-trading blocks; only 401 means the keys are wrong."""
+    import io
+    import urllib.error
+
+    import pytest
+    from fastapi import HTTPException
+
+    from loki.api import broker_alpaca
+
+    def refuse(code, body):
+        def urlopen(*args, **kwargs):
+            raise urllib.error.HTTPError("https://paper-api.alpaca.markets/v2/orders", code, "x", {}, io.BytesIO(body))
+        return urlopen
+
+    keys = broker_alpaca.AlpacaPaperKeys(**KEYS)
+    monkeypatch.setattr(broker_alpaca.urllib.request, "urlopen", refuse(403, b'{"code":40310000,"message":"insufficient buying power"}'))
+    with pytest.raises(HTTPException) as caught:
+        broker_alpaca._paper_exchange("POST", "/v2/orders", keys, {"symbol": "QQQ"})
+    assert caught.value.status_code == 422 and "insufficient buying power" in caught.value.detail and "keys" not in caught.value.detail
+    monkeypatch.setattr(broker_alpaca.urllib.request, "urlopen", refuse(401, b'{"message":"unauthorized."}'))
+    with pytest.raises(HTTPException) as caught:
+        broker_alpaca._paper_exchange("GET", "/v2/account", keys)
+    assert caught.value.status_code == 401 and "rejected those keys" in caught.value.detail
