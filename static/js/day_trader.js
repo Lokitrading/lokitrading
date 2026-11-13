@@ -251,7 +251,15 @@
     $('dt-tested').innerHTML = `<p class="caption">${esc(rec.method)} Markets were chosen by this rule: ${esc(rec.selection_rule)}; then judged on 2022 onward, which the choice never saw. Data through ${esc(rec.data_through)}.</p>` +
       `<div class="table-scroll"><table><thead><tr><th>Market (✓ = in the book)</th><th>2016–21 / yr</th><th>2016–21, ${esc(String(wait))} min late</th><th>2022→now / yr (unseen)</th><th>2022→now, ${esc(String(wait))} min late</th></tr></thead><tbody>${rows}</tbody></table></div>` +
       `<p class="caption"><strong>Simpler day-trading rules that were tested first and lost money:</strong></p><ul class="caption">${(rec.rejected_rules || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` +
-      `<ul class="caption">${(rec.caveats || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
+      `<ul class="caption">${(rec.caveats || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` + reviewNote(rec.self_review);
+  }
+
+  // The weekly self-review (evolve_daytrade.py): walk-forward search, shadow twin, then a person.
+  function reviewNote(r) {
+    if (!r) return '';
+    const when = r.run_at ? new Date(r.run_at).toLocaleDateString() : '—';
+    return `<p class="caption dt-review"><strong>Weekly self-review</strong> (generation ${esc(String(r.generation))}, ${esc(when)}): ${esc(r.outcome)}. ` +
+      'Each week nine bounded settings are re-tested walk-forward (6 months to choose, the next unseen month to judge); a setting that wins must then beat the current rules on live prices for 7 sessions with no money, and only a person can promote it.</p>';
   }
 
   // --- Rendering: stocks or futures ----------------------------------------------------------

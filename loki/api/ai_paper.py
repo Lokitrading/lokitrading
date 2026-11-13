@@ -622,6 +622,19 @@ def _daytrade_record() -> Dict[str, Any]:
         return {}
 
 
+def _daytrade_self_review() -> Optional[Dict[str, Any]]:
+    """The latest weekly self-review (evolve_daytrade.py): when it ran and what it decided."""
+    path = Path(__file__).resolve().parents[2] / "loki_v8" / "daytrade_evolution.json"
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+        last = (state.get("generations") or [])[-1]
+    except (OSError, ValueError, IndexError):
+        return None
+    wf = last.get("walk_forward") or {}
+    return {"generation": last.get("generation"), "run_at": last.get("run_at"), "outcome": last.get("outcome"),
+            "in_shadow": bool(state.get("shadow")), "months_tested": wf.get("months_tested")}
+
+
 def _daytrade_max_age(now: Optional[float] = None) -> float:
     """How many seconds old the Day Trader's prices may be.
 
@@ -674,6 +687,7 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
         raise HTTPException(503, "The Day Trader has no tested record for this mode on this server yet.")
     learning = block.get("learning") or {}
     models = learning.get("models") or {} if learning.get("kept") else {}
+    params = record.get("params")  # the rule settings the record was built with (the published ones unless promoted)
     since = str(record.get("data_through") or "2100-01-01")
     max_age = _daytrade_max_age()
     provider = get_provider()
@@ -685,14 +699,14 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
             if bars is None or bars.empty:
                 return {"symbol": symbol, "status": "no_data", "position": 0}
             gate = {"model": models[symbol], "threshold": learning.get("threshold", daytrade.SKIP_BELOW)} if symbol in models else None
-            state = daytrade.live_state(bars, symbol, gate=gate)
+            state = daytrade.live_state(bars, symbol, gate=gate, params=params)
             # Completed sessions since the record was frozen: days the rules never saw. They only
             # change when the history is re-read, so the replay is not repeated on every poll.
             read_at = _DAYTRADE_BARS.get(feed, (0.0, None))[0]
             held = _DAYTRADE_FORWARD.get((mode, symbol))
             if held is None or held[0] != read_at:
                 try:
-                    held = (read_at, daytrade.forward_record(bars, symbol, since, gate=gate))
+                    held = (read_at, daytrade.forward_record(bars, symbol, since, gate=gate, params=params))
                     _DAYTRADE_FORWARD[(mode, symbol)] = held
                 except Exception as exc:  # noqa: BLE001 - the forward strip is additive
                     logger.warning("day-trade forward %s failed: %s", symbol, exc.__class__.__name__)
@@ -736,6 +750,8 @@ def _daytrade_plan(mode: str = "stocks") -> Dict[str, Any]:
             **{k: block.get(k) for k in ("book", "book_late", "book_plain", "book_plain_late", "calendar_years",
                                         "calendar_years_late", "note")},
             "symbols": symbols,
+            "params": record.get("params"),
+            "self_review": _daytrade_self_review(),
             "learning": {k: v for k, v in learning.items() if k != "models"},
             # Results with fills 1-3 minutes after the signal, priced on 1-minute bars.
             "fill_speed": [{"minutes": step.get("minutes"), "select": window(step.get("select")), "test": window(step.get("test"))}

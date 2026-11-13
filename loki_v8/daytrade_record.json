@@ -2,6 +2,10 @@
  "generated_at": "2026-11-13T13:53:42+00:00",
  "method": "Intraday momentum with noise bands (Zarattini, Aziz, Barbon 2024), as published: 14-session noise, decisions every 30 minutes, long and short, flat at the close. The average-price line is time-weighted (no volume), so different price feeds give the same signals.",
  "anchor": "twap",
+ "params": {
+  "lookback": 14,
+  "band": 1.0
+ },
  "data": "5-minute bars, regular US hours, Alpaca market data",
  "data_through": "2026-11-06",
  "windows": {

@@ -202,6 +202,7 @@ mypy loki
 | `research-workspace.yml` | Pushes to `main` and every pull request | A focused offline regression suite on Linux and Windows |
 | `ai-evolution.yml` | Sundays 05:23 UTC | One generation of the AI's self-review, opened as a pull request |
 | `alpaca-paper-forward.yml` | Daily 14:45 UTC | Mirrors the Portfolio AI on an Alpaca paper account (skips without paper keys) |
+| `daytrade-evolution.yml` | Sundays 06:41 UTC | The Day Trader's self-review: walk-forward search, shadow test, a pull request only if both pass |
 
 Vercel deploys `main` to the live site. `GET /health` reports the running version.
 
@@ -212,6 +213,7 @@ Vercel deploys `main` to the live site. `GET /health` reports the running versio
 | `train_long_history.py --write-snapshot` | `loki_v8/training_report_snapshot.json` (live AI and Portfolio AI) | About 30 minutes on 4 cores |
 | `train_daytrade.py --cache DIR` | `loki_v8/daytrade_record.json` (Day Trader) | Needs Alpaca market-data keys in `APCA_API_KEY_ID` / `APCA_API_SECRET_KEY` |
 | `evolve.py --write-snapshot` | `loki_v8/evolution_log.json` | Run weekly by `ai-evolution.yml` |
+| `evolve_daytrade.py --cache DIR --write` | `loki_v8/daytrade_evolution.json` (and the record, on promotion) | Run weekly by `daytrade-evolution.yml` |
 | `crosscheck_alpaca.py` | Nothing; prints an independent-data check | Uses Alpaca's own daily bars |
 | `alpaca_forward.py` | Nothing; trades an Alpaca paper account | A dry run unless `--execute` is passed |
 | `train_analogue.py`, `train_public_derivatives.py` | Local research models under `state/` | See `docs/` |
@@ -239,6 +241,7 @@ docs/                    setup and research notes
 supabase/                SQL to run once in the Supabase project
 .github/workflows/       CI and the scheduled jobs
 *.py (root)              scripts that rebuild the tested records (section 4)
+tools/                   developer tools (code_health.py: the weekly code-health sweep)
 ```
 
 **`loki/api`, by feature**
@@ -427,6 +430,33 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 ## 7. Release notes
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
+
+### 2.69: the Day Trader reviews itself every week; a code-health sweep
+
+**Weekly self-review** (`evolve_daytrade.py`, `.github/workflows/daytrade-evolution.yml`, Sundays). A new setting reaches the live rules only through three gates:
+
+1. **Walk-forward search.** Nine bounded settings are tried: the noise lookback (10, 14 or 20 sessions) times the band width (0.8, 1.0 or 1.2 times the noise). The published rules are 14 and 1.0. From 2017 on, each month is traded with whichever setting had the best Sharpe over the previous 6 months, then judged on that unseen month. The process passes only if it beats the current rules' Sharpe on those months by at least 0.10, and is no worse over the last 24 months.
+2. **Shadow twin.** A passing pick is replayed on live 5-minute prices beside the current rules, with no money. After at least 7 sessions it must have a positive average day, at least as good as the current rules'.
+3. **A person.** Only then is it proposed as a pull request, with the record rebuilt using the new setting. Merging it changes the live rules; closing it keeps the current ones.
+
+Settings are compared on the plain rules on both sides, so the mistake filter cannot favour either. The settings are bounded (`daytrade.PARAM_GRID`), and a setting outside the grid is never traded.
+
+**Generation 1 (run on 10 years of bars):** the current rules were kept.
+- Picking each month's best setting beat the fixed rules on unseen months overall: Sharpe 1.03 against 0.90.
+- It was slightly worse over the last 24 months (−0.63 against −0.59), so it did not pass.
+- The run also shows that without the mistake filter, every setting lost money over the last two years. That is why the filter is on.
+- The result is logged in `loki_v8/daytrade_evolution.json` and shown in the Day Trader's "How it was tested".
+
+The weekly search downloads its history from Alpaca and needs the repository secrets `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY`. Without them only the shadow test runs. Cached history is topped up with recent weeks before each run.
+
+**Code-health sweep** (`tools/code_health.py`). It reads the source with Python's `ast` module. These rules fail CI and the tests:
+- a bare `except:`;
+- order sizing done without `Decimal`, or with `float()`, `round()` or `math.floor`;
+- two functions with the same body.
+
+Functions over 150 lines are listed but don't fail. There are 7 today, including the backtest loop that the live AI must match bar for bar, so they are left as they are. The sweep's report appears on every CI run, and CI now checks unused imports across the whole codebase (it used to check only `loki/`).
+
+**Not built: an AI that patches the code by itself.** Code changes already go through the full test suite, type checks and a reviewed pull request. That is the gate you described, with a person in it. Letting an unattended language model push patches would need an API key and would hand write access to something the tests cannot fully judge. The sweep finds the problems; fixing them stays with a person or a supervised coding session.
 
 ### 2.68: a risk firewall for auto trading
 

@@ -1,0 +1,62 @@
+{
+ "generations": [
+  {
+   "generation": 1,
+   "run_at": "2026-11-13T14:24:27+00:00",
+   "champion": "lookback 14, band 1",
+   "outcome": "walk-forward did not pass (worse over the last 24 months: -0.633 vs -0.593): current rules kept",
+   "walk_forward": {
+    "months_tested": 119,
+    "adaptive_sharpe": 1.025,
+    "champion_sharpe": 0.895,
+    "adaptive_recent_sharpe": -0.633,
+    "champion_recent_sharpe": -0.593,
+    "months_on_champion_pct": 10.9,
+    "current_pick": "lookback 20, band 1",
+    "fixed_settings": {
+     "lookback 10, band 0.8": {
+      "sharpe_2016_21": 1.462,
+      "sharpe_2022_on": 0.476
+     },
+     "lookback 10, band 1": {
+      "sharpe_2016_21": 1.464,
+      "sharpe_2022_on": 0.407
+     },
+     "lookback 10, band 1.2": {
+      "sharpe_2016_21": 1.266,
+      "sharpe_2022_on": 0.454
+     },
+     "lookback 14, band 0.8": {
+      "sharpe_2016_21": 1.425,
+      "sharpe_2022_on": 0.254
+     },
+     "lookback 14, band 1": {
+      "sharpe_2016_21": 1.423,
+      "sharpe_2022_on": 0.347
+     },
+     "lookback 14, band 1.2": {
+      "sharpe_2016_21": 1.281,
+      "sharpe_2022_on": 0.229
+     },
+     "lookback 20, band 0.8": {
+      "sharpe_2016_21": 1.49,
+      "sharpe_2022_on": 0.272
+     },
+     "lookback 20, band 1": {
+      "sharpe_2016_21": 1.612,
+      "sharpe_2022_on": 0.328
+     },
+     "lookback 20, band 1.2": {
+      "sharpe_2016_21": 1.373,
+      "sharpe_2022_on": 0.167
+     }
+    },
+    "passed": false
+   }
+  }
+ ],
+ "champion": {
+  "lookback": 14,
+  "band": 1.0
+ }
+}

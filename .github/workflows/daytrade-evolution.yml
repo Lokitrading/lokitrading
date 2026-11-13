@@ -1,0 +1,97 @@
+name: Day Trader self-review (weekly)
+
+# The Day Trader's weekly self-review (see evolve_daytrade.py). Gate 1: a walk-forward search
+# over nine bounded settings on 10 years of 5-minute bars. Gate 2: a shadow twin on live prices
+# for at least 7 sessions. Gate 3: a person. Only a candidate that passed both tests is
+# proposed, as a pull request with the record rebuilt; merging it changes the live rules,
+# closing it keeps the current ones. Nothing reaches the live site without that review.
+#
+# The 10-year history is downloaded from Alpaca's market-data API, which needs the repository
+# secrets APCA_API_KEY_ID and APCA_API_SECRET_KEY (paper keys are enough). Without them, only
+# the shadow test runs (it uses free delayed live prices) and the search waits.
+
+on:
+  schedule:
+    - cron: '41 6 * * 0'   # Sundays 06:41 UTC, after the Portfolio AI's review
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: daytrade-evolution
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Walk-forward, shadow, propose
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONUTF8: "1"
+      APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
+      APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements_test.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements_test.txt
+
+      - name: Reuse downloaded 5-minute bars
+        uses: actions/cache@v5
+        with:
+          path: state/intraday
+          key: intraday-bars-${{ github.run_id }}
+          restore-keys: intraday-bars-
+
+      - name: Run one review
+        run: |
+          if [ -n "$APCA_API_KEY_ID" ] && [ -n "$APCA_API_SECRET_KEY" ]; then
+            python evolve_daytrade.py --cache state/intraday --write --summary review.md
+          else
+            echo "::notice::No Alpaca secrets: only the shadow test runs this week."
+            python evolve_daytrade.py --write --summary review.md
+          fi
+
+      - name: Test before proposing anything
+        run: pytest tests/ -q -o addopts="" -p no:cacheprovider
+        env:
+          PYTHONPATH: .
+
+      - name: Propose the result as a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat review.md >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- loki_v8/daytrade_evolution.json loki_v8/daytrade_record.json; then
+            echo "Nothing changed this week."
+            exit 0
+          fi
+          gen=$(python -c "import json; print(json.load(open('loki_v8/daytrade_evolution.json'))['generations'][-1]['generation'])")
+          branch="daytrade-review/generation-${gen}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add loki_v8/daytrade_evolution.json loki_v8/daytrade_record.json
+          git commit -m "Day Trader self-review: generation ${gen}" -m "Walk-forward, shadow and promotion results. See the PR description."
+          git push --force origin "$branch"
+          if gh pr view "$branch" >/dev/null 2>&1; then
+            gh pr edit "$branch" --body-file review.md
+          elif ! gh pr create --base main --head "$branch" --title "Day Trader self-review: generation ${gen}" --body-file review.md; then
+            echo "::warning::The result is on branch ${branch}, but a pull request could not be opened. Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General, or open it by hand."
+          fi
