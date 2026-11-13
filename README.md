@@ -455,6 +455,7 @@ Newest first. Figures in older notes are as they stood at that release; current 
   - a refused close;
   - positions still open after the bell.
 - **Day summary.** After the close, one signed entry goes into the trade log: signals, orders opened and closed, held back by reason, refusals, the account's day change, the drift state and the log's head hash.
+- **Reload fix.** Reloading the trading tab used to make it stand aside for up to 90 seconds, because it took its own lease for another tab's. Each page load now has its own id and hands the lease back when it closes; a second open tab still only watches.
 - **Download diagnostic bundle.** One JSON file with the risk policy, the drift state, the last check (request budget and clock offset included) and the last 50 signed receipts with the public key to verify them. Your Alpaca keys are never in it.
 
 **Release checks:**

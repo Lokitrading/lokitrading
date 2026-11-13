@@ -47,15 +47,20 @@
   };
   const log = (text, kind = 'info') => { state.log.unshift({ t: new Date().toISOString(), text, kind }); state.log.length = Math.min(state.log.length, 200); save(); };
 
-  function claim() { // one tab trades; another open tab only watches
+  // One tab trades; another open tab only watches. Each page load has its own id and gives the
+  // lease back when it closes, so a reload takes over at once while a second tab stands aside.
+  const TAB = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  function claim() {
     try {
-      const held = Number(localStorage.getItem(LEASE) || 0);
-      if (held && Date.now() - held < 90000 && !root.dataset.owner) return false;
-      localStorage.setItem(LEASE, String(Date.now()));
-      root.dataset.owner = '1';
+      const lease = JSON.parse(localStorage.getItem(LEASE) || 'null');
+      if (lease && lease.tab && lease.tab !== TAB && Date.now() - Number(lease.t) < 90000) return false;
+      localStorage.setItem(LEASE, JSON.stringify({ tab: TAB, t: Date.now() }));
       return true;
     } catch { return true; }
   }
+  window.addEventListener('pagehide', () => {
+    try { const lease = JSON.parse(localStorage.getItem(LEASE) || 'null'); if (lease && lease.tab === TAB) localStorage.removeItem(LEASE); } catch { /* storage unavailable */ }
+  });
 
   // --- One check ---------------------------------------------------------------------
   async function check({ start = false, stop = false } = {}) {
