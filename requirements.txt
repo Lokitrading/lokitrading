@@ -1,18 +1,23 @@
-# Minimal runtime requirements for Vercel deployment (keeps build small)
-fastapi>=0.110.0
-uvicorn>=0.28.0
-jinja2>=3.1.2
-aiofiles>=23.1.0
-python-multipart>=0.0.9
-python-dotenv>=1.0.0
-structlog>=24.1.0
+# Runtime requirements for the Vercel deployment, pinned to the exact versions the full test
+# suite last passed on, so an upstream release cannot change how money, decimals or timestamps
+# parse in production. Raise a pin only in a pull request that runs the whole suite.
+fastapi==0.162.2
+uvicorn==0.54.0
+jinja2==3.1.6
+aiofiles==25.1.0
+python-multipart==0.0.32
+python-dotenv==1.2.3
+structlog==26.1.0
 # Market data for the terminal: scan, backtest, and the strategy trainer all
 # fetch historical/live prices through yfinance. Without this the deployed
 # site serves the UI but every data endpoint 500s.
-yfinance>=0.2.40
+yfinance==1.8.0
 # Direct PostgREST client for the optional Supabase Data Vault
 # (loki_v8/persistence.py yfinance already pulls requests transitively, but
 # list it explicitly so the persistence layer never relies on transitives).
-requests>=2.31.0
-numpy>=1.26.0
-cryptography>=44.0.0
+requests==2.34.2
+numpy==2.5.3
+cryptography==50.0.1
+# Used directly (timestamps, validation); pinned too rather than left to fastapi and yfinance.
+pandas==3.0.5
+pydantic==2.13.5

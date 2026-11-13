@@ -22,7 +22,8 @@ class FakeAlpaca:
 
     def __init__(self, equity=100_000.0, last_equity=100_000.0, is_open=True, held=None, open_orders=(), easy=True,
                  bid=99.99, ask=100.01, account=None, buying_power=None, minutes_left=300, sip=True, quote_age=2,
-                 fills=(), closed_orders=(), refuse=None):
+                 fills=(), closed_orders=(), refuse=None, corp=None, fill=True, orders_visible=True,
+                 asset_status="active", tradable=True, now=None):
         self.equity, self.last_equity, self.is_open = equity, last_equity, is_open
         self.held = dict(held or {})
         self.open_orders, self.easy, self.sent = list(open_orders), easy, []
@@ -30,15 +31,26 @@ class FakeAlpaca:
         self.buying_power = 2 * equity if buying_power is None else buying_power
         self.minutes_left, self.sip, self.quote_age, self.feeds = minutes_left, sip, quote_age, []
         self.fills, self.closed_orders, self.refuse = list(fills), list(closed_orders), refuse
+        self.corp, self.fill, self.orders_visible = corp, fill, orders_visible
+        self.asset_status, self.tradable, self.now = asset_status, tradable, now or NOW
+        self.orders = [{"symbol": s, "status": "new", "client_order_id": f"manual-{s}", "filled_qty": "0"} for s in open_orders]
+        self.bodies, self.snapshot_calls = [], 0
 
     def data(self, method, path, keys, body=None, base=None):
-        assert "data.alpaca.markets" in base and "/quotes/latest?feed=" in path
+        assert "data.alpaca.markets" in base and method == "GET"
+        if path.startswith("/v1/corporate-actions?"):
+            if self.corp == "down":
+                raise HTTPException(502, "Alpaca answered HTTP 500; try again shortly.")
+            return self.corp or {"corporate_actions": {}, "next_page_token": None}
+        assert path.startswith("/v2/stocks/snapshots?symbols=")
+        self.snapshot_calls += 1
         feed = path.rsplit("=", 1)[1]
         self.feeds.append(feed)
         if feed == "sip" and not self.sip:
             raise HTTPException(422, "Alpaca refused this (403): subscription does not permit querying recent SIP data")
-        stamp = (NOW - timedelta(seconds=self.quote_age)).isoformat().replace("+00:00", "Z")
-        return {"symbol": path.split("/")[3], "quote": {"bp": self.bid, "ap": self.ask, "t": stamp}}
+        stamp = (self.now - timedelta(seconds=self.quote_age)).isoformat().replace("+00:00", "Z")
+        symbols = path.split("symbols=", 1)[1].split("&", 1)[0].split(",")
+        return {s: {"latestQuote": {"bp": self.bid, "ap": self.ask, "t": stamp}, "latestTrade": {"p": self.ask}} for s in symbols}
 
     def __call__(self, method, path, keys, body=None):
         assert keys.key_id == KEYS["key_id"]
@@ -47,18 +59,18 @@ class FakeAlpaca:
         if path == "/v2/account":
             return {"equity": str(self.equity), "last_equity": str(self.last_equity), "buying_power": str(self.buying_power), "status": "ACTIVE"}
         if path == "/v2/clock":
-            return {"is_open": self.is_open, "timestamp": NOW.isoformat(), "next_open": "2026-11-13T14:30:00Z",
-                    "next_close": (NOW + timedelta(minutes=self.minutes_left)).isoformat()}
+            return {"is_open": self.is_open, "timestamp": self.now.isoformat(), "next_open": "2026-11-13T14:30:00Z",
+                    "next_close": (self.now + timedelta(minutes=self.minutes_left)).isoformat()}
         if path.startswith("/v2/account/activities/FILL"):
             return self.fills
         if path.startswith("/v2/orders?status=closed"):
             return self.closed_orders
         if path == "/v2/positions":
             return [{"symbol": s, "qty": str(abs(q)), "side": "short" if q < 0 else "long"} for s, q in self.held.items() if q]
-        if path.startswith("/v2/orders?status=open"):
-            return [{"symbol": s} for s in self.open_orders]
+        if path.startswith("/v2/orders?status=all"):
+            return list(self.orders) if self.orders_visible else []
         if path.startswith("/v2/assets/"):
-            return {"shortable": self.easy, "easy_to_borrow": self.easy}
+            return {"status": self.asset_status, "tradable": self.tradable, "shortable": self.easy, "easy_to_borrow": self.easy}
         if method == "DELETE" and path.startswith("/v2/positions/"):
             symbol = path.rsplit("/", 1)[1]
             self.sent.append(("close", symbol, self.held.pop(symbol, 0)))
@@ -70,7 +82,12 @@ class FakeAlpaca:
                 raise HTTPException(422, "Alpaca refused this order: client_order_id must be unique")
             self.order_ids.add(body["client_order_id"])
             shares = int(body["qty"]) * (1 if body["side"] == "buy" else -1)
-            assert body["type"] == "market" and body["time_in_force"] == "day" and not body["extended_hours"]
+            assert body["type"] == "limit" and body["time_in_force"] == "ioc" and not body["extended_hours"]
+            self.bodies.append(body)
+            self.orders.append({"symbol": body["symbol"], "client_order_id": body["client_order_id"],
+                                "status": "filled" if self.fill else "canceled", "filled_qty": body["qty"] if self.fill else "0"})
+            if not self.fill:
+                return {"id": "00000000-0000-0000-0000-000000000003", "symbol": body["symbol"], "status": "canceled"}
             self.sent.append(("order", body["symbol"], shares))
             self.held[body["symbol"]] = self.held.get(body["symbol"], 0) + shares
             return {"id": "00000000-0000-0000-0000-000000000002", "symbol": body["symbol"], "qty": body["qty"], "side": body["side"]}
@@ -80,10 +97,12 @@ class FakeAlpaca:
 @pytest.fixture
 def run(monkeypatch):
     monkeypatch.setattr(adt, "FLAT_WAIT_SECONDS", (0.0,))
+    monkeypatch.setattr(adt, "_CACHE", {})
 
     def go(alpaca, markets, **flags):
         plan = {"markets": markets, "weight_per_market": round(1 / len(markets), 5), "served_at": "2026-11-12T15:00:20+00:00",
                 "generated_at": "2026-11-12T15:00:20+00:00", "record": {}}
+        adt._CACHE.clear()  # each fake account starts with no cached asset flags or corporate actions
         monkeypatch.setattr(adt, "_paper_exchange", alpaca)
         monkeypatch.setattr(adt, "_exchange", alpaca.data)
         from loki.api import ai_paper
@@ -198,11 +217,18 @@ def test_a_malformed_alpaca_answer_trades_nothing(run):
 def test_a_retried_check_cannot_place_the_same_order_twice(run):
     alpaca = FakeAlpaca()
     first = run(alpaca, [market("QQQ", pending=1)])
-    alpaca.held.clear()  # as if the fill had not shown up yet when the request was retried
+    alpaca.held.clear()  # as if the fill had not shown up in the positions yet when the request was retried
     again = run(alpaca, [market("QQQ", pending=1)])
-    orders = [s for s in alpaca.sent if s[0] == "order"]
-    assert len(orders) == 1 and again["actions"][0]["order"]["status"] == "already sent"
-    assert first["actions"][0]["order"]["client_order_id"] == again["actions"][0]["order"]["client_order_id"]
+    assert len([s for s in alpaca.sent if s[0] == "order"]) == 1
+    assert again["actions"][0]["status"] == "held back" and "already filled" in again["actions"][0]["detail"]
+    # Two checks racing (neither sees the other's order yet) number their try alike, so Alpaca keeps one.
+    racing = FakeAlpaca(orders_visible=False)
+    one = run(racing, [market("QQQ", pending=1)])
+    racing.held.clear()
+    two = run(racing, [market("QQQ", pending=1)])
+    assert len([s for s in racing.sent if s[0] == "order"]) == 1 and two["actions"][0]["order"]["status"] == "already sent"
+    assert one["actions"][0]["order"]["client_order_id"] == two["actions"][0]["order"]["client_order_id"] == \
+        first["actions"][0]["order"]["client_order_id"]
 
 
 def test_every_order_carries_a_receipt_bound_to_the_policy(run):
@@ -228,7 +254,7 @@ def test_new_positions_fit_inside_the_buying_power_alpaca_reports(run):
     alpaca = FakeAlpaca(buying_power=20_000)  # room: US$19,000 at 95%; each market wants 316 shares (US$31,600)
     out = run(alpaca, [market("QQQ", pending=1), market("NVDA", pending=1), market("TSLA", pending=1)])
     sent = {a["symbol"]: a["shares"] for a in out["actions"] if a["status"] == "sent"}
-    assert sent == {"QQQ": 190}  # cut to the room left; nothing remains for the other two
+    assert sent == {"QQQ": 189}  # cut to the room left at the worst price it may pay (19,000 / 100.06)
     assert [a["status"] for a in out["actions"][1:]] == ["held back", "held back"] and "buying power" in out["actions"][2]["detail"]
 
 
@@ -262,7 +288,8 @@ def test_a_blocked_order_gets_a_receipt_saying_why(run):
 
 def test_order_ids_carry_the_decision_price_for_slippage():
     cid = adt.client_order_id("QQQ", "2026-11-12T15:00:00+00:00", 5, 690.12)
-    assert cid.endswith("-buy-r69012") and len(cid) <= 128
+    assert cid.endswith("-buy-a1-r69012") and len(cid) <= 128
+    assert adt.client_order_id("QQQ", "2026-11-12T15:00:00+00:00", 5, 690.12, attempt=2).endswith("-buy-a2-r69012")
     orders = [{"client_order_id": cid, "filled_avg_price": "690.81"},
               {"client_order_id": adt.client_order_id("TSLA", "x", -3, 400.0), "filled_avg_price": "399.60"},
               {"client_order_id": "someone-else", "filled_avg_price": "1"}]
@@ -307,3 +334,102 @@ def test_drift_maths_by_hand():
     assert out["z"] == 0.0 and out["tier"] == "green" and out["multiplier"] == 1.0
     out = drift.assess(trips, {"QQQ": {"win_days_pct": 45.0, "payoff": 1.0}}, [3.0] * 20, 1.0)
     assert out["tier"] == "amber" and "slippage" in out["reasons"][0]
+
+
+# --- 2.71: session timing, halts, corporate actions, request budget, marketable limits, Alpaca's clock ----
+def test_no_new_position_before_the_opening_lockout_but_closes_go_through(run):
+    early = datetime(2026, 11, 12, 14, 40, 0, tzinfo=timezone.utc)  # 09:40 New York
+    alpaca = FakeAlpaca(now=early, held={"TSLA": 50})
+    out = run(alpaca, [market("QQQ", pending=1, signal_at=early.isoformat()), market("TSLA", pending=0)])
+    by = {a["symbol"]: a for a in out["actions"]}
+    assert by["QQQ"]["status"] == "held back" and "opening lockout" in by["QQQ"]["detail"]
+    assert by["TSLA"]["did"] == "close" and alpaca.held == {}
+    assert by["QQQ"]["receipt"]["action"] == "blocked"
+    assert adt.opening_lockout(datetime(2026, 7, 1, 13, 44, tzinfo=timezone.utc))  # 09:44 in summer (EDT)
+    assert not adt.opening_lockout(datetime(2026, 7, 1, 13, 45, tzinfo=timezone.utc))
+    assert adt.opening_lockout(None)  # an unknown time never opens a position
+
+
+def test_a_halted_looking_stock_is_never_entered(run):
+    now = adt._when(NOW.isoformat())
+    assert adt.clean_quote({"bp": 0, "ap": 100.0, "t": NOW.isoformat()}, "SIP", now)[0] is None
+    quote, why = adt.clean_quote({"bp": 100.02, "ap": 100.02, "t": NOW.isoformat()}, "SIP", now)
+    assert quote is None and "locked" in why and "halted" in why
+    assert "halted" in adt.clean_quote({"bp": 100, "ap": 100.01, "t": "2026-11-12T14:50:00Z"}, "SIP", now)[1]
+    assert adt.clean_quote({"bp": 100, "ap": 100.01, "t": "2026-11-12T15:00:19.999999999Z"}, "SIP", now)[0]["quote_age_s"] == 0.0
+    locked = FakeAlpaca(bid=100.0, ask=100.0)
+    out = run(locked, [market("QQQ", pending=1)])
+    assert locked.sent == [] and "crossed or locked" in out["actions"][0]["detail"]
+    inactive = FakeAlpaca(asset_status="inactive")
+    out = run(inactive, [market("QQQ", pending=1)])
+    assert inactive.sent == [] and "active and tradable" in out["actions"][0]["detail"]
+    untradable = FakeAlpaca(tradable=False)
+    assert run(untradable, [market("QQQ", pending=1)])["actions"][0]["status"] == "held back" and untradable.sent == []
+
+
+def test_a_split_or_special_dividend_going_ex_today_blocks_new_positions(run):
+    day = "2026-11-12"
+    corp = {"corporate_actions": {
+        "forward_splits": [{"symbol": "NVDA", "ex_date": day, "new_rate": 10, "old_rate": 1}],
+        "cash_dividends": [{"symbol": "QQQ", "ex_date": day, "special": False, "rate": 0.7},
+                           {"symbol": "AMD", "ex_date": day, "special": True, "rate": 5.0}],
+        "spin_offs": [{"source_symbol": "TSLA", "new_symbol": "XYZ", "ex_date": "2026-11-13"}]}}
+    breaks = adt.corporate_action_breaks(corp, ["QQQ", "NVDA", "TSLA", "AMD"], day)
+    assert set(breaks) == {"NVDA", "AMD"} and "stock split" in breaks["NVDA"] and "special dividend" in breaks["AMD"]
+    assert adt.corporate_action_breaks({"oops": 1}, ["QQQ"], day) is None
+    alpaca = FakeAlpaca(corp=corp)
+    out = run(alpaca, [market("QQQ", pending=1), market("NVDA", pending=1)])
+    by = {a["symbol"]: a for a in out["actions"]}
+    assert by["QQQ"]["status"] == "sent" and by["NVDA"]["status"] == "held back" and "split" in by["NVDA"]["detail"]
+    down = FakeAlpaca(corp="down")
+    out = run(down, [market("QQQ", pending=1)])
+    assert down.sent == [] and "corporate-actions data could not be read" in out["actions"][0]["detail"]
+
+
+def test_a_low_request_budget_keeps_what_is_left_for_closing(run, monkeypatch):
+    from loki.api import broker_alpaca
+    real = adt._held
+
+    def tight(keys, symbols):  # as if Alpaca had reported 20 of 200 requests left
+        broker_alpaca._note_rate({"X-RateLimit-Limit": "200", "X-RateLimit-Remaining": "20", "X-RateLimit-Reset": "1763000000"})
+        return real(keys, symbols)
+    monkeypatch.setattr(adt, "_held", tight)
+    alpaca = FakeAlpaca(held={"TSLA": 50})
+    out = run(alpaca, [market("QQQ", pending=1), market("TSLA", pending=0)])
+    by = {a["symbol"]: a for a in out["actions"]}
+    assert by["TSLA"]["did"] == "close" and by["QQQ"]["status"] == "held back" and "request budget" in by["QQQ"]["detail"]
+    assert out["rate_budget"] == {"limit": 200, "remaining": 20, "reset": "1763000000"}
+    assert "skipped" in out["drift"]["reasons"][0]
+    assert adt.budget_low({"limit": 200, "remaining": 29}) and not adt.budget_low({"limit": 200, "remaining": 30})
+    assert not adt.budget_low({}) and broker_alpaca.RATE_BUDGET.get() is None  # nothing leaks outside a check
+
+
+def test_entries_are_capped_limit_orders_retried_a_few_times_and_quotes_come_in_one_call(run):
+    from decimal import Decimal
+    assert adt.limit_price(10, 99.99, 100.01) == Decimal("100.06")  # 0.05% over the ask, cut to the cent
+    assert adt.limit_price(-10, 99.99, 100.01) == Decimal("99.95")  # 0.05% under the bid, raised to the cent
+    assert adt.limit_price(10, 9.99, 10.00) == Decimal("10.00")  # on a cheap stock the cap rounds to the ask itself
+    miss = FakeAlpaca(fill=False)
+    markets = [market("QQQ", pending=1), market("NVDA", pending=1), market("AMD", pending=-1)]
+    for _ in range(adt.MAX_TRIES):
+        out = run(miss, markets)
+    assert miss.snapshot_calls == adt.MAX_TRIES  # one snapshot call per check covers every market
+    ids = [b["client_order_id"] for b in miss.bodies if b["symbol"] == "QQQ"]
+    assert [i.split("-")[-2] for i in ids] == ["a1", "a2", "a3"] and miss.held == {}
+    assert {b["limit_price"] for b in miss.bodies if b["side"] == "buy"} == {"100.06"}
+    assert {b["limit_price"] for b in miss.bodies if b["side"] == "sell"} == {"99.95"}
+    out = run(miss, markets)
+    assert all(a["status"] == "held back" and "after 3 tries" in a["detail"] for a in out["actions"])
+    sent = run(FakeAlpaca(), [market("QQQ", pending=1)])["actions"][0]
+    assert sent["receipt"]["snapshot"]["limit"] == "100.06" and any("try 1 of 3" in c for c in sent["receipt"]["checks_passed"])
+
+
+def test_signal_and_quote_ages_use_alpacas_clock_not_the_servers(run):
+    later = NOW + timedelta(minutes=6)  # Alpaca says it is 6 minutes after the signal; the plan says 20 s
+    out = run(FakeAlpaca(now=later), [market("QQQ", pending=1)])
+    assert out["markets"][0]["action"] == "none" and "missed this signal" in out["markets"][0]["note"]
+    assert out["checked_at"].startswith("2026-11-12T15:06:20") and isinstance(out["clock_skew_s"], float)
+    nanos = adt.AlpacaClock(is_open=True, timestamp="2026-11-12T10:00:00.123456789-05:00",
+                            next_close="2026-11-12T16:00:00-05:00")
+    assert round(nanos.minutes_to_close(), 3) == 359.998
+    assert adt._when("2026-11-12T15:00:00") is None and adt._when("junk") is None

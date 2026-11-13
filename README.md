@@ -431,6 +431,43 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.71: execution guards, capped entries and day-end records for auto trading
+
+**New guards on each new position** (`loki/api/alpaca_daytrade.py`, risk policy v3). Closing is never held back by them.
+- **Opening lockout.** No new position before 09:45 New York time, while the opening auctions settle. The rules' first decision is at 10:00, so this changes nothing today; it is in the policy so a future change cannot trade the auction.
+- **Halt check.** The quote must have a bid and an ask above 0, the ask above the bid, and be at most 2 minutes old. Alpaca must list the stock as active and tradable. A volatility halt shows up as a one-sided, crossed or frozen quote, so no order is queued into a halted stock.
+- **Corporate actions.** No new position on the ex-date of a split, reverse split, stock dividend, spin-off or special dividend (Alpaca's corporate-actions data), when yesterday's close and today's prices are not comparable. If that data cannot be read, nothing opens. Regular dividends and earnings days are not blocked: the 10-year test traded through them, and blocking them would change the tested rules without testing the change.
+- **Request budget.** Every Alpaca answer's `X-RateLimit-Remaining` is read. Below 15% left, the check skips the drift reading and opens nothing, keeping the rest for closing orders.
+- **Alpaca's clock.** The 5-minute signal limit and the 2-minute quote limit are measured against Alpaca's clock, not the server's. Alpaca's nanosecond timestamps are parsed correctly. The server's offset from Alpaca is shown in the panel.
+
+**Entries are capped limit orders.** A new position is a limit order at most 0.05% past the ask (buy) or bid (sell), rounded to the cent inside the cap, immediate-or-cancel. It fills at once like a market order, but a sudden gap in liquidity cannot fill it far from the quote the guards just checked. An unfilled order is cancelled by Alpaca and retried on later checks, at most 3 times per signal, each try with its own numbered order id. Two checks racing still send the same id, so Alpaca keeps one. Buying power is checked at the cap price. Closing stays a market order.
+- **Not yet tested:** the 10-year test assumed market fills. Capped entries may miss some fast moves. The receipts record each try, so a few weeks of paper trading will show whether the cap costs more than it saves.
+
+**Fewer calls.** One snapshot call per feed covers every market's quote, so all quotes come from the same moment. Asset flags and corporate actions are read at most every half hour.
+
+**Already in place:** a reversal waits until Alpaca shows the old position closed, and a market with an order still working is left alone. Opposite orders therefore never cross, which avoids wash-trade refusals.
+
+**In the panel:**
+- **Desktop alerts** (if you allow them when you press Start), only for what needs you:
+  - auto trading switched off (rejected keys, a blocked account);
+  - the drift alarm going amber or red;
+  - the daily loss stop;
+  - a refused close;
+  - positions still open after the bell.
+- **Day summary.** After the close, one signed entry goes into the trade log: signals, orders opened and closed, held back by reason, refusals, the account's day change, the drift state and the log's head hash.
+- **Download diagnostic bundle.** One JSON file with the risk policy, the drift state, the last check (request budget and clock offset included) and the last 50 signed receipts with the public key to verify them. Your Alpaca keys are never in it.
+
+**Release checks:**
+- **Exact pins.** Runtime packages in `requirements.txt` are pinned to the versions the suite passed on, and a test keeps them exact.
+- **Secret scan.** All 143 commits were checked for key and token patterns and for the paper keys used in testing. Only test fixtures matched; no real key or webhook is in the history or the page. ("flathead" is the public demo access code, not a secret.)
+- **Configuration.** The site has no Alpaca keys or URLs in its settings to fail on. Keys arrive with each request, and the Alpaca hosts are fixed in code.
+- **Duplicate checks.** Two tabs or two server instances checking at once are covered by the shared order ids, not a lock.
+
+**Not built:**
+- **A live vote of momentum and reversion "specialist" agents.** Its voters have never been tested, and adding them to live entries would trade untested rules. The tested rules plus these guards are what trades. A specialist would first need its own 10-year test, through the same walk-forward and shadow gates as the weekly self-review.
+- **An after-hours language-model swarm that writes patches.** Declined in 2.69 for the same reasons.
+- **External chat-app alerts and a scheduled 8:30 am asset sync.** The trader runs from your open tab, and the site has no background worker or webhook account to send from. Desktop alerts and the half-hour cache cover both.
+
 ### 2.70: tidy-up and type checks across the whole codebase
 
 - **Removed unused code:** an unused response model in the Loki Dive API, an unused slippage helper in the browser risk engine, an unused `reset()` in the browser guard, and an outdated list of modules in `loki/api/__init__.py`.
@@ -488,7 +525,7 @@ Every order the Alpaca auto day trader sends now passes these server-side checks
   - **slippage:** each fill against the price the rules decided on. The order id carries that price, so Alpaca's own records hold everything needed.
 
   After 20 round trips: amber (new positions x0.5) when z falls below −1.5, payoff below 60% of the test's, or slippage above twice the assumed cost; red (x0.1) when z falls below −2.5 or payoff below 35%. It only ever shrinks new positions, and its state is in every receipt. The tested record now holds per-market baselines (`market_baselines`: win rate and payoff on the unseen years, as the live book trades them); the headline figures are unchanged.
-- **Already the case, now stated:** orders are whole shares, market, day only, with no fractional shares, brackets, or limit or stop prices, so fractional-order and tick-size rejections cannot happen. Every check re-reads positions and open orders from Alpaca before deciding, so a restart or a closed tab never orphans a position.
+- **Already the case, now stated:** orders are whole shares with no fractional shares or brackets, so fractional-order rejections cannot happen. (Since 2.71, entries are capped limit orders priced in whole cents; closes stay market orders.) Every check re-reads positions and open orders from Alpaca before deciding, so a restart or a closed tab never orphans a position.
 - 15 new tests cover these guards: duplicate retries, malformed answers, stale signals, wide, crossed and stale quotes, SIP-to-IEX fallback, buying power, closing time, 403 refusals, blocked receipts, Decimal sizing, receipt hashes, and the drift maths worked by hand.
 
 ### 2.67: auto day trading on your Alpaca paper account
