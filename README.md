@@ -440,7 +440,19 @@ Every order the Alpaca auto day trader sends now passes these server-side checks
 - **Spread guard.** No new position while Alpaca's latest quote spread is wider than 0.10% of the price, or when there is no clean quote.
 - **Receipts.** Each order gets a receipt: a SHA-256 hash of the market snapshot (bid, ask, spread, equity), the policy hash and the list of checks it passed. The page adds it to this device's signed, hash-chained trade log (`engine/audit.js`) with the broker's order id.
 - **Trace ids.** Each check gets a trace id that appears in the server's JSON log lines and in every receipt from that check.
-- 6 new tests cover these guards: duplicate retries, malformed answers, stale signals, wide or crossed spreads, Decimal sizing, and receipt hashes.
+- **A broker refusal is not bad keys.** Alpaca answers HTTP 403 when it refuses an order for buying power, an intraday margin deficit or an old day-trading block. The relay used to treat every 403 as rejected keys, which would have switched auto trading off. Now only a 401 means bad keys. A refusal is logged once and tried again on the next check.
+- **The US$25,000 minimum is gone.** FINRA's pattern-day-trader rule ended on 4 June 2026, after the SEC approved the change to Rule 4210 in April. Brokers phase in the new intraday margin checks until October 2027. The minimum is now the US$2,000 a margin account (and so a short) needs. New positions never use more than 95% of the buying power Alpaca reports.
+- **Closing time.** Every Day Trader position is closed from 10 minutes before Alpaca's own closing time, which also covers early-close days, so a hiccup at the bell cannot leave a position overnight.
+- **Quote feed.** The spread guard reads the consolidated SIP feed when the Alpaca plan includes it, otherwise the free IEX feed, and never a quote older than 2 minutes. The feed used is written into every receipt, so a missed entry can be traced to a thin IEX quote.
+- **Blocked orders get receipts.** An entry held back (spread, no clean quote, no buying power) gets a receipt saying which check stopped it. It goes into the signed log as a `guard` entry, which is not counted as a trade.
+- **Drift alarm** (`loki_v8/drift.py`). From the account's own fills over the last 45 days, it compares the last 30 finished round trips with the tested record of the same markets:
+  - **win rate:** a z-score against the tested rate;
+  - **payoff:** the average win ÷ the average loss;
+  - **slippage:** each fill against the price the rules decided on. The order id carries that price, so Alpaca's own records hold everything needed.
+
+  After 20 round trips: amber (new positions x0.5) when z falls below −1.5, payoff below 60% of the test's, or slippage above twice the assumed cost; red (x0.1) when z falls below −2.5 or payoff below 35%. It only ever shrinks new positions, and its state is in every receipt. The tested record now holds per-market baselines (`market_baselines`: win rate and payoff on the unseen years, as the live book trades them); the headline figures are unchanged.
+- **Already the case, now stated:** orders are whole shares, market, day only, with no fractional shares, brackets, or limit or stop prices, so fractional-order and tick-size rejections cannot happen. Every check re-reads positions and open orders from Alpaca before deciding, so a restart or a closed tab never orphans a position.
+- 15 new tests cover these guards: duplicate retries, malformed answers, stale signals, wide, crossed and stale quotes, SIP-to-IEX fallback, buying power, closing time, 403 refusals, blocked receipts, Decimal sizing, receipt hashes, and the drift maths worked by hand.
 
 ### 2.67: auto day trading on your Alpaca paper account
 

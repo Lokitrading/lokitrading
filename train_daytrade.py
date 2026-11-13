@@ -234,6 +234,8 @@ def _book(ideal: Dict[str, pd.DataFrame], late: Dict[str, pd.DataFrame], symbols
     return {
         "symbols": symbols, **_windows(final), "late": _windows(final_late),
         "plain": _windows(plain), "plain_late": _windows(plain_late),
+        "market_baselines": {s: daytrade.stats((learned[s] if kept else ideal[s]["return"])[lambda x: x.index >= TEST_START])
+                             for s in symbols},
         "calendar_years": _years(final), "calendar_years_late": _years(final_late),
         "skips": skips if kept else {},  # per market: the days the filter sat out (not written to the record)
         "learning": {
@@ -253,11 +255,11 @@ def _public(book: Dict[str, Any]) -> Dict[str, Any]:
     """The parts of a book that go into the record, under fixed names."""
     if not book:
         return {"book": {}, "book_late": {}, "book_plain": {}, "book_plain_late": {}, "learning": {},
-                "calendar_years": [], "calendar_years_late": [], "fill_speed": None}
+                "calendar_years": [], "calendar_years_late": [], "fill_speed": None, "market_baselines": {}}
     return {"book": {k: book[k] for k in ("select", "test", "all")}, "book_late": book["late"],
             "book_plain": book["plain"], "book_plain_late": book["plain_late"], "learning": book["learning"],
             "calendar_years": book["calendar_years"], "calendar_years_late": book["calendar_years_late"],
-            "fill_speed": book.get("fill_speed")}
+            "fill_speed": book.get("fill_speed"), "market_baselines": book.get("market_baselines")}
 
 
 # --- Fill speed: what a fill N minutes after the signal costs ---------------------------
