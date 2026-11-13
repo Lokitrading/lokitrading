@@ -58,7 +58,12 @@ jobs:
         flake8 loki --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
     
     - name: Code-health sweep (bare excepts, float sizing, duplicated functions)
-      run: python tools/code_health.py --markdown | tee -a "$GITHUB_STEP_SUMMARY"
+      shell: bash  # the same syntax on the Linux and Windows runners
+      env:
+        PYTHONUTF8: "1"
+      run: |
+        set -o pipefail
+        python tools/code_health.py --markdown | tee -a "$GITHUB_STEP_SUMMARY"
 
     - name: Check code formatting with black
       run: black --check main.py
