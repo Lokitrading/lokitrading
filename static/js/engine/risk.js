@@ -108,17 +108,7 @@
     return out;
   }
 
-  /** Estimated cost of exiting `qty` into a book side [[price, size], ...] (best first), in bps vs the best price. */
-  function exitSlippageBps(levels, qty) {
-    if (!levels || !levels.length) return Infinity;
-    let left = Math.abs(qty), cost = 0;
-    for (const [price, size] of levels) { const take = Math.min(left, size); cost += take * price; left -= take; if (left <= 0) break; }
-    if (left > 0) return Infinity;
-    const avg = cost / Math.abs(qty);
-    return Math.abs(avg / levels[0][0] - 1) * 1e4;
-  }
-
   function reset() { persisted.tripped_at = 0; persisted.healed_at = 0; persisted.history.push({ t: Date.now(), event: 'manual reset' }); Loki.store.set(KEY, persisted); }
 
-  Loki.risk = { evaluate, exitSlippageBps, reset, freshState };
+  Loki.risk = { evaluate, reset, freshState };
 })();

@@ -26,7 +26,7 @@ import hashlib
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Iterator, List, Tuple, Union
 
 ROOT = Path(__file__).resolve().parents[1]
 FOLDERS = ("loki", "loki_v8", "core")
@@ -43,7 +43,7 @@ def sources() -> List[Path]:
     return sorted(files)
 
 
-def _functions(tree: ast.AST):
+def _functions(tree: ast.AST) -> Iterator[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield node

@@ -306,8 +306,9 @@ def late_fills(feed: str, cost: float, cache: Optional[Path], params: Optional[D
 def _fill_speed(book: Dict[str, Any], costs: Dict[str, float], cache: Optional[Path],
                 params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """The book's results with fills 1, 2 and 3 minutes late, skipping the same days its filter skipped."""
-    frames = {s: late_fills(daytrade.price_symbol(s), costs[s], cache, params) for s in book["symbols"]}
-    if any(f is None for f in frames.values()):
+    found = {s: late_fills(daytrade.price_symbol(s), costs[s], cache, params) for s in book["symbols"]}
+    frames: Dict[str, pd.DataFrame] = {s: f for s, f in found.items() if f is not None}
+    if len(frames) < len(found):
         return None
     steps = []
     for minutes in SPEED_MINUTES:

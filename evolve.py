@@ -41,7 +41,7 @@ LOG_PATH = ROOT / "loki_v8" / "evolution_log.json"
 UNIVERSES = {"equity": tlh.EQUITY_UNIVERSE, "crypto": tlh.CRYPTO_UNIVERSE}
 
 
-def _init_worker(data, recent_start: str) -> None:
+def _init_worker(data: Dict[str, Any], recent_start: str) -> None:
     tlh._init(data)
     for kind in tlh.WINDOWS:
         tlh.WINDOWS[kind]["recent"] = (recent_start, "2100-01-01")
@@ -53,7 +53,7 @@ def _scores(rows: List[Dict[str, Any]]) -> Dict[str, float]:
             "holdout_score": round(tlh.score(rows, "holdout"), 3), "recent_score": round(tlh.score(rows, "recent"), 3)}
 
 
-def evaluate_all(kind: str, data, contenders: List[Dict[str, Any]], workers: int, recent_start: str) -> List[Dict[str, Any]]:
+def evaluate_all(kind: str, data: Dict[str, Any], contenders: List[Dict[str, Any]], workers: int, recent_start: str) -> List[Dict[str, Any]]:
     symbols = list(data)
     jobs = [(c, s, kind) for c in contenders for s in symbols]
     with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker, initargs=(data, recent_start)) as pool:
@@ -73,7 +73,7 @@ def full_params(grid: Dict[str, Any]) -> Dict[str, Any]:
             "factor_preset": grid["preset"], "factor_weights": tlh.PRESETS[grid["preset"]]}
 
 
-def refit_on_all_trades(kind: str, data, params: Dict[str, Any], meta: Dict[str, Any], data_through: str) -> Tuple[Dict[str, Any], int]:
+def refit_on_all_trades(kind: str, data: Dict[str, Any], params: Dict[str, Any], meta: Dict[str, Any], data_through: str) -> Tuple[Dict[str, Any], int]:
     """Validated filter → refit on every closed trade so it learns from the newest ones."""
     bpy = 365 if kind == "crypto" else 252
     replay = tlh._run_all(data, kind, params)
