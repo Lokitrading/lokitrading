@@ -34,7 +34,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -83,7 +83,7 @@ def fetch(symbol: str, timeframe: str = "5Min", keep: Optional[Callable[[pd.Data
     pages: List[pd.DataFrame] = []
     token = None
     while True:
-        params = {"timeframe": timeframe, "start": start, "limit": 10000, "adjustment": "all", "feed": "sip"}
+        params: Dict[str, Union[str, int]] = {"timeframe": timeframe, "start": start, "limit": 10000, "adjustment": "all", "feed": "sip"}
         if token:
             params["page_token"] = token
         res = None
