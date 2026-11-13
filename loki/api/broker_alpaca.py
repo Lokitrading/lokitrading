@@ -14,9 +14,10 @@ from __future__ import annotations
 import json
 import math
 import urllib.error
-from datetime import datetime, timedelta, timezone
 import urllib.request
-from typing import Any, Dict, List, Optional
+from contextvars import ContextVar
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Mapping, Optional
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -35,6 +36,27 @@ _RELAY_UA = "Mozilla/5.0 (compatible; LokiWorkspace/2.0; Alpaca paper relay)"
 ORDER_QTY_MAX = 100
 LIMIT_PRICE_MAX = 10_000.0
 BARS_MAX = 60
+
+# The request budget Alpaca reports (X-RateLimit-* headers) during one auto-trader check.
+# The check sets it to {} at its start; every answer then keeps the lowest share left.
+RATE_BUDGET: ContextVar[Optional[Dict[str, Any]]] = ContextVar("alpaca_rate_budget", default=None)
+
+
+def _note_rate(headers: Optional[Mapping[str, str]]) -> None:
+    """Keep the tightest request budget Alpaca has reported in this check (no-op outside one)."""
+    budget = RATE_BUDGET.get()
+    if budget is None or headers is None:
+        return
+    try:
+        limit = int(headers.get("X-RateLimit-Limit") or "")
+        remaining = int(headers.get("X-RateLimit-Remaining") or "")
+    except ValueError:
+        return
+    if limit <= 0 or remaining < 0:
+        return
+    if not budget or remaining / limit < budget["remaining"] / budget["limit"]:
+        budget.update(limit=limit, remaining=remaining, reset=headers.get("X-RateLimit-Reset"))
+
 
 _ORDER_FIELDS = (
     "id", "symbol", "qty", "side", "type", "time_in_force", "status",
@@ -147,8 +169,10 @@ def _exchange(
     )
     try:
         with urllib.request.urlopen(request, timeout=15) as res:
+            _note_rate(getattr(res, "headers", None))
             raw = res.read().decode()
     except urllib.error.HTTPError as error:
+        _note_rate(getattr(error, "headers", None))
         if error.code == 401:
             raise HTTPException(401, "Alpaca rejected those keys — copy them again from the Alpaca dashboard (paper keys).") from error
         if error.code == 403:

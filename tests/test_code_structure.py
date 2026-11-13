@@ -76,3 +76,14 @@ def test_the_code_health_sweep_finds_no_errors():
     spec.loader.exec_module(health)
     result = health.sweep()
     assert result["errors"] == [], "\n".join(result["errors"])
+
+
+def test_runtime_requirements_are_pinned_exactly():
+    """Production installs exactly the versions the suite passed on: no '>=' ranges in requirements.txt."""
+    root = Path(__file__).resolve().parents[1]
+    lines = [line.split("#", 1)[0].strip() for line in (root / "requirements.txt").read_text().splitlines()]
+    packages = [line for line in lines if line]
+    assert packages and all("==" in line and not any(op in line for op in (">", "<", "~", "!")) for line in packages), packages
+    import tomllib
+    declared = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["dependencies"]
+    assert sorted(declared) == sorted(packages)  # Vercel may install from either file: they must say the same
