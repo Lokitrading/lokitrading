@@ -123,7 +123,14 @@ def load(symbol: str, cache: Optional[Path], minute: bool = False) -> Optional[p
     """5-minute bars for ``symbol`` (or, with ``minute``, its thinned 1-minute bars), from ``cache`` when present."""
     path = cache / (f"{symbol}.1min.pkl" if minute else f"{symbol}.pkl") if cache else None
     if path and path.exists():
-        return pickle.loads(path.read_bytes())
+        df = pickle.loads(path.read_bytes())
+        stale = df is not None and not df.empty and pd.Timestamp.now(tz="UTC") - df.index[-1] > pd.Timedelta(days=3)
+        if stale and not minute and os.environ.get("APCA_API_KEY_ID") and os.environ.get("APCA_API_SECRET_KEY"):
+            newer = fetch(symbol, start=(df.index[-1] + pd.Timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+            if newer is not None and not newer.empty:  # top up the cache with the weeks since it was saved
+                df = pd.concat([df, newer[newer.index > df.index[-1]]])
+                path.write_bytes(pickle.dumps(df))
+        return df
     df = fetch(symbol, "1Min", _after_decisions) if minute else fetch(symbol)
     if df is not None and path:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,24 +139,24 @@ def load(symbol: str, cache: Optional[Path], minute: bool = False) -> Optional[p
 
 
 # --- Per-market test -------------------------------------------------------------
-def test_market(job: Tuple[str, Optional[str]]) -> Optional[Dict[str, Any]]:
+def test_market(job: Tuple[str, Optional[str], Optional[Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
     """Instant-fill, late-fill and cost-free results for one market (and its futures twin)."""
-    symbol, cache = job
+    symbol, cache, params = job
     bars = load(symbol, Path(cache) if cache else None)
     if bars is None or bars.empty:
         return None
     cost = daytrade.cost_for(symbol)
     out: Dict[str, Any] = {
         "symbol": symbol, "cost": cost,
-        "ideal": daytrade.backtest_frame(bars, cost),
-        "late": daytrade.backtest_frame(bars, cost, fill_delay=LATE_BARS),
-        "gross": daytrade.backtest(bars, 0.0),
+        "ideal": daytrade.backtest_frame(bars, cost, params=params),
+        "late": daytrade.backtest_frame(bars, cost, fill_delay=LATE_BARS, params=params),
+        "gross": daytrade.backtest_frame(bars, 0.0, params=params)["return"],
     }
     contract = next((k for k, v in daytrade.FUTURES.items() if v["proxy"] == symbol), None)
     if contract:  # the same prices at futures costs stand in for the micro contract
         out["futures"] = {"symbol": contract,
-                          "ideal": daytrade.backtest_frame(bars, daytrade.FUTURES_COST),
-                          "late": daytrade.backtest_frame(bars, daytrade.FUTURES_COST, fill_delay=LATE_BARS)}
+                          "ideal": daytrade.backtest_frame(bars, daytrade.FUTURES_COST, params=params),
+                          "late": daytrade.backtest_frame(bars, daytrade.FUTURES_COST, fill_delay=LATE_BARS, params=params)}
     return out
 
 
@@ -263,7 +270,7 @@ def _public(book: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --- Fill speed: what a fill N minutes after the signal costs ---------------------------
-def late_fills(feed: str, cost: float, cache: Optional[Path]) -> Optional[pd.DataFrame]:
+def late_fills(feed: str, cost: float, cache: Optional[Path], params: Optional[Dict[str, Any]] = None) -> Optional[pd.DataFrame]:
     """Daily returns when every signal order fills N minutes late (columns: ``SPEED_MINUTES``).
 
     Signals come from the 5-minute bars exactly as in the main test; each fill is re-priced at the open of
@@ -275,7 +282,7 @@ def late_fills(feed: str, cost: float, cache: Optional[Path]) -> Optional[pd.Dat
     minute = minute[~minute.index.duplicated()].sort_index()
     stamps, opens = minute.index, minute["open"].to_numpy(dtype=float)
     rows: Dict[pd.Timestamp, Dict[int, float]] = {}
-    for day, out, _ in daytrade.replay_sessions(bars, cost):
+    for day, out, _ in daytrade.replay_sessions(bars, cost, params=params):
         trades = [d for d in out["decisions"] if "skipped" not in d]
         signals = [d for d in trades if d.get("why") != "session close"]
         when = pd.to_datetime([d["time"] for d in signals], utc=True)
@@ -296,9 +303,10 @@ def late_fills(feed: str, cost: float, cache: Optional[Path]) -> Optional[pd.Dat
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
-def _fill_speed(book: Dict[str, Any], costs: Dict[str, float], cache: Optional[Path]) -> Optional[Dict[str, Any]]:
+def _fill_speed(book: Dict[str, Any], costs: Dict[str, float], cache: Optional[Path],
+                params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """The book's results with fills 1, 2 and 3 minutes late, skipping the same days its filter skipped."""
-    frames = {s: late_fills(daytrade.price_symbol(s), costs[s], cache) for s in book["symbols"]}
+    frames = {s: late_fills(daytrade.price_symbol(s), costs[s], cache, params) for s in book["symbols"]}
     if any(f is None for f in frames.values()):
         return None
     steps = []
@@ -314,8 +322,11 @@ def _fill_speed(book: Dict[str, Any], costs: Dict[str, float], cache: Optional[P
 
 
 # --- The record --------------------------------------------------------------------
-def build(cache: Optional[Path], workers: int = 4) -> Dict[str, Any]:
-    jobs = [(s, str(cache) if cache else None) for s in CANDIDATES]
+def build(cache: Optional[Path], workers: int = 4, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """The whole record. ``params`` are the rule settings (the published ones unless a self-review promoted others)."""
+    lookback, band = daytrade.settings(params)
+    params = {"lookback": lookback, "band": band}
+    jobs = [(s, str(cache) if cache else None, params) for s in CANDIDATES]
     with ProcessPoolExecutor(max_workers=workers) as pool:
         results = [r for r in pool.map(test_market, jobs) if r]
 
@@ -335,7 +346,7 @@ def build(cache: Optional[Path], workers: int = 4) -> Dict[str, Any]:
     futures_book = _book(fut_ideal, fut_late, fut_chosen, "futures") if fut_chosen else {}
     for book in (stock_book, futures_book):
         if book:
-            book["fill_speed"] = _fill_speed(book, {s: daytrade.cost_for(s) for s in book["symbols"]}, cache)
+            book["fill_speed"] = _fill_speed(book, {s: daytrade.cost_for(s) for s in book["symbols"]}, cache, params)
 
     everything = _equal_capital({s: f["return"] for s, f in ideal.items()})
     everything_late = _equal_capital({s: f["return"] for s, f in late.items()})
@@ -347,6 +358,7 @@ def build(cache: Optional[Path], workers: int = 4) -> Dict[str, Any]:
                   "decisions every 30 minutes, long and short, flat at the close. The average-price line is "
                   "time-weighted (no volume), so different price feeds give the same signals.",
         "anchor": daytrade.ANCHOR,
+        "params": params,
         "data": "5-minute bars, regular US hours, Alpaca market data",
         "data_through": str(max(f.index[-1] for f in ideal.values()).date()),
         "windows": {"select": ["2016-01-01", SELECT_END], "test": [TEST_START, "2100-01-01"]},
@@ -381,8 +393,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--cache", type=Path, default=None, help="directory of downloaded bars to reuse/keep")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--lookback", type=int, default=daytrade.LOOKBACK, choices=daytrade.PARAM_GRID["lookback"])
+    parser.add_argument("--band", type=float, default=daytrade.BAND, choices=daytrade.PARAM_GRID["band"])
     args = parser.parse_args()
-    record = build(args.cache, args.workers)
+    record = build(args.cache, args.workers, {"lookback": args.lookback, "band": args.band})
     path = Path(__file__).parent / "loki_v8" / "daytrade_record.json"
     path.write_text(json.dumps(record, indent=1), encoding="utf-8")
     print("record written:", path)

@@ -31,7 +31,7 @@ def _split_header(source: str):
 
 
 def test_every_python_module_says_what_it_is_for():
-    modules = [p for folder in ("loki", "loki_v8", "core", "tests") for p in (ROOT / folder).rglob("*.py")]
+    modules = [p for folder in ("loki", "loki_v8", "core", "tests", "tools") for p in (ROOT / folder).rglob("*.py")]
     modules += list(ROOT.glob("*.py"))
     unlabelled = [str(p.relative_to(ROOT)) for p in modules if not ast.get_docstring(ast.parse(p.read_text(encoding="utf-8")))]
     assert unlabelled == [], f"add a module docstring: {unlabelled}"
@@ -67,3 +67,12 @@ def test_shared_workspace_helpers_are_taken_by_name_and_all_exist():
             taken = {n.strip() for n in names.split(",") if n.strip()}
             assert taken <= offered, f"{path.name} takes {sorted(taken - offered)}, which workspace.js does not offer"
     assert users >= 9  # the workspace scripts all declare what they use
+
+
+def test_the_code_health_sweep_finds_no_errors():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("code_health", ROOT / "tools" / "code_health.py")
+    health = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(health)
+    result = health.sweep()
+    assert result["errors"] == [], "\n".join(result["errors"])

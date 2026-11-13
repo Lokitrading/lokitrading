@@ -42,6 +42,19 @@ import pandas as pd
 
 # --- Settings (the published values; nothing here was tuned) ---------------------
 LOOKBACK = 14  # sessions of history behind each slot's noise estimate
+BAND = 1.0  # band width as a multiple of the noise (the published method uses 1.0)
+# The two settings the weekly self-review (evolve_daytrade.py) may try, and their bounds.
+PARAM_GRID = {"lookback": (10, 14, 20), "band": (0.8, 1.0, 1.2)}
+
+
+def settings(params: Optional[Dict[str, Any]] = None) -> Tuple[int, float]:
+    """(lookback, band) from a record's ``params``, held inside the self-review's bounds."""
+    params = params or {}
+    lookback = int(params.get("lookback", LOOKBACK))
+    band = float(params.get("band", BAND))
+    if lookback not in PARAM_GRID["lookback"] or band not in PARAM_GRID["band"]:
+        return LOOKBACK, BAND  # outside the tested grid: never trade an untested setting
+    return lookback, band
 SLOTS = 78  # 5-minute bars from 09:30 to 16:00 New York time
 DECIDE_EVERY = 6  # bars: decisions on the half hour
 SESSION_TZ = "America/New_York"
@@ -137,12 +150,12 @@ def day_moves(g: pd.DataFrame) -> np.ndarray:
     return move
 
 
-def noise_profile(history: Sequence[np.ndarray]) -> Optional[np.ndarray]:
-    """Average move per slot over the last ``LOOKBACK`` sessions, or None without enough history."""
-    if len(history) < LOOKBACK:
+def noise_profile(history: Sequence[np.ndarray], lookback: int = LOOKBACK) -> Optional[np.ndarray]:
+    """Average move per slot over the last ``lookback`` sessions, or None without enough history."""
+    if len(history) < lookback:
         return None
     with np.errstate(all="ignore"):
-        prof = np.nanmean(np.array(history[-LOOKBACK:]), axis=0)
+        prof = np.nanmean(np.array(history[-lookback:]), axis=0)
     return np.where(np.isfinite(prof), prof, 0.0)
 
 
@@ -162,7 +175,8 @@ def _anchor(g: pd.DataFrame, mode: Optional[str] = None) -> np.ndarray:
 # --- The rules: one session ---------------------------------------------------------
 def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: float,
                sides: Tuple[int, ...] = (1, -1), session_complete: bool = True,
-               gate: Optional[Dict[str, Any]] = None, prev_ret: float = 0.0, fill_delay: int = 0) -> Dict[str, Any]:
+               gate: Optional[Dict[str, Any]] = None, prev_ret: float = 0.0, fill_delay: int = 0,
+               band: float = BAND) -> Dict[str, Any]:
     """Run the rules over one session's bars (completed bars only).
 
     Returns the day's return after costs, the position now, the decisions made
@@ -182,8 +196,8 @@ def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: floa
     n = len(c)
     day_open = float(o[0])
     safe = np.clip(slot, 0, SLOTS - 1)
-    upper = max(day_open, prev_close) * (1.0 + noise[safe])
-    lower = min(day_open, prev_close) * (1.0 - noise[safe])
+    upper = max(day_open, prev_close) * (1.0 + band * noise[safe])
+    lower = min(day_open, prev_close) * (1.0 - band * noise[safe])
     average = _anchor(g)
     delay = max(0, min(int(fill_delay), DECIDE_EVERY - 1))
     weekday, noise_mean = int(g.index[0].dayofweek), float(np.mean(noise))
@@ -256,33 +270,36 @@ def replay_day(g: pd.DataFrame, noise: np.ndarray, prev_close: float, cost: floa
 
 # --- Backtest -----------------------------------------------------------------------
 def replay_sessions(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1),
-                    gate: Optional[Dict[str, Any]] = None, fill_delay: int = 0) -> Iterator[Tuple[pd.Timestamp, Dict[str, Any], float]]:
+                    gate: Optional[Dict[str, Any]] = None, fill_delay: int = 0,
+                    params: Optional[Dict[str, Any]] = None) -> Iterator[Tuple[pd.Timestamp, Dict[str, Any], float]]:
     """Replay every session that has enough history behind it.
 
     Yields (day, the session's ``replay_day`` result, the day's average noise). Each day sees only earlier days.
     """
+    lookback, band = settings(params)
     history: List[np.ndarray] = []
     prev_close: Optional[float] = None
     prev_ret = 0.0
     for day, g in sessions(bars):
-        noise = noise_profile(history)
+        noise = noise_profile(history, lookback)
         close = float(g["close"].iloc[-1])
         if noise is not None and prev_close:
-            yield day, replay_day(g, noise, prev_close, cost, sides, prev_ret=prev_ret, gate=gate, fill_delay=fill_delay), float(np.mean(noise))
+            yield day, replay_day(g, noise, prev_close, cost, sides, prev_ret=prev_ret, gate=gate, fill_delay=fill_delay, band=band), float(np.mean(noise))
         history.append(day_moves(g))
         prev_ret = close / prev_close - 1.0 if prev_close else 0.0
         prev_close = close
 
 
 def backtest_frame(bars: pd.DataFrame, cost: float, sides: Tuple[int, ...] = (1, -1),
-                   gate: Optional[Dict[str, Any]] = None, fill_delay: int = 0) -> pd.DataFrame:
+                   gate: Optional[Dict[str, Any]] = None, fill_delay: int = 0,
+                   params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
     """Per day: return after costs, round trips and the first-signal features (for learning).
 
     With ``gate`` the fixed learn-from-mistakes model is applied to every day (used for the
     forward record, where the model was frozen before those days happened).
     """
     rows = {day: {"return": float(out["return"]), "turns": int(out["turns"]), "first": out["first"], "noise": noise}
-            for day, out, noise in replay_sessions(bars, cost, sides, gate, fill_delay)}
+            for day, out, noise in replay_sessions(bars, cost, sides, gate, fill_delay, params)}
     return pd.DataFrame.from_dict(rows, orient="index", columns=["return", "turns", "first", "noise"])
 
 
@@ -341,7 +358,7 @@ def payoff(active: pd.Series) -> Optional[float]:
 
 # --- Live state -----------------------------------------------------------------------
 def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = None,
-               gate: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+               gate: Optional[Dict[str, Any]] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """What the tested rules hold in ``symbol`` right now, from recent 5-minute bars.
 
     ``position`` is what the rules hold after every completed bar; ``pending`` is a
@@ -350,11 +367,12 @@ def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = No
     """
     now = (now or pd.Timestamp.now(tz="UTC")).tz_convert(SESSION_TZ)
     days = sessions(bars, min_bars=1)
-    if len(days) < LOOKBACK + 1:
+    lookback, band = settings(params)
+    if len(days) < lookback + 1:
         return {"symbol": symbol, "status": "no_data", "position": 0}
     last_day, session = days[-1]
     prior = [d for _, d in days[:-1] if len(d) >= 70]
-    noise = noise_profile([day_moves(d) for d in prior])
+    noise = noise_profile([day_moves(d) for d in prior], lookback)
     if noise is None or not prior:
         return {"symbol": symbol, "status": "no_data", "position": 0}
 
@@ -372,7 +390,7 @@ def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = No
 
     prev_ret = (float(prior[-1]["close"].iloc[-1]) / float(prior[-2]["close"].iloc[-1]) - 1.0) if len(prior) > 1 else 0.0
     state = replay_day(done, noise, float(prior[-1]["close"].iloc[-1]), cost_for(symbol), session_complete=False,
-                       gate=gate, prev_ret=prev_ret)
+                       gate=gate, prev_ret=prev_ret, band=band)
     flat_time = now.time() >= pd.Timestamp("15:55").time()
     pending = None if flat_time else state["pending"]
     as_of = done.index[-1] + BAR
@@ -389,10 +407,10 @@ def live_state(bars: pd.DataFrame, symbol: str, now: Optional[pd.Timestamp] = No
 
 # --- Forward record: sessions after the tested record was frozen ---------------------
 def forward_record(bars: pd.DataFrame, symbol: str, since: str, gate: Optional[Dict[str, Any]] = None,
-                   now: Optional[pd.Timestamp] = None) -> Dict[str, float]:
+                   now: Optional[pd.Timestamp] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
     """Results of completed sessions after ``since``: days the frozen rules had never seen."""
     now = (now or pd.Timestamp.now(tz="UTC")).tz_convert(SESSION_TZ)
-    frame = backtest_frame(bars, cost_for(symbol), gate=gate)
+    frame = backtest_frame(bars, cost_for(symbol), gate=gate, params=params)
     if frame.empty:
         return {}
     today = now.normalize().tz_localize(None)
