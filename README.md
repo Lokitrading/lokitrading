@@ -162,8 +162,6 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8124
 ```
 
-Optional environment variables: `LOKI_SITE_GATE=1` enables the gate (default code `flathead`; set `LOKI_SITE_CODE` to change it), `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` enable the login flow, Alpaca keys are browser-held and verify through the relay (`/api/broker/alpaca/*`) whenever the user enters them.
-
 On macOS or Linux:
 
 ```bash
@@ -173,6 +171,8 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 ```bash
 .venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8124
 ```
+
+Optional environment variables: `LOKI_SITE_GATE=1` enables the gate (default code `flathead`; set `LOKI_SITE_CODE` to change it), `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` enable the login flow, Alpaca keys are browser-held and verify through the relay (`/api/broker/alpaca/*`) whenever the user enters them.
 
 ### Checks
 
@@ -257,7 +257,7 @@ supabase/                SQL to run once in the Supabase project
 **How the browser scripts fit together**
 
 - Every script is self-contained. Scripts talk to each other only through named objects on `window` (`Loki` for the engine, `LokiWorkspace` for the shared workspace helpers, `LokiCurrency`, and a few more) and through page events such as `loki:view`.
-- `static/js/workspace.js` loads first on the workspace page and offers the shared helpers. Each script that uses them names what it takes on its first line.
+- `static/js/workspace.js` loads before the scripts that use it and offers the shared helpers. Each of those scripts names what it takes on its first line.
 - The vendored sources in `third_party/` are pinned by hash: `tests/test_fusion_provenance.py` fails if a byte changes.
 
 ## 6. Feature reference
