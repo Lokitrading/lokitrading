@@ -1,3 +1,5 @@
+"""Funded-account connections: encrypted tokens, per-user isolation and safe failures."""
+
 import json
 import time
 

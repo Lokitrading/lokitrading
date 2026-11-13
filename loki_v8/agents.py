@@ -1,30 +1,27 @@
-"""LOKI v8 — multi-agent orchestration layer (AutoHedge-inspired).
+"""LOKI v8 — the agents behind the live AI's decisions.
 
-    Director ──► Quant ──► Risk ──► Execution
+    Director ──► Quant ──► Risk
 
-Each agent emits a structured JSON decision so the whole chain is auditable.
-The pipeline is deterministic (no LLM key required); an LLM reasoning hook can
-be slotted into the Director later without changing the interface.
+The Director sets the market posture, the Quant produces the trading signal and
+the Risk agent sizes or vetoes it. Each emits a structured decision so the whole
+chain is auditable. Everything is deterministic: there is no language model here.
+
+Nothing in this module places an order. The API returns the decisions; the paper
+ledger that acts on them lives in the visitor's browser.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-from .broker import make_broker
 from .config import LokiConfig
 from .data import get_provider
-from .regime import Regime, detect_regime, is_bearish, is_bullish
+from .regime import Regime, is_bearish, is_bullish
 from .risk import RiskManager
 from .strategy import EnsembleStrategy
 
 logger = logging.getLogger(__name__)
-
-
-def _json(obj) -> str:
-    return json.dumps(obj, default=str, indent=2)
 
 
 class DirectorAgent:
@@ -134,75 +131,15 @@ class RiskAgent:
         return {"approved": False, "reason": "hold"}
 
 
-class ExecutionAgent:
-    """Order generation + execution against the broker."""
-
-    def __init__(self, cfg: LokiConfig, broker=None):
-        self.broker = broker or make_broker(cfg)
-
-    def run(self, symbol: str, decision: Dict, price: float) -> Dict:
-        if not decision.get("approved"):
-            return {"executed": False, "reason": decision.get("reason")}
-        if decision.get("action") == "BUY":
-            if symbol in self.broker.positions:
-                return {"executed": False, "reason": "position_already_open"}
-            qty = decision["qty"]
-            ok = self.broker.buy(symbol, qty, price)
-            if ok and symbol in self.broker.positions:
-                pos = self.broker.positions[symbol]
-                pos.stop_loss = decision["stop"]
-                pos.take_profit = decision["target"]
-            return {"executed": ok, "action": "BUY", "qty": qty, "price": price}
-        elif decision.get("action") == "SELL":
-            ok = self.broker.close(symbol, price)
-            return {"executed": ok, "action": "SELL", "price": price}
-        return {"executed": False, "reason": "unknown_action"}
-
-
 class LokiAgentPipeline:
-    """Runs the full Director→Quant→Risk→Execution chain over a symbol."""
+    """One symbol's Director and Quant, with the price feed they read.
 
-    def __init__(self, cfg: LokiConfig, broker=None):
+    Risk is deliberately not held here: a pipeline is shared between callers, so each
+    request builds its own ``RiskAgent`` from the caller's ledger.
+    """
+
+    def __init__(self, cfg: LokiConfig):
         self.cfg = cfg
         self.provider = get_provider()
         self.director = DirectorAgent(cfg)
         self.quant = QuantAgent(cfg)
-        self.risk = RiskAgent(cfg)
-        self.executor = ExecutionAgent(cfg, broker)
-
-    def run_symbol(
-        self,
-        symbol: str,
-        equity: float,
-        open_positions: int,
-        price: float,
-        *,
-        execute: bool = False,
-    ) -> List[Dict]:
-        """Run the pipeline and return the ordered decision trail."""
-        trail: List[Dict] = []
-        try:
-            df = self.provider.fetch_history(symbol, self.cfg.period, self.cfg.timeframe)
-            regime = detect_regime(df)
-        except Exception as exc:  # noqa: BLE001
-            return [{"agent": "director", "error": str(exc)}]
-
-        d = self.director.run(symbol, regime)
-        trail.append({"agent": "director", **d})
-
-        sig = self.quant.run(symbol, df)
-        if sig:
-            sig["regime"] = regime.state
-        trail.append({"agent": "quant", **(sig or {"action": "HOLD"})})
-
-        r = self.risk.run(d["posture"], sig, equity, open_positions, price)
-        trail.append({"agent": "risk", **r})
-
-        e = (
-            self.executor.run(symbol, r, price)
-            if execute
-            else {"executed": False, "reason": "review_only", "approved": r.get("approved", False)}
-        )
-        trail.append({"agent": "execution", **e})
-
-        return trail

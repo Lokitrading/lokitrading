@@ -1,5 +1,10 @@
+/* Historical analogues (practice view): trains a research model on one instrument's
+ * history and shows what followed similar past conditions. Research only: it needs
+ * the local Loki launcher and never places an order.
+ */
 'use strict';
 (() => {
+  const { element, number, request, pct, human, table, inlineMetrics, bulletList, exportJSON, csvRows, capabilities } = window.LokiWorkspace; // shared helpers (workspace.js)
   const host=document.getElementById('simulated-market');
   if(!host||document.getElementById('analogue-research'))return;
   const panel=element('section','','panel');
@@ -31,8 +36,7 @@
     if(busy)return;
     busy=true;panel.querySelectorAll('button').forEach(b=>b.disabled=true);
     try{
-      if(!capabilities)await loadCapabilities();
-      if(!capabilities?.local_actions_enabled)throw Error('Analogue research needs the local Loki launcher and its private session token.');
+      if(!(await capabilities())?.local_actions_enabled)throw Error('Analogue research needs the local Loki launcher and its private session token.');
       await task();
     }catch(error){messageNode.textContent=error.message;}
     finally{busy=false;panel.querySelectorAll('button').forEach(b=>b.disabled=false);controls();}

@@ -1,3 +1,5 @@
+"""train_analogue.py: one instrument per file, session metadata kept, reproducible snapshots."""
+
 import gzip
 import hashlib
 import json

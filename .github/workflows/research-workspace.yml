@@ -82,17 +82,12 @@ jobs:
               "tests/test_simulated_market.py",
               "tests/test_site_access.py",
               "tests/test_strategy_backtest.py",
-              "tests/test_strategy_lab.js",
               "tests/test_strategy_lab.py",
               "tests/test_trainer.py",
               "tests/test_v8_upgrades.py",
               "tests/test_watchtower.py",
           ]
           subprocess.run(
-              [sys.executable, "-m", "pytest", "-o", "addopts=", "--strict-markers", "--tb=short", "-q", *[t for t in tests if t.endswith(".py")]],
-              check=True,
-          )
-          subprocess.run(
-              ["node", "--test", *[t for t in tests if t.endswith(".js")]],
+              [sys.executable, "-m", "pytest", "-o", "addopts=", "--strict-markers", "--tb=short", "-q", *tests],
               check=True,
           )

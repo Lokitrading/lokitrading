@@ -54,7 +54,6 @@ class LokiConfig:
 
     # --- Strategy ---------------------------------------------------------
     signal_threshold: float = 20.0  # |score| (0-100) required to act
-    min_confidence: float = 65.0  # min ensemble confidence (0-100)
     require_trend_filter: bool = True  # only trade with-trend signals
     regime_filter: bool = True  # block new longs while in a bear regime
     allow_short: bool = False  # enable short entries (crypto can short)
@@ -106,15 +105,8 @@ class LokiConfig:
         }
     )
 
-    # --- Live broker credentials (added later via .env) -------------------
-    alpaca_api_key: Optional[str] = None
-    alpaca_api_secret: Optional[str] = None
-    binance_api_key: Optional[str] = None
-    binance_api_secret: Optional[str] = None
-
     # --- Misc -------------------------------------------------------------
     state_dir: str = "state"
-    log_level: str = "INFO"
 
     def to_dict(self) -> dict:
         return asdict(self)

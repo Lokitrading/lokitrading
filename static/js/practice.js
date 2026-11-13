@@ -11,6 +11,7 @@
  */
 'use strict';
 (() => {
+  const { element, inlineMetrics, bulletList } = window.LokiWorkspace; // shared helpers (workspace.js)
   const $$ = (selector) => [...document.querySelectorAll(selector)];
 
   const EXERCISES = {

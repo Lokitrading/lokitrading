@@ -191,48 +191,6 @@ def _signal(bars: list[Bar], index: int, parameters: TrendParameters, config: La
     return min(config.max_exposure, config.target_volatility / volatility) if volatility > 0 else config.max_exposure
 
 
-def analyze_trend(
-    data: Sequence[Mapping[str, Any]], parameters: Mapping[str, Any] | TrendParameters,
-    config: Mapping[str, Any] | LabConfig | None = None,
-) -> dict[str, Any]:
-    """Analyze completed candles with a frozen research parameter pair.
-
-    The caller must exclude the currently forming candle. This uses exactly the
-    research signal's completed-bar calculation for the *next* opening fill;
-    it does not fit parameters or place orders. ``suggested_stop`` is a fresh
-    entry reference, not the trailing high of an existing position.
-    """
-    if isinstance(parameters, Mapping):
-        if set(parameters) != {"fast", "slow"}:
-            raise ValueError("Trend parameters need fast and slow only")
-        parameters = TrendParameters(**parameters)
-    if not isinstance(parameters, TrendParameters):
-        raise ValueError("parameters must be a frozen fast/slow pair")
-    if (any(isinstance(value, bool) or not isinstance(value, int) for value in (parameters.fast, parameters.slow))
-            or not 1 <= parameters.fast < parameters.slow <= 1000):
-        raise ValueError("Trend parameters must satisfy 1 <= fast < slow <= 1000")
-    if config is None:
-        config = LabConfig()
-    elif isinstance(config, Mapping):
-        try:
-            config = LabConfig(**config)
-        except TypeError as exc:
-            raise ValueError("Unknown research settings") from exc
-    if not isinstance(config, LabConfig):
-        raise ValueError("config must be a mapping of research settings")
-    bars = validate_bars(data)
-    allocation = _signal(bars, len(bars), parameters, config)
-    return {
-        "target_allocation": allocation,
-        "latest_close": bars[-1].close,
-        "suggested_stop": bars[-1].close * (1 - config.trailing_stop_pct),
-        "timestamp": bars[-1].timestamp.isoformat(),
-        "observations": len(bars),
-        "parameters": asdict(parameters),
-        "completed_bars_only": True,
-    }
-
-
 def _simulate(
     bars: list[Bar], start: int, end: int, parameters: TrendParameters | None,
     config: LabConfig, capital: float, multiplier: float = 1.0, benchmark: bool = False,

@@ -1,6 +1,7 @@
 /* Explicit-start live Alpaca controller. Broker facts only; no local fills. */
 'use strict';
 (() => {
+  const { request, capabilities } = window.LokiWorkspace; // shared helpers (workspace.js)
   const el = id => document.getElementById(id);
   let connection = null, runner = null, busy = false, timer = null, generation = 0;
   let lastError = '';
@@ -8,8 +9,7 @@
   const note = text => { el('ai-live-message').textContent = text; };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function api(path, body) {
-    if (!capabilities) await loadCapabilities();
-    if (!capabilities?.local_actions_enabled) throw new Error('Live trading requires the local Loki launcher.');
+    if (!(await capabilities())?.local_actions_enabled) throw new Error('Live trading requires the local Loki launcher.');
     return request('/api/fusion/broker/live-ai' + path, body, true);
   }
   function render() {

@@ -1,5 +1,9 @@
+/* Real-market view: read a connected account, preview an order, and submit or cancel
+ * it through the local launcher. Nothing here runs on the hosted site without it.
+ */
 'use strict';
 (()=>{
+  const { $, element, number, message, request, human, table, inlineMetrics, bulletList, exportJSON, detailsJSON } = window.LokiWorkspace; // shared helpers (workspace.js)
   let preview=null,cancelTarget=null,busy=false,canWrite=false,canRead=false;
   const terminal=new Set(['closed','canceled','expired','rejected']);
   const current=()=>location.hash==='#real-market';

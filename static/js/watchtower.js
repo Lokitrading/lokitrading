@@ -1,4 +1,4 @@
-﻿/* Watchtower: tracked public quotes plus a fixed market floor and headlines.
+/* Watchtower: tracked public quotes plus a fixed market floor and headlines.
  *
  * Everything shown here comes from the /api/watch-* endpoints, which answer
  * with public data or an honest per-symbol failure. Nothing in this module
@@ -10,6 +10,7 @@
  */
 'use strict';
 (() => {
+  const { $, element } = window.LokiWorkspace; // shared helpers (workspace.js)
   const STORAGE_KEY = 'loki_watchlist_v1';
   const MAX_SYMBOLS = 8;
   const INSTRUMENT = /^[A-Z0-9^.=\-/]{1,15}$/;

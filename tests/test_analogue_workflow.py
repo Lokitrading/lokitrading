@@ -1,3 +1,5 @@
+"""Analogue workflow: saved-model catalogue, latest estimates, and blocked cross-origin use."""
+
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import hashlib

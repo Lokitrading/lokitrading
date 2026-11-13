@@ -1,3 +1,18 @@
+"""Loki's web application: the one FastAPI app behind every page and API route.
+
+In order, this module:
+
+* builds the app and its security headers (Content-Security-Policy, HSTS, no-store);
+* guards every page and API route with the site access gate and the member privacy boundary;
+* serves the pages (workspace, gate, login, account, legal pages, private chat, revenue statement);
+* handles sign-up, login and sessions through Supabase;
+* exposes the small core APIs (health, currency rate, proof engine, strategy lab,
+  Talk to Loki, risk preview);
+* mounts every feature router from ``loki/api`` (AI paper trading, brokers, live
+  markets, prediction markets, news, watchtower, the game, and the rest);
+* returns honest error pages and validation errors that never echo user input.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -46,6 +61,9 @@ from loki.api.replay_data import router as replay_router
 from loki.api.revenue import router as revenue_router
 from loki.api.watchtower import router as watchtower_router
 
+# ---------------------------------------------------------------------------
+# The app and its feature routers.
+# ---------------------------------------------------------------------------
 # Interactive API docs are a map of every endpoint: useful locally, needless
 # on a public deployment. LOKI_API_DOCS=1 turns them back on deliberately.
 _PUBLIC_DEPLOY = bool(os.environ.get("VERCEL") or os.environ.get("LOKI_SITE_GATE") == "1")
@@ -84,6 +102,9 @@ for _router in (
     app.include_router(_router)
 
 
+# ---------------------------------------------------------------------------
+# Security headers and the member privacy boundary.
+# ---------------------------------------------------------------------------
 # Scripts only from this site (no inline scripts anywhere), so injected
 # markup cannot run code; styles allow inline for the component styling and
 # nothing may frame the site except itself.
@@ -159,6 +180,9 @@ async def member_privacy_boundary(request: Request, call_next):
     return response
 
 
+# ---------------------------------------------------------------------------
+# Static files, templates and the workspace page.
+# ---------------------------------------------------------------------------
 # Resolve assets independently of the process working directory.
 repo_dir = Path(__file__).resolve().parents[2]
 static_dir = repo_dir / "static"
@@ -413,6 +437,9 @@ async def gate_forget(response: Response):
     return {"ok": True, "forgotten": True}
 
 
+# ---------------------------------------------------------------------------
+# Accounts: sign-up, login, nickname and session (Supabase).
+# ---------------------------------------------------------------------------
 class AuthBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: str = Field(min_length=3, max_length=254)
@@ -583,6 +610,9 @@ async def fx_rate():
     return {"from": "USD", "to": "AUD", "rate": rate, "live": True}
 
 
+# ---------------------------------------------------------------------------
+# More pages: login, private chat, revenue statement.
+# ---------------------------------------------------------------------------
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     return templates.TemplateResponse(
@@ -614,6 +644,9 @@ async def revenue_page(request: Request):
     return templates.TemplateResponse(request=request, name="revenue.html", context=context)
 
 
+# ---------------------------------------------------------------------------
+# Core APIs: proof engine, strategy lab, Talk to Loki, risk preview.
+# ---------------------------------------------------------------------------
 class ResearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     bars: list[dict] = Field(min_length=161, max_length=5000)
@@ -854,6 +887,9 @@ def risk_preview(payload: SizingRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+# ---------------------------------------------------------------------------
+# Health check and icons.
+# ---------------------------------------------------------------------------
 def deployment_warnings() -> List[str]:
     """Settings a public deployment is missing (names only, never values)."""
     public = bool(os.environ.get("VERCEL") or site_access.gate_enabled())

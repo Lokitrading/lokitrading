@@ -11,11 +11,12 @@ Nothing here places orders or gives personal advice.
 
 from __future__ import annotations
 
-import logging
 import difflib
+import logging
 import random
 import re
 from concurrent.futures import ThreadPoolExecutor
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -276,10 +277,12 @@ def _universal() -> Dict[str, Any]:
 
 # --- answer builders ----------------------------------------------------------
 def _pct(v: Any) -> str:
+    """A signed percentage to one decimal. Halves round away from zero, as the pages show them."""
     try:
-        return f"{float(v):+.1f}%"
-    except (TypeError, ValueError):
+        value = Decimal(str(float(v))).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    except (TypeError, ValueError, ArithmeticError):
         return "—"
+    return f"{value:+}%" if value.is_finite() else "—"
 
 
 def _symbol_record(symbol: str) -> Optional[str]:

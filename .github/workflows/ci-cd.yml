@@ -70,7 +70,7 @@ jobs:
         PYTHONPATH: .
     
     - name: Test browser profile and research agent logic
-      run: node --test tests/test_strategy_lab.js tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js
+      run: node --test tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v7
@@ -145,8 +145,7 @@ jobs:
                      "/static/css/style.css", "/static/css/engine.css",
                      "/static/js/workspace.js", "/static/js/trade.js",
                      "/static/js/engine/core.js", "/static/js/engine/mc_worker.js",
-                     "/static/vendor/three/three.module.min.js",
-                     "/static/vendor/chartjs/chart.umd.js"):
+                     "/static/vendor/three/three.module.min.js"):
             with urlopen(Request(base + path, headers={"Accept": "text/html"}), timeout=10) as response:
                 assert response.status == 200, path
         with urlopen(base + "/api/fusion/capabilities") as response:

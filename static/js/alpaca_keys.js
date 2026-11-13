@@ -9,6 +9,7 @@
  */
 'use strict';
 (() => {
+  const { $, element, number, message, request, human, table, inlineMetrics } = window.LokiWorkspace; // shared helpers (workspace.js)
   const KEY = 'loki_alpaca_keys_v1';
   const viewActive = () => location.hash === '#real-market';
   let busy = false, connected = false, verifiedFor = null;

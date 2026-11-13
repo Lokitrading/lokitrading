@@ -109,7 +109,7 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertIn("static/**", included)
         self.assertTrue((ROOT / "templates" / "index.html").is_file())
         self.assertTrue((ROOT / "static" / "css" / "style.css").is_file())
-        self.assertTrue((ROOT / "static" / "js" / "strategy-lab.js").is_file())
+        self.assertTrue((ROOT / "static" / "js" / "day_trader.js").is_file())
         self.assertTrue((ROOT / "static" / "js" / "workspace.js").is_file())
 
     def test_landing_has_loki_dive_arcade_wiring(self):

@@ -9,14 +9,8 @@ its causal factor cards, shadow replay and council. The original SMA-seeded
 Wilder recurrence and undefined-flat convention are preserved. `None` replaces
 the original pandas `NaN`, and Python lists replace numpy/pandas.
 
-Loki also exposes the adapted `factor_analysis` Spearman information coefficient
-and equal-weight rank-group equity calculations through
-`core.fusion.quant.evaluate_factor_panel`. Ranking only jointly observed assets
-and the five-name minimum for IC are preserved. Quantile membership uses
-deterministic symbol tie-breaking; it does not reproduce pandas' exact qcut bin
-boundaries for every universe size. Quantile equity is explicitly gross. The
-caller must supply correctly aligned, nonoverlapping forward labels to interpret
-it as compounded performance; the function cannot verify label provenance.
+Loki also uses the `PendingOrderRequest` contract from `order_contracts`,
+retained verbatim, to validate orders before any preview or submission.
 
 The unchanged originals are in `upstream/` for auditing and are not imported by
 Loki. No factor zoo, Qlib definitions, fonts, generated strategy execution,

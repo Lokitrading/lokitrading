@@ -1,10 +1,268 @@
 # Loki Trading Workspace
 
-One FastAPI application plus an on-device engine: the information workspace at the gate, a Supabase-gated sign-in, a real-money-capable trade terminal (Alpaca and Tradovate), a six-bot self-learning AI council, AI paper trading, prediction-market engines, a Red Team lab, a 3D engine map, a replay sandbox, a quant lab, news, watchtower, and the "Bored?" game — Loki Dive, a nova-deep trivia ride with seven 25-second rounds per dive, streak combos, typo forgiveness, and example answers after every miss — plus a browser-held Alpaca paper order rail and an in-page autopilot with published, hand-railed rules.
+Loki is a trading research site: one FastAPI application plus an engine that runs in the visitor's browser. It has a Day Trader AI and a Portfolio AI that trade paper money by tested rules, a trade terminal for Alpaca and Tradovate with guardrails, a six-bot council, a Red Team lab, prediction-market tools, live markets, news, a 3D engine map, a replay lab and games.
 
-Everything ships over Vercel: every push to `main` reaches https://lokitrading.vercel.app through the connected Vercel project. Access is code-gated; the gate code lives in the deployment env, not in this repository.
+- **Live site:** https://lokitrading.vercel.app. Every push to `main` deploys there through Vercel. Access is code-gated; the gate code lives in the deployment's settings.
+- **Results are simulated.** Every performance figure below comes from a historical test with assumed costs, or from paper money. None of it is a promise of profit or financial advice.
 
-## On-device engine (2.52)
+## Contents
+
+1. [What is in the app](#1-what-is-in-the-app)
+2. [The trading AIs and how they tested](#2-the-trading-ais-and-how-they-tested)
+3. [Safety and honesty rules](#3-safety-and-honesty-rules)
+4. [Run, test and deploy](#4-run-test-and-deploy)
+5. [Project layout](#5-project-layout)
+6. [Feature reference](#6-feature-reference)
+7. [Release notes](#7-release-notes)
+
+## 1. What is in the app
+
+Each row is a page in the sidebar. "On device" means the work runs in the visitor's browser.
+
+| Page | What it does | Main code |
+|---|---|---|
+| Overview | Where you left off, the daily AI briefing with its self-check, a market snapshot and getting-started guides | `static/js/ai_briefing.js`, `loki_radar.js`, `visit_note.js`, `next_steps.js` |
+| Command center | Every engine on one screen: telemetry, execution quality, live Monte Carlo risk, consensus gate, strategy evolution, order-book heatmap, plain-English strategy builder, central-bank newswire | `static/js/command_center.js`, `static/js/engine/` |
+| Red Team lab | Attacks a proposed trade before it is simulated: jury and red team, local paper book, tilt detector, replay engine, cross-asset matrix, stress lab, post-mortems (on device) | `static/js/redteam_view.js`, `engine/jury.js`, `engine/redteam.js`, `engine/paperbook.js`, `engine/guard.js`, `engine/stress.js` |
+| Trade | Real orders to Alpaca (paper or live) and Tradovate (demo or live) with guardrails, an autopilot on practice money, and a signed log | `static/js/trade.js`, `engine/audit.js`, `loki/api/broker_tradovate.py` |
+| AI council | Six statistical bots scored honestly, a league table, the sentiment swarm (on device) | `static/js/council_view.js`, `engine/council.js`, `engine/swarm.js` |
+| Quant lab | Import one asset's history: walk-forward research, factor diagnostics, pullback test, machine-learning study, proof engine, watchtower and headlines | `static/js/workspace.js`, `proof_engine.js`, `watchtower.js`, `core/strategy_lab.py`, `core/fusion/quant.py` |
+| Paper portfolio | A paper journal, a position-size preview, backup and restore | `static/js/workspace.js`, `backup.js`, `core/fusion/portfolio.py`, `core/risk_preview.py` |
+| AI trading | **Day Trader** (main mode), **Portfolio AI**, the weekly self-review, the per-symbol paper simulator with the AI's reasoning, live-account controls, funded-account panel | `static/js/day_trader.js`, `portfolio_ai.js`, `ai_evolution.js`, `ai_trading.js`, `live_trading.js`, `funded_accounts.js`, `loki/api/ai_paper.py`, `loki_v8/` |
+| Live markets | Self-refreshing board, candlestick chart, the AI's read on the chosen symbol, price alerts | `static/js/live_markets.js`, `loki/api/live_markets.py` |
+| Talk to Loki | Plain-English answers about markets, the AIs and your own research (no language model) | `loki/api/loki_brain.py`, `core/copilot.py` |
+| Prediction markets | Polymarket odds, Crowd vs Machine, the paper bot, the 5-minute arbitrage engine, a market-making simulator, a Kalshi ↔ Polymarket check, paper predictions (all paper) | `static/js/predictions.js`, `polymarket_bot.js`, `arb_view.js`, `pm_lab.js`, `loki/api/polymarket.py`, `loki/api/polymarket_bot.py` |
+| 3D engine map | A live 3D map of every venue the device talks to | `static/js/engine/execmap.js` |
+| Replay lab | Past crises replayed bar by bar against the council and the risk matrix (on device) | `static/js/engine/replay.js`, `static/js/engine_views.js` |
+| News | Public headlines with topic and keyword filters | `static/js/news_view.js`, `loki/api/news_desk.py` |
+| Simulated market | A generated practice exchange with a paper order ticket, guided drills, analogue research, and AI paper trading on Alpaca through the local launcher | `static/js/simulated_market.js`, `practice.js`, `analogue_workspace.js`, `broker_workspace.js`, `core/fusion/simulated_market.py` |
+| Real account | Alpaca paper keys, the Portfolio AI on that paper account (preview first), exchange balances, and manual Kraken spot orders through the local launcher | `static/js/alpaca_keys.js`, `real_account.js`, `core/fusion/real_account.py`, `core/fusion/real_execution.py` |
+| Bored? | Games: Market Word, Beat the Bots, Loki Dive with its leaderboard | `static/js/market_word.js`, `beat_bots.js`, `game.js`, `dive_board.js` |
+
+Other pages: the access gate (`/gate`), login (`/login`), account (`/account`), private chat (`/ai-chat`), and the legal pages (`/terms`, `/privacy`, `/cookies`, `/transparency`).
+
+## 2. The trading AIs and how they tested
+
+All figures are simulated on historical data after assumed costs. Rules are chosen on earlier years only and judged on later years they never saw. Ideas that were tested and failed are kept on record.
+
+| AI | What it does | Unseen-data result | Honest limits |
+|---|---|---|---|
+| **Portfolio AI** | Holds 21 markets while they trend; idle cash in T-bills | +14.2% a year, Sharpe 1.29, worst drop −9.2% (2023 → Nov 2026) | Trails buy-and-hold in a strong bull market; its edge is smaller drops |
+| **Day Trader** (stocks and funds) | In and out the same day on six markets, flat every night | +7.4% a year, Sharpe 1.00, worst drop −9.0% (2022 → Nov 2026) with instant fills; +5.9% one minute late; +4.2% five minutes late | Thin edge; lost money on 20 of the 28 markets tested; depends on fast fills |
+| **Day Trader** (futures: MES, MNQ) | The same rules on micro index futures | +7.9% a year, Sharpe 1.06, worst drop −9.2% with instant fills; +6.2% one minute late | Tested on index funds at futures costs; futures are leveraged |
+| **Six-bot council** | Predicts the next five bars | About zero skill against always guessing the usual up-rate | Five-day direction is close to unpredictable, and the page says so |
+
+### Day Trader (main mode on the AI trading page)
+
+- **Method** (`loki_v8/daytrade.py`): published intraday momentum with noise bands (Zarattini, Aziz and Barbon, 2024), used as written with no tuning and one stated change: the average-price line is time-weighted, so every price feed gives the same signals. For every 5-minute slot it measures how far price normally sits from the day's open at that time (14-session average). Every 30 minutes it goes long above that band and the session's average price, short below, flat in between. Everything closes before the bell.
+- **One engine.** The function `replay_day` runs the 10-year test and the live plan (`GET /api/fusion/ai/daytrade?mode=stocks|futures`), so the page trades what was tested.
+- **Test** (`train_daytrade.py` → `loki_v8/daytrade_record.json`): 10 years of 5-minute bars from Alpaca on 28 markets. Costs per side: 1 bp on the big index funds, 2 bp on stocks, 0.5 bp on futures. A market is traded only if it passed on 2016–2021 with instant fills and with fills 5 minutes late. Six passed: QQQ, NVDA, TSLA, AMZN, AMD, ARKK.
+- **Learning from mistakes.** At each day's first signal it rates the setup against about 9,300 past trading days and sits out days that look like past losers. Each year is traded with a model fitted only on earlier years. The filter is kept only where it beat the plain rules on 2018–2021 and beat filters trained on scrambled outcomes (28 of 30 and 30 of 30). It is on for stocks and off for futures, where it did not help.
+- **Speed.** Orders are re-priced on 1-minute bars to show what a late fill costs (see the table above and the 2.65 notes). The paper book on the page acts on a new signal within seconds and logs each fill's delay.
+- **Forward record.** The record ends on a fixed date. Every session after it is replayed with the frozen rules and shown on the page, with a note that a few days prove nothing.
+- **Paper money only.** No orders leave the browser.
+
+### Portfolio AI (21 markets at once)
+
+`loki_v8/portfolio_ai.py` replays each market's verified profile (13 stocks/ETFs incl. gold and bonds, 8 coins), gives every active market an equal share of capital, and scales the whole book toward a target yearly volatility — capped so total holdings never exceed 100% of the account. The target (10%) was chosen on 2005-2022 only. Untouched holdout 2023 → Nov 2026 (idle cash in T-bills since 2.58): **+14.2%/yr, Sharpe 1.29, worst drop −9.2%, 66% of months profitable**, versus equal-weight buy-and-hold of the same markets at +21.9%/yr, Sharpe 0.98, worst drop −28.3%. `GET /api/fusion/ai/portfolio` returns what that exact book holds at the latest completed bar; the AI trading page's Portfolio AI panel mirrors it with paper money. Historical results, not a promise.
+
+### Live AI (per symbol) follows the verified rules
+
+The AI paper trader (`/api/fusion/ai/step`) decides through `loki_v8/live_engine.py`, which mirrors `run_backtest` bar for bar: it scores only the last *completed* daily bar (today's forming candle is excluded), applies the same trend / regime / volatility gates and conviction / vol-target sizing, and manages open positions with the profile's time stop, breakeven lock, trailing stop and partial target. `tests/test_live_engine.py` replays backtests and checks the live planner agrees on every entry decision.
+
+### 20-year universal profiles (current live AI)
+
+`train_long_history.py` fits ONE rulebook for stocks/ETFs and one for crypto on daily data from 2004 (crypto from 2014), using the same `run_backtest` the live engine mirrors, with 10 bps fees + 5 bps slippage per side:
+
+- **select** on the worse of development (2005-2018; crypto 2015-2020) and validation (2019-2022; crypto 2021-2022) scores;
+- **report once** on the untouched holdout (2023 onward); the live AI only uses a block marked `verified` (made money on the holdout).
+
+Results shipped in `loki_v8/training_report_snapshot.json` (`universal`), data through 2026-11-06:
+
+| Holdout 2023→ | AI avg / yr | Profitable | AI avg worst DD | Buy & hold avg / yr | B&H avg worst DD |
+|---|---|---|---|---|---|
+| Stocks/ETFs (13) | +12.3% | 12/13 | −20.9% | +27.8% | −26.7% |
+| Crypto (8) | +9.2% | 7/8 | −29.4% | +17.3% | −71.3% |
+
+Stocks use trend-only scoring, entry at score ≥ 30, vol-target sizing (20%), and hold until price breaks its 200-day average (10 ATR protective stop). Crypto uses trend-leader scoring, entry ≥ 8, SELL-signal exit. The AI makes money out of sample but trails buy-and-hold in the strong 2023-26 bull market; its edge is far smaller drawdowns. Historical results, not a promise.
+
+```powershell
+python train_long_history.py --write-snapshot        # ~30 min on 4 cores
+```
+
+### Live AI: learning from mistakes
+
+`loki_v8/mistake_model.py` replays the AI's own trades, records 15 market features at every entry's signal bar and whether the trade made money after costs, and fits a small regularised logistic model. Live and in backtests the same gate then skips setups whose estimated win chance is below a threshold. It is trained only on trades that had already closed before the window it is judged on, the threshold is chosen on 2019-2022, and it ships only if the 2023+ holdout is not worse. Current result: on for stocks (validation score 0.44 → 0.51; holdout same +12.3%/yr with 108 instead of 127 trades), off for crypto (no validation gain). Rerun with `python train_long_history.py --from-report state/long_history_report.json --write-snapshot`.
+
+### Self-evolving AI (weekly)
+
+Every Sunday `.github/workflows/ai-evolution.yml` runs `evolve.py`, one generation of champion vs challengers (`loki_v8/evolution.py`):
+
+1. The live profile is the champion; its one-step neighbours on the training grid plus a few random grid points are the challengers (~15 per asset class).
+2. All are backtested over the full 20 years with the same fees, slippage, windows and score the champion was chosen with.
+3. A challenger is promoted only if its rank score (worse of 2005-2018 and 2019-2022) beats the champion's by at least 0.05 **and** it is no worse on 2023-onward and the last 12 months. Recent data can veto a promotion but never choose one.
+4. The learn-from-mistakes filter is re-validated walk-forward; the live setting is re-checked before any new one can replace it, and when it is kept it is refitted on every closed trade, including the newest.
+5. The generation is appended to `loki_v8/evolution_log.json`, the tests run, and the update is opened as a pull request. Merging deploys it; closing it keeps the current AI.
+
+The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading page, and explained by Talk to Loki ("is the AI improving itself?"). Generation 1 (2026-11-08): both champions kept (best challengers 0.441 vs 0.444 for stocks, 0.844 vs 0.852 for crypto); the stocks mistake filter was refitted on 686 closed trades. Run by hand with `python evolve.py --write-snapshot`. For the workflow to open PRs, enable *Allow GitHub Actions to create and approve pull requests* in Settings → Actions → General.
+
+### Forward test on Alpaca paper
+
+`alpaca_forward.py` mirrors the Portfolio AI's current plan onto an Alpaca **paper** account (the host is hard-wired to `paper-api.alpaca.markets`): it reads the same plan the website serves, trades only the AI's markets, skips moves under 2% of equity, sells before it buys, defers stock trades while the US market is closed (crypto trades any day), and reports the account's return and worst drop since it started. BNB is not offered by Alpaca, so its share stays in cash. It is a dry run unless `--execute` is passed.
+
+`.github/workflows/alpaca-paper-forward.yml` runs it daily at 14:45 UTC once the repository has `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` secrets (paper keys); without them it skips. Judge the results over months — a few days of paper P&L say nothing about a daily trend strategy, and tuning the AI on them would only fit noise.
+
+### Older per-symbol book
+
+`loki_v8/train.py` still provides the earlier 10-year per-symbol walk-forward book (`python -m loki_v8.train`). The live AI uses it only as a fallback when no verified universal profile exists for an asset class.
+
+## 3. Safety and honesty rules
+
+- **Simulated means simulated.** Every paper P&L panel carries a SIMULATED tag, and performance figures are labelled as hypothetical with their limits.
+- **The Day Trader, the Portfolio AI and Polymarket are paper only.** Loki never holds a wallet private key and never signs or sends a Polymarket order.
+- **Real orders exist only in the Trade terminal** and only behind its guardrails: live trading is armed per session by typing "trade real money", every live order is confirmed, there is a notional cap and a 20-live-orders-a-day cap, a kill switch, and jury and red-team approval. The autopilot only ever trades paper or demo accounts.
+- **No language models.** The council, jurors, chat brain and bots are deterministic statistical code. Nothing here is conscious or sentient.
+- **Failed ideas stay on record.** Rejected rules and experiments are listed in the tested records and on the pages.
+- **Decoration is labelled.** On the 3D map, bright comets are real requests only; the rest is decoration and the legend says so.
+
+### Guarantees
+
+- The honest-error contract: degraded states are visible, empty logs say empty, headline cards say "information, never advice", the autopilot's published rule is its contract, and the relay caps order size server-side regardless of what the panel says.
+- Keys and secrets never enter the repository; the backup export excludes credentials.
+- The "Bored?" game is entirely local: scores and dive history never leave the browser, and its rarity tiers are hand-written bank data, not measurements from other players.
+- `pytest` (all Python tests), plus `node --test` for the four JavaScript test files. The CI workflows in `.github/` run both on every push.
+
+### Security
+
+- **Isolation between users:** account data is keyed only by the uid inside the signed session cookie (validated as a UUID); a request naming another owner is refused before the database; credentials can never be saved to the cloud; chat history is per browser session; Tradovate tokens are encrypted and owner-bound.
+- **Cookies:** HMAC-signed, HttpOnly, SameSite, Secure on HTTPS. Public deployments without `LOKI_GATE_SECRET` (or a Supabase key) now sign with a random per-process key instead of a constant from the source, so cookies cannot be forged; chat admin claims additionally require `LOKI_CHAT_ADMIN_CODE`.
+- **Headers:** strict Content-Security-Policy (scripts only from this site — no inline scripts exist), `frame-ancestors 'self'`, nosniff, Permissions-Policy, COOP, HSTS on HTTPS. Cross-site writes to account/chat endpoints are rejected.
+- **Rate limits** (`loki/api/rate_limit.py`): sign-in, sign-up, broker sign-in, revenue operator key, and the heavy AI/market endpoints.
+- Real orders, broker and native-engine routes only work from the local launcher with its session token and are off on Vercel. `main.py` binds to 127.0.0.1 unless `LOKI_HOST` says otherwise.
+- **Operators should set:** `LOKI_GATE_SECRET` (long random), `LOKI_CHAT_SESSION_SECRET`, `LOKI_SITE_CODE`, `LOKI_BROKER_ENCRYPTION_KEY`, and `LOKI_SECURE_COOKIES=1` behind any non-Vercel HTTPS proxy.
+
+### Privacy, terms and age
+
+- `/privacy`, `/cookies` and `/terms` (v6) are public and describe exactly what the code does: functional first-party cookies only (no analytics, advertising or third-party cookies — so no consent banner), browser-local storage for journals/watchlists/chat, optional account saves, chat turns kept at most 30 days, broker credentials never stored.
+- **Age:** entry and sign-up require an "I am 18 or older" confirmation, enforced server-side; no birth date is asked for or stored.
+- **Data rights:** `GET /api/account/export` (download my data), `POST /api/account/delete` (type DELETE; removes saves, published score and the login), and a "clear Loki data from this browser" control on `/privacy`.
+- **Minimisation:** no third-party requests from the browser (Google Fonts removed; CSP allows no external hosts).
+- **Claims:** performance figures are labelled as hypothetical/simulated with a limitations disclaimer; marketing lines that the evidence did not support were rewritten.
+- Set `LOKI_OPERATOR_NAME` and `LOKI_OPERATOR_EMAIL` so the policies name the data controller and a contact address. Have the policies reviewed for your jurisdiction.
+
+## 4. Run, test and deploy
+
+### Run locally
+
+Requires Python 3.12. From the repository root, on Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8124
+```
+
+On macOS or Linux:
+
+```bash
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+```
+
+```bash
+.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8124
+```
+
+Optional environment variables: `LOKI_SITE_GATE=1` enables the gate (default code `flathead`; set `LOKI_SITE_CODE` to change it), `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` enable the login flow, Alpaca keys are browser-held and verify through the relay (`/api/broker/alpaca/*`) whenever the user enters them.
+
+### Checks
+
+```bash
+python -m pytest -q -o addopts=""
+```
+
+```bash
+node --test tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js
+```
+
+```bash
+flake8 loki loki_v8 core --select=E9,F63,F7,F82,F401
+```
+
+```bash
+mypy loki
+```
+
+`tests/test_code_structure.py` keeps the house rules: every Python module, script and stylesheet starts with a description, and every browser script is self-contained (the shared workspace helpers are taken by name from `window.LokiWorkspace`).
+
+### Deploy and automation
+
+| Workflow (`.github/workflows/`) | When | What it does |
+|---|---|---|
+| `ci-cd.yml` | Pushes to `main` and every pull request | Lint, type check, all tests on Linux and Windows, a security scan, container build and smoke test |
+| `research-workspace.yml` | Pushes to `main` and every pull request | A focused offline regression suite on Linux and Windows |
+| `ai-evolution.yml` | Sundays 05:23 UTC | One generation of the AI's self-review, opened as a pull request |
+| `alpaca-paper-forward.yml` | Daily 14:45 UTC | Mirrors the Portfolio AI on an Alpaca paper account (skips without paper keys) |
+
+Vercel deploys `main` to the live site. `GET /health` reports the running version.
+
+### Rebuilding the tested records
+
+| Script | Rebuilds | Notes |
+|---|---|---|
+| `train_long_history.py --write-snapshot` | `loki_v8/training_report_snapshot.json` (live AI and Portfolio AI) | About 30 minutes on 4 cores |
+| `train_daytrade.py --cache DIR` | `loki_v8/daytrade_record.json` (Day Trader) | Needs Alpaca market-data keys in `APCA_API_KEY_ID` / `APCA_API_SECRET_KEY` |
+| `evolve.py --write-snapshot` | `loki_v8/evolution_log.json` | Run weekly by `ai-evolution.yml` |
+| `crosscheck_alpaca.py` | Nothing; prints an independent-data check | Uses Alpaca's own daily bars |
+| `alpaca_forward.py` | Nothing; trades an Alpaca paper account | A dry run unless `--execute` is passed |
+| `train_analogue.py`, `train_public_derivatives.py` | Local research models under `state/` | See `docs/` |
+
+## 5. Project layout
+
+```text
+main.py                  entry point for uvicorn and Vercel
+loki/                    the web application
+  version.py             the release number (shown by /health, used to refresh cached assets)
+  api/server.py          the FastAPI app: pages, security headers, access gate, accounts, core APIs
+  api/*.py               one module per feature (table below)
+loki_v8/                 the trading engine: indicators, strategy, backtest, live engine,
+                         Portfolio AI, Day Trader, training
+  *.json                 the tested records the site serves
+core/                    research engines: strategy lab, Talk to Loki's copilot, core/fusion/*
+third_party/             small vendored MIT sources with licences and hashes
+templates/               the pages (index.html is the workspace)
+static/css/              stylesheets (style.css is the base)
+static/js/               one script per feature
+static/js/engine/        the on-device engine (window.Loki)
+static/vendor/three/     Three.js r170 for the 3D map (MIT)
+tests/                   the regression suite (pytest, plus four Node test files)
+docs/                    setup and research notes
+supabase/                SQL to run once in the Supabase project
+.github/workflows/       CI and the scheduled jobs
+*.py (root)              scripts that rebuild the tested records (section 4)
+```
+
+**`loki/api`, by feature**
+
+| Area | Modules |
+|---|---|
+| App, access and accounts | `server.py`, `site_access.py`, `member_data.py`, `rate_limit.py`, `revenue.py` |
+| Trading AIs | `ai_paper.py` (live AI, Portfolio AI, Day Trader, evolution), `alpaca_ai.py` |
+| Brokers | `broker_alpaca.py`, `broker_tradovate.py`, `funded.py`, `broker_workspace.py` |
+| Markets and news | `live_markets.py`, `market_feed.py`, `binance_market_data.py`, `watchtower.py`, `news_desk.py`, `replay_data.py`, `feed_status.py`, `engine_feeds.py` |
+| Prediction markets | `polymarket.py`, `polymarket_bot.py` |
+| Chat | `loki_brain.py`, `loki_wording.py`, `ai_chat.py` |
+| Research | `fusion.py`, `analogue.py`, `proof_engine.py`, `proof_rate_store.py`, `strategy_backtest.py`, `indicator_page.py` |
+| Games | `dive_board.py`, `dive_sessions.py` |
+
+**How the browser scripts fit together**
+
+- Every script is self-contained. Scripts talk to each other only through named objects on `window` (`Loki` for the engine, `LokiWorkspace` for the shared workspace helpers, `LokiCurrency`, and a few more) and through page events such as `loki:view`.
+- `static/js/workspace.js` loads before the scripts that use it and offers the shared helpers. Each of those scripts names what it takes on its first line.
+- The vendored sources in `third_party/` are pinned by hash: `tests/test_fusion_provenance.py` fails if a byte changes.
+
+## 6. Feature reference
+
+### On-device engine (2.52)
 
 Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so Vercel mostly serves files and a few relays:
 
@@ -19,242 +277,7 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
-## 2.65: Day Trader v3 — feed-proof signals, a wider test, and what slow fills cost
-
-**The rules**
-- **Same signals from every price feed.** The rules compare price with the session's average price. The published method weights that average by volume, but free feeds disagree about intraday volume (two servers of the same provider differed on about 20% of bars), so a signal could depend on which server answered. The average is now time-weighted and uses no volume. In the 10-year test the two versions give near-identical results (daily correlation 0.97–0.99).
-- **Exact accounting.** A position is tracked from its fill price to its exit price. A short is a fixed number of shares; nothing is compounded bar by bar. The paper book on the page has always worked this way, and the test now matches it.
-
-**A wider, stricter test** (`train_daytrade.py`)
-- 28 markets instead of 12: index funds, large stocks, sector funds, gold, silver, bonds, oil, gas, emerging markets and China.
-- A market is traded only if it passed on 2016–2021 with instant fills *and* with fills 5 minutes late (Sharpe above 0.3 both ways). Six passed: QQQ, NVDA, TSLA, AMZN, AMD, ARKK.
-- On unseen data the rules lost money on 20 of the 28 markets. All 28 together made −3.6% a year.
-
-**Results on unseen data (2022 → November 2026, simulated, after costs)**
-
-| Book | Instant fills | 1 min late | 2 min late | 3 min late | 5 min late |
-|---|---|---|---|---|---|
-| Stocks and funds (6 markets, mistake filter on) | +7.4%/yr, Sharpe 1.00, worst drop −9.0% | +6.0% | +4.8% | +4.4% | +4.2%, Sharpe 0.61 |
-| Futures (MES and MNQ, filter off) | +7.9%/yr, Sharpe 1.06, worst drop −9.2% | +6.3% | +5.1% | +4.0% | +5.1%, Sharpe 0.74 |
-
-- Without the mistake filter the stock book made +3.2% a year with instant fills and −0.9% with fills 5 minutes late.
-- The 1–3 minute columns use 1-minute bars: each order is re-priced at the open of the minute N minutes after its signal. Two cross-checks hold exactly: at 0 minutes this method reproduces the main test, and at 5 minutes it reproduces the 5-minute-bar late test.
-- In 2016–21 a one-minute delay cost almost nothing. Since 2022 it costs about a fifth of the result: the edge goes to whoever acts first.
-- Futures are tested on each contract's index fund at futures costs. Over the last 35 sessions the funds' daily results matched the real contracts' (NQ=F, ES=F) with a correlation of 0.99.
-
-**So the live trader acts faster**
-- A decision on the bar that just closed is reported at once (`pending`), and the paper book acts on it straight away at the latest price in the feed (`now_price`). Before, it waited five minutes for the next bar to print.
-- The page checks again 12 and 40 seconds after every half hour, when the rules decide. For two minutes after each half hour the server re-reads prices every 15 seconds, and a plan built before the latest 5-minute bar closed is never reused.
-- Between full history reads (every ten minutes) only today's bars are fetched, which is a small request.
-- The mistake filter rates a pending first signal too, so the book never opens a trade the tested rules would have skipped.
-- Every paper fill logs how many seconds after the signal it happened. The page shows the running average beside the fill-speed figures.
-- If the feed stops printing bars for 30 minutes during a session (a halt or an early close), the market is treated as closed and the book goes flat.
-
-**Honest summary.** The day-trading edge is real in the test, thin, and dependent on speed. A browser on a free price feed cannot be instant, so expect the paper book between the "instant" and "1 min late" columns at best. The Portfolio AI (unseen +14.2% a year, Sharpe 1.29) remains the stronger tested strategy.
-
-## 2.64: 3D engine map, glitch fixes and a lighter, sharper look
-
-**Fixed**
-- **Flickering static.** A per-frame film-grain effect read as a glitch; it is removed.
-- **Rainbow edges.** Colour fringing is cut to a trace.
-- **Stretched stage.** The stage used to stretch to the height of the tables beside it, becoming a tall narrow strip with the camera far too close. It now has its own height, and the camera pulls back on narrow stages so the whole map stays in frame.
-- **Stutter.** Rendering is much lighter: a lower pixel ratio, the glow pass at one-third resolution with two blur passes, and less anti-aliasing.
-- **Quality governor.** If frames stay slow, it lowers the resolution first and then switches the glow pass off.
-
-**Added** (all cheap to draw)
-- Aurora ribbons.
-- Counter-rotating dashed HUD rings on the floor.
-- A lens streak across the core.
-- A shockwave from the core when an agent fires.
-- Energy running up each venue's pillar, faster when that venue is in use.
-
-The legend still says which parts are decoration.
-
-## 2.63: forward record for the Day Trader
-
-- The tested record ends on a fixed date (`data_through`). Every completed session after it is one the rules could not have been fitted to.
-- `GET /api/fusion/ai/daytrade` now returns `forward`: those sessions replayed with the frozen rules and the frozen mistake model, as an equal-capital book.
-- The page shows the total, up and down days, worst drop and a bar per day, with a plain note that a handful of days proves nothing.
-- Limits: the price feed keeps about 60 days of 5-minute bars, so the strip shows at most the last 60 days. It is simulated on delayed prices, not real trades.
-
-## 2.62: 3D engine map, second upgrade
-
-**New look** (`engine/execmap.js`)
-- **Post-processing glow.** A bloom pipeline written for this page (bright pass, separable blur, filmic tone mapping, vignette, light film grain). No extra libraries; it falls back to plain rendering if the device cannot do it.
-- **Plasma core.** The heart is an animated noise shader that runs hotter with real request traffic.
-- **Energy shield and particle disk.** A fresnel shell and thousands of orbiting points around the core.
-- **Holo floor.** A shader-drawn polar grid with an outward sweep.
-- **Light pillars.** Each venue stands on a pillar with a landing ring that brightens when it is used.
-- **Shooting stars** and a fly-in when the map opens.
-
-**New data on the map**
-- The Day Trader is now a live node. It pulses when the paper book buys, shorts or closes, and its tooltip shows the current plan.
-- A failed request flashes the shield and the screen edge red.
-
-**Still honest**
-- Bright comets are real requests and agent events only.
-- The disk, shield and shooting stars are decoration, and the legend says so.
-- Reduced-motion settings skip the fly-in and shooting stars and slow everything down. Small screens use fewer particles and a lighter glow.
-
-## 2.61: Day Trader learns from its mistakes; futures mode
-
-**Learning from mistakes** (`daytrade.learn_from_mistakes`)
-- At each day's first signal the Day Trader rates the setup from what is known at that moment: the opening gap, the day's normal range, yesterday's move, the weekday, and the signal's side and time.
-- It sits out days that look like past losing days (estimated win chance under 40%).
-- Each year is traded with a model fitted only on earlier years' days. The live site uses the model fitted on all ~8,000 past trading days.
-- It is kept only where it earned it. It had to beat the plain rules on 2018–2021 **and** beat filters trained on scrambled outcomes; it won 29 of 30 and 30 of 30. That rules out "it only helped because it traded less".
-
-| Stocks book (QQQ, NVDA, TSLA, AMZN, AMD), 2022 → now, unseen | Return / yr | Sharpe | Worst drop |
-|---|---|---|---|
-| Plain rules | +5.8% | 0.55 | −17.0% |
-| **With learning** | **+8.0%** | **1.10** | **−9.8%** |
-
-**Futures mode** (`?mode=futures`)
-- It trades micro Nasdaq-100 (MNQ) and micro S&P 500 (MES) with the same rules, tested at futures costs (0.5 bp per side) on each contract's index fund during regular US hours.
-- Unseen 2022 → now: **+8.4%/yr, Sharpe 1.13, worst drop −9.0%**. On 2016–21 it made +6.2%/yr.
-- The fund is a stand-in for the contract. Checked against the real futures over the last 35 sessions, daily results correlate 0.98–0.99.
-- Micro Russell (M2K) and micro Dow (MYM) lost money and are left out.
-- The mistake filter is **off** for futures: it did not help there on 2018–21.
-- Sizing is shown in contracts, with a plain warning. One MNQ plus one MES controls about $95,000; the test used no leverage; real futures can lose more than the deposit.
-
-**Tested and rejected**
-- An adaptive market switch (trade a market only while its recent results are positive): worse than the fixed list.
-- Volatility-scaled position size: too small a gain to matter.
-
-## 2.60: Day Trader AI (main mode)
-
-The AI trading page now leads with a **Day Trader**: in and out the same day, flat every night, paper money.
-
-**How it trades** (`loki_v8/daytrade.py`)
-- The method is published intraday momentum with noise bands (Zarattini, Aziz and Barbon, 2024), used as written with no tuning.
-- For every 5-minute slot it measures how far price normally sits from the day's open at that time (14-session average).
-- Every 30 minutes it goes long above that band and the session VWAP, short below, flat in between.
-- Orders fill at the next bar's open, and everything closes at the last bar.
-- One function, `replay_day`, runs both the 10-year test and the live plan (`GET /api/fusion/ai/daytrade`), so the page trades what was tested.
-
-**How it tested** (`train_daytrade.py` → `loki_v8/daytrade_record.json`; 10 years of 5-minute bars from Alpaca; 1 bp per side on index funds, 2 bp on stocks)
-- Twelve liquid stocks and funds were tested. Markets were chosen on 2016–2021 only (Sharpe above 0.3) and judged on 2022 onward.
-- The book holds QQQ, NVDA, TSLA, AMZN and AMD, with equal capital each.
-
-| Window | Return / yr | Sharpe | Worst drop |
-|---|---|---|---|
-| 2016–2021 (markets chosen here) | +13.0% | 1.34 | −8.9% |
-| **2022 → now (unseen)** | **+5.8%** | **0.55** | **−17.0%** |
-
-**What the record also says**
-- The rules lost money after costs on 7 of the 12 markets on unseen data. All 12 together made −0.8% a year since 2022.
-- 2025 was a losing year (−10.7%).
-- It is very sensitive to costs: at double the assumed cost most of the edge is gone.
-- It tested weaker than the Portfolio AI (+14.2% a year, worst drop −9.2% on its own unseen window).
-- Simpler rules were tested first on hourly bars and all lost after costs: opening-range breakout, first-hour and last-half-hour momentum, gap fades, and crypto breakout, dip-buying and trend rules. They are listed in the record and on the page.
-
-**On the site**
-- The browser keeps a paper book that mirrors the plan every minute: equal capital per market, long and short, closed before the bell.
-- Prices are delayed 5-minute bars. No orders leave the browser.
-- Talk to Loki answers day-trading questions from the same record.
-
-## 2.59: risk levels; another round of honest research
-
-**Risk levels (AI trading page, `GET /api/fusion/ai/portfolio?risk=steady|balanced|growth`).**
-- The same tested rules can now run at three risk levels. Each level publishes its whole simulated record (2005 → now, same fees, slippage and T-bill cash):
-
-| Level | Risk target | Return / yr | Worst drop | Losing years (of 21) | Sharpe |
-|---|---|---|---|---|---|
-| **Steady** (tested default) | 10% | +13.3% | −15.9% | 2 | 1.26 |
-| Balanced | 15% | +16.0% | −18.2% | 2 | 1.24 |
-| Growth | 20% | +17.1% | −20.3% | 4 | 1.21 |
-
-- Steady stays the default because it earned the most for the risk it took on 2005–2022. Higher levels hold more of each market, so both returns and drops grow.
-- Nothing borrows: total holdings stay capped at 100%, which is why returns flatten above Growth.
-- The Alpaca forward test and the website's Alpaca panel stay on Steady.
-- Switching level reuses the downloaded market data for a minute, so it never refetches 21 markets.
-
-**Research that did not earn a place** (chosen on 2005–2022 only; baseline score 1.19, logged in `rejected_experiments`):
-- capital tilted to the strongest markets (6- and 12-month momentum): 0.99–1.17;
-- a drawdown brake (halve or stop after a 5% or 8% drop): smaller drops but 0.25–1.13;
-- dip-buying sleeves on index funds (2-day RSI): no edge after costs, 1.04;
-- crisis diversifiers (dollar, commodities, mid-term Treasuries): 1.20, inside the noise.
-
-Twelve alternatives across three rounds have now failed to beat the current rules by the 0.05 promotion margin. That is evidence the rules sit on a robust plateau, and it is the reason no "better" signal was shipped: one chosen from this many tries would mostly be luck.
-
-**Error sweep.** Every page on the live site (desktop and mobile), every data endpoint and every button was re-checked; no new errors were found.
-
-## 2.58: idle cash earns Treasury-bill interest; year-by-year record
-
-**Idle cash in Treasury bills.**
-- The Portfolio AI holds markets only while they trend, so on average about 37% of the account sat in cash earning nothing.
-- That cash is now parked in a 0–3 month Treasury-bill fund (SGOV) in four places:
-  - the tested record;
-  - the live plan (`cash_parking`);
-  - the website's paper book, which accrues the current yield;
-  - the Alpaca paper forward test and the website's Alpaca panel, which buy and sell SGOV.
-- How the replay credits the interest:
-  - it uses yesterday's published 13-week bill yield (`^IRX`);
-  - minus a conservative 0.14% a year fee;
-  - with 2 bps charged on every move in or out.
-- The risk level was re-chosen on 2005–2022 with the cash included; it stayed at 10%.
-
-| Window | Before | With T-bills |
-|---|---|---|
-| 2005–2018 | +11.5%/yr, Sharpe 1.15, worst −15.1% | +12.0%/yr, Sharpe 1.19, worst −14.9% |
-| 2019–2022 | +15.6%/yr, Sharpe 1.39 | +15.9%/yr, Sharpe 1.42 |
-| 2023 → now (unseen) | +13.3%/yr, Sharpe 1.21, worst −9.8% | **+14.2%/yr, Sharpe 1.29, worst −9.2%** |
-
-**Year-by-year record (simulated).**
-- The AI trading page, Talk to Loki and the record (`calendar_years`) now show every calendar year since 2005.
-- It was up in 19 of 21 full years. The losing years were 2008 (−6.1%) and 2022 (−4.1%).
-- No strategy can promise a profit every year, or every month; the page says so.
-
-## 2.57: is the trading AI actually good? An honest audit
-
-**Does it work?**
-- On the live site, the Portfolio AI, the per-symbol AI (10 tickers including BRK.B and EURUSD=X), and Talk to Loki all answered correctly.
-- The live plan matches the tested 20-year replay. The live site replays only 5 years per market, yet in/out decisions disagree on at most 0.8% of days in any market.
-- The backtest is causal: it decides on the previous completed bar and fills on the next one, with stop gaps handled.
-
-**How good is it?**
-- **Portfolio AI, data it never saw (2023 on):** +13.3%/yr, Sharpe 1.21, worst drop −9.8%. Buy-and-hold of the same markets: +21.9%/yr, Sharpe 0.98, worst drop −28.3%.
-- **Hindsight check (new):** the 21 markets include individual stocks that are known winners today, which flatters any backtest.
-  - The identical method was re-run on index funds, gold, bonds, BTC and ETH.
-  - Result: +10.2%/yr, Sharpe 1.03, worst drop −8.6%, against buy-and-hold's +16.2%/yr, Sharpe 1.03, −22.0%.
-  - It **matches** buy-and-hold on risk-adjusted return; its real edge is far smaller drops.
-  - This check is now shipped in the record (`hindsight_check`), shown on the AI trading page, and given by Talk to Loki.
-- **Six-bot council:** it was scored against always guessing each market's usual up-rate, not a coin flip.
-  - Data: 10 years of 10 markets, then confirmed on 11 others.
-  - Its skill was about zero (−0.3%). Its ~55% hit rate came from markets rising more often than they fall.
-
-**What changed**
-- **Council calibration.**
-  - Bots now predict departures from the usual rate, in half-size steps.
-  - Skill vs the usual rate went from −0.31% to +0.17% on the set the change was picked on, and from −0.56% to −0.15% on the 11 markets it was not.
-  - That is less wrong, not a new edge, and the page now says so.
-  - Autopilot, consensus and the jury read the council relative to the usual rate too.
-- **Alpaca forward-test report:** today's equity is now included. Alpaca's daily history ends yesterday, so the "since" return used to lag the balance shown next to it.
-
-**Tried and rejected** (chosen on 2005–2022 only, as before; logged in `rejected_experiments`):
-- risk-balanced (inverse-volatility) weights: Sharpe 0.95–0.99 vs 1.15;
-- fixed stock/crypto budgets: 1.152 vs 1.151;
-- a multi-horizon trend blend: 1.19 vs 1.15, below the 0.05 promotion margin.
-
-The current rules sit on a robust plateau; none of these is a real improvement.
-
-## 2.56: leaner workspace, cooler 3D map
-
-- **Retired:** the Trading desk, the Scenarios page and the Research review (the AI-council review form, the narrative/MiroFish scenario engine and the Fincept bridge). Their pages, sidebar links, server endpoints (`/api/desk/*`, `/api/fusion/council`, `/api/fusion/scenario`, `/api/fusion/narrative`, `/api/fusion/*mirofish*`, `/api/fusion/fincept/*`), modules and tests are gone. Use the **Red Team lab** to review a trade before you place it; stress tests live there too.
-- **Sidebar:** the "Your research" card is gone, NEW badges stay only on the newest page (Red Team lab), and the 3D engine map moved into the main navigation.
-- **3D engine map, rebuilt:**
-  - starfield, nebula and polar-grid backdrop with tone mapping and fog;
-  - a reactor core whose heartbeat follows the real request rate;
-  - glowing curved arcs to each venue;
-  - an agent ring wired to the core;
-  - comets coloured by outcome (sent / ok / slow / failed), plus scan waves that turn red on a failure.
-- **Map controls and HUD:**
-  - drag to orbit, wheel or pinch to zoom, hover for a tooltip, click to fly to a node, double-click to reset;
-  - auto-orbit toggle and fullscreen (left automatically when you switch pages);
-  - a live HUD with requests/min, average latency, errors/min and active agents.
-- **Honest by design:** the bright comets are real requests only; the faint particles on the arcs are decorative. Reduced-motion settings slow everything down and turn off auto-orbit.
-
-## Red Team lab (2.55)
+### Red Team lab (2.55)
 
 `#redteam`. Every proposed trade is attacked before it is simulated. All of it runs on the visitor's device unless marked "server".
 
@@ -306,7 +329,7 @@ The current rules sit on a robust plateau; none of these is a real improvement.
 - **Walk-forward evolution:** strains are scored on rolling out-of-sample windows. They get Sharpe/Sortino/Calmar scorecards and are sunset when they fall below baseline.
 - **Wired into the Trade terminal:** live orders also need jury approval and red-team safety.
 
-## Engine v3 and the Command Center (2.54)
+### Engine v3 and the Command Center (2.54)
 
 Everything below runs on the visitor's device unless marked "server".
 
@@ -330,13 +353,7 @@ Everything below runs on the visitor's device unless marked "server".
   - second-by-second replays (1 s Binance bars);
   - the sub-agent "neural flow" ring in the 3D execution map.
 
-## Games (Bored?)
-
-- **Market Word** (`static/js/market_word.js`): a five-letter trading-vocabulary puzzle with a definition for every answer. Daily (same word for everyone, by date) and unlimited Practice; hint, hard mode, colour-blind palette, streaks, guess distribution and a copyable result grid.
-- **Beat the Bots** (`static/js/beat_bots.js`): ten rounds of real daily crypto history (Binance, device-direct) at a random date with the name hidden. You and the six-bot council each call the next five days; sure calls pay double and cost points when wrong; "Ask a bot" reveals one bot's view. Name and date are revealed after each call.
-- **Loki Dive** (`static/js/game.js`): rare-answer trivia, now 69 hand-picked prompts including markets topics (crypto, exchanges, S&P 500 members, investors, candlesticks, indicators, central banks, crashes). Daily runs stay server-verified because the server reads the same bank.
-
-## Trade terminal
+### Trade terminal
 
 `/#trade` (`static/js/trade.js`) sends real orders to **Alpaca paper or live** (browser → Alpaca directly; paper keys saved in the browser, live keys kept only for the tab) and **Tradovate demo or live** (`loki/api/broker_tradovate.py`, a stateless relay that stores nothing: credentials → token once, then token per request; contracts capped at 10 per ticket). Guardrails:
 
@@ -348,106 +365,11 @@ Everything below runs on the visitor's device unless marked "server".
 
 Polymarket stays paper-only: real orders there would need a wallet private key.
 
-## Run locally
-
-Requires Python 3.12. From the repository root:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8124
-```
-
-Optional environment variables: `LOKI_SITE_GATE=1` enables the gate (default code `flathead`; set `LOKI_SITE_CODE` to change it), `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` enable the login flow, Alpaca keys are browser-held and verify through the relay (`/api/broker/alpaca/*`) whenever the user enters them.
-
-## Guarantees
-
-- The honest-error contract: degraded states are visible, empty logs say empty, headline cards say "information, never advice", the autopilot's published rule is its contract, and the relay caps order size server-side regardless of what the panel says.
-- Keys and secrets never enter the repository; the backup export excludes credentials.
-- The "Bored?" game is entirely local: scores and dive history never leave the browser, and its rarity tiers are hand-written bank data, not measurements from other players.
-- `pytest` (all Python tests), plus `node --test` for the two JavaScript test modules. The CI workflows in `.github/` run both on every push.
-
-## Live markets
+### Live markets
 
 `/#live-markets` is a self-refreshing board (every ~15 s while the view is open and the tab is visible) covering crypto majors, US mega-caps, indices, commodities and FX, with session status, top movers, flash-on-change tiles and a personal watchlist saved in the browser. A candlestick chart sits at the top of the view (the S&P 500 until you pick another tile): 1m, 5m, 15m, 1h, daily and weekly candles (weekly built from daily), candles or line, 20/50-period moving averages, a volume pane, and a crosshair readout of open/high/low/close/volume by mouse, touch or arrow keys. The newest candle follows the live board price between candle refreshes. Below it, the AI engine's review-only read for that symbol. Served by `loki/api/live_markets.py` (`/api/markets/live`, `/api/markets/quotes`); crypto comes from Binance Spot (live), everything else from Yahoo Finance (near-live). Failed feeds stay visible per tile.
 
-## Live AI follows the verified rules
-
-The AI paper trader (`/api/fusion/ai/step`) decides through `loki_v8/live_engine.py`, which mirrors `run_backtest` bar for bar: it scores only the last *completed* daily bar (today's forming candle is excluded), applies the same trend / regime / volatility gates and conviction / vol-target sizing, and manages open positions with the profile's time stop, breakeven lock, trailing stop and partial target. `tests/test_live_engine.py` replays backtests and checks the live planner agrees on every entry decision.
-
-## 20-year universal profiles (current live AI)
-
-`train_long_history.py` fits ONE rulebook for stocks/ETFs and one for crypto on daily data from 2004 (crypto from 2014), using the same `run_backtest` the live engine mirrors, with 10 bps fees + 5 bps slippage per side:
-
-- **select** on the worse of development (2005-2018; crypto 2015-2020) and validation (2019-2022; crypto 2021-2022) scores;
-- **report once** on the untouched holdout (2023 onward); the live AI only uses a block marked `verified` (made money on the holdout).
-
-Results shipped in `loki_v8/training_report_snapshot.json` (`universal`), data through 2026-11-06:
-
-| Holdout 2023→ | AI avg / yr | Profitable | AI avg worst DD | Buy & hold avg / yr | B&H avg worst DD |
-|---|---|---|---|---|---|
-| Stocks/ETFs (13) | +12.3% | 12/13 | −20.9% | +27.8% | −26.7% |
-| Crypto (8) | +9.2% | 7/8 | −29.4% | +17.3% | −71.3% |
-
-Stocks use trend-only scoring, entry at score ≥ 30, vol-target sizing (20%), and hold until price breaks its 200-day average (10 ATR protective stop). Crypto uses trend-leader scoring, entry ≥ 8, SELL-signal exit. The AI makes money out of sample but trails buy-and-hold in the strong 2023-26 bull market; its edge is far smaller drawdowns. Historical results, not a promise.
-
-```powershell
-python train_long_history.py --write-snapshot        # ~30 min on 4 cores
-```
-
-## Portfolio AI (21 markets at once)
-
-`loki_v8/portfolio_ai.py` replays each market's verified profile (13 stocks/ETFs incl. gold and bonds, 8 coins), gives every active market an equal share of capital, and scales the whole book toward a target yearly volatility — capped so total holdings never exceed 100% of the account. The target (10%) was chosen on 2005-2022 only. Untouched holdout 2023 → Nov 2026 (idle cash in T-bills since 2.58): **+14.2%/yr, Sharpe 1.29, worst drop −9.2%, 66% of months profitable**, versus equal-weight buy-and-hold of the same markets at +21.9%/yr, Sharpe 0.98, worst drop −28.3%. `GET /api/fusion/ai/portfolio` returns what that exact book holds at the latest completed bar; the AI trading page's Portfolio AI panel mirrors it with paper money. Historical results, not a promise.
-
-## Security
-
-- **Isolation between users:** account data is keyed only by the uid inside the signed session cookie (validated as a UUID); a request naming another owner is refused before the database; credentials can never be saved to the cloud; chat history is per browser session; Tradovate tokens are encrypted and owner-bound.
-- **Cookies:** HMAC-signed, HttpOnly, SameSite, Secure on HTTPS. Public deployments without `LOKI_GATE_SECRET` (or a Supabase key) now sign with a random per-process key instead of a constant from the source, so cookies cannot be forged; chat admin claims additionally require `LOKI_CHAT_ADMIN_CODE`.
-- **Headers:** strict Content-Security-Policy (scripts only from this site — no inline scripts exist), `frame-ancestors 'self'`, nosniff, Permissions-Policy, COOP, HSTS on HTTPS. Cross-site writes to account/chat endpoints are rejected.
-- **Rate limits** (`loki/api/rate_limit.py`): sign-in, sign-up, broker sign-in, revenue operator key, and the heavy AI/market endpoints.
-- Real orders, broker and native-engine routes only work from the local launcher with its session token and are off on Vercel. `main.py` binds to 127.0.0.1 unless `LOKI_HOST` says otherwise.
-- **Operators should set:** `LOKI_GATE_SECRET` (long random), `LOKI_CHAT_SESSION_SECRET`, `LOKI_SITE_CODE`, `LOKI_BROKER_ENCRYPTION_KEY`, and `LOKI_SECURE_COOKIES=1` behind any non-Vercel HTTPS proxy.
-
-## Privacy, terms and age
-
-- `/privacy`, `/cookies` and `/terms` (v6) are public and describe exactly what the code does: functional first-party cookies only (no analytics, advertising or third-party cookies — so no consent banner), browser-local storage for journals/watchlists/chat, optional account saves, chat turns kept at most 30 days, broker credentials never stored.
-- **Age:** entry and sign-up require an "I am 18 or older" confirmation, enforced server-side; no birth date is asked for or stored.
-- **Data rights:** `GET /api/account/export` (download my data), `POST /api/account/delete` (type DELETE; removes saves, published score and the login), and a "clear Loki data from this browser" control on `/privacy`.
-- **Minimisation:** no third-party requests from the browser (Google Fonts removed; CSP allows no external hosts).
-- **Claims:** performance figures are labelled as hypothetical/simulated with a limitations disclaimer; marketing lines that the evidence did not support were rewritten.
-- Set `LOKI_OPERATOR_NAME` and `LOKI_OPERATOR_EMAIL` so the policies name the data controller and a contact address. Have the policies reviewed for your jurisdiction.
-
-## Opening experience
-
-`static/js/loki_scene.js` + `static/css/loki_scene.css` add a once-per-visit intro, animated market canvases, a live price tape and motion to the gate page and overview, plus an interface motion system: view transitions, 3D card tilt, a cursor aura, ambient aurora, numbers that count to new values, self-drawing charts and an animated allocation ring. `static/js/loki_radar.js` draws the **AI Market Radar** in the home banner — the Portfolio AI's 21 markets placed by live trend score, held positions glowing and pinging under a rotating sweep (data from `/api/fusion/ai/portfolio`). All presentation only; honours reduced-motion and pauses in hidden tabs.
-
-## AI self-check, daily briefing, price alerts
-
-- **Honest uncertainty:** the Portfolio AI's held-back result comes with a 90% block-bootstrap range (`holdout_ci`, currently about +5% to +23% a year).
-- **Self-health check:** every live plan compares the strategy's last 12 months with all rolling 12-month windows from 2005-2022 (`expected_range`) and reports `normal`, `below_range` or `above_range`.
-- **Daily AI briefing** on the overview: health meter, this week's entries/exits, and the uncertainty range; Talk to Loki answers "how is the AI doing?" and "what changed this week?".
-- **Price alerts** on Live markets: above/below alerts stored in this browser, checked on every board refresh, with an in-page toast and an optional browser notification.
-- The operator named in the policies defaults to Joshua Mathew (`LOKI_OPERATOR_NAME` / `LOKI_OPERATOR_EMAIL` override it).
-
-## Self-evolving AI (weekly)
-
-Every Sunday `.github/workflows/ai-evolution.yml` runs `evolve.py`, one generation of champion vs challengers (`loki_v8/evolution.py`):
-
-1. The live profile is the champion; its one-step neighbours on the training grid plus a few random grid points are the challengers (~15 per asset class).
-2. All are backtested over the full 20 years with the same fees, slippage, windows and score the champion was chosen with.
-3. A challenger is promoted only if its rank score (worse of 2005-2018 and 2019-2022) beats the champion's by at least 0.05 **and** it is no worse on 2023-onward and the last 12 months. Recent data can veto a promotion but never choose one.
-4. The learn-from-mistakes filter is re-validated walk-forward; the live setting is re-checked before any new one can replace it, and when it is kept it is refitted on every closed trade, including the newest.
-5. The generation is appended to `loki_v8/evolution_log.json`, the tests run, and the update is opened as a pull request. Merging deploys it; closing it keeps the current AI.
-
-The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading page, and explained by Talk to Loki ("is the AI improving itself?"). Generation 1 (2026-11-08): both champions kept (best challengers 0.441 vs 0.444 for stocks, 0.844 vs 0.852 for crypto); the stocks mistake filter was refitted on 686 closed trades. Run by hand with `python evolve.py --write-snapshot`. For the workflow to open PRs, enable *Allow GitHub Actions to create and approve pull requests* in Settings → Actions → General.
-
-## Forward test on Alpaca paper
-
-`alpaca_forward.py` mirrors the Portfolio AI's current plan onto an Alpaca **paper** account (the host is hard-wired to `paper-api.alpaca.markets`): it reads the same plan the website serves, trades only the AI's markets, skips moves under 2% of equity, sells before it buys, defers stock trades while the US market is closed (crypto trades any day), and reports the account's return and worst drop since it started. BNB is not offered by Alpaca, so its share stays in cash. It is a dry run unless `--execute` is passed.
-
-`.github/workflows/alpaca-paper-forward.yml` runs it daily at 14:45 UTC once the repository has `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` secrets (paper keys); without them it skips. Judge the results over months — a few days of paper P&L say nothing about a daily trend strategy, and tuning the AI on them would only fit noise.
-
-## Prediction markets (Polymarket) and Crowd vs Machine
+### Prediction markets (Polymarket) and Crowd vs Machine
 
 `/#predictions` shows live Polymarket odds — Finance, Economy & Fed, Crypto, Stocks, Politics, Trending, plus search — through a read-only relay (`loki/api/polymarket.py`: fixed host `gamma-api.polymarket.com`, 90 s cache, 8 MB cap, whitelisted fields, Polymarket links validated). **Loki never places Polymarket bets**: real-money orders need a crypto wallet's private key and are geo-restricted in several countries. Visitors practise with **paper predictions** (1,000 play credits in the browser; positions revalue from live odds and settle when a market resolves).
 
@@ -455,7 +377,7 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 
 The top price ticker now updates prices in place, so its loop never restarts and every symbol on the board comes round.
 
-## Polymarket paper bot
+### Polymarket paper bot
 
 The **Loki Polymarket bot** (`/#predictions`, `loki/api/polymarket_bot.py`) trades Polymarket price ladders with paper money:
 
@@ -468,11 +390,7 @@ The **Loki Polymarket bot** (`/#predictions`, `loki/api/polymarket_bot.py`) trad
 
 API: `GET /api/polymarket/bot/signals?bankroll=&exposure=` and `POST /api/polymarket/bot/review` (max 20 positions), rate-limited.
 
-## Status lights and paper badges
-
-The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/feed_status.py`): Yahoo stock quotes, Binance crypto quotes, Polymarket odds, Polymarket order books, the trading-AI profiles, accounts and login security, each checked with a tiny live request (parallel, 45 s cache, refreshed every minute while the tab is visible). States are Live, Slow, Not set up and Down; details never include hosts or secrets. A pulsing **PAPER TRADING · SIMULATED** badge sits beside it and turns red (**REAL ACCOUNT**) only in the real-account view; every paper P&L panel carries a **SIMULATED** tag.
-
-## Alpaca and Tradovate connectors
+### Alpaca and Tradovate connectors
 
 **Alpaca (paper).** Keys stay in the visitor's browser and travel per request to a relay that only talks to `paper-api.alpaca.markets` (and `data.alpaca.markets` for bars). The panel verifies keys, shows account facts and holdings, places capped manual orders, and now also: **cancels** open orders from the log, **closes** a whole position, and **lets the Portfolio AI manage the paper account** — *Preview the AI's trades* shows exactly what it would do; *Place these paper orders* (typed confirmation server-side, plan recomputed at that moment, sells before buys, at most 25 orders) places them. The same logic (`loki/api/alpaca_ai.py`) drives `alpaca_forward.py`. Minute bars now show the last session in evenings and weekends instead of an error. Validation errors never echo submitted values, so keys can't bounce back into logs.
 
@@ -480,22 +398,309 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 **Independent-data check** (`crosscheck_alpaca.py`, run 2026-11-08 with Alpaca's own adjusted daily bars): the live stock profile gives +9.22%/yr (Sharpe 0.61, 12/13 profitable) on Alpaca data vs +9.30%/yr on Yahoo over 2017→now — correlation 0.999 across symbols. Crypto (2022→now) +9.64%/yr vs +10.55%, correlation 0.988, but Bitcoin differs (+5.2% vs +11.5%) because Alpaca's crypto volume is its own venue's; the crypto profile's volume factor makes it somewhat data-source sensitive. Nothing was tuned on this.
 
-## Learning from mistakes
-
-`loki_v8/mistake_model.py` replays the AI's own trades, records 15 market features at every entry's signal bar and whether the trade made money after costs, and fits a small regularised logistic model. Live and in backtests the same gate then skips setups whose estimated win chance is below a threshold. It is trained only on trades that had already closed before the window it is judged on, the threshold is chosen on 2019-2022, and it ships only if the 2023+ holdout is not worse. Current result: on for stocks (validation score 0.44 → 0.51; holdout same +12.3%/yr with 108 instead of 127 trades), off for crypto (no validation gain). Rerun with `python train_long_history.py --from-report state/long_history_report.json --write-snapshot`.
-
-## Talk to Loki
+### Talk to Loki
 
 Both the workspace "Talk to Loki" panel and the `/ai-chat` room share `loki/api/loki_brain.py`: name any ticker or coin and it runs the live AI engine and explains every check in plain English; it also answers market checks, the AI's track record, how the AI works, and ~30 trading terms. No external language model is used; questions about your own portfolio/research go to the context-aware copilot.
 
-## Older per-symbol book
+### AI self-check, daily briefing, price alerts
 
-`loki_v8/train.py` still provides the earlier 10-year per-symbol walk-forward book (`python -m loki_v8.train`). The live AI uses it only as a fallback when no verified universal profile exists for an asset class.
+- **Honest uncertainty:** the Portfolio AI's held-back result comes with a 90% block-bootstrap range (`holdout_ci`, currently about +5% to +23% a year).
+- **Self-health check:** every live plan compares the strategy's last 12 months with all rolling 12-month windows from 2005-2022 (`expected_range`) and reports `normal`, `below_range` or `above_range`.
+- **Daily AI briefing** on the overview: health meter, this week's entries/exits, and the uncertainty range; Talk to Loki answers "how is the AI doing?" and "what changed this week?".
+- **Price alerts** on Live markets: above/below alerts stored in this browser, checked on every board refresh, with an in-page toast and an optional browser notification.
+- The operator named in the policies defaults to Joshua Mathew (`LOKI_OPERATOR_NAME` / `LOKI_OPERATOR_EMAIL` override it).
 
-## Layout
+### Status lights and paper badges
 
-- `main.py` — Vercel/uvicorn entry point; `loki/api/` — the HTTP surface (server, gate, Supabase auth, news desk, market feed, Alpaca relay, fusion (quant lab, portfolio, real account), watchtower, terminal).
-- `core/` + `core_engine` history reduced to what the app imports; `loki_v8/` — the strategy engine behind the terminal; `components/` + `third_party/` — vendored originals pinned by hash-guards (`tests/test_fusion_provenance.py` fails on byte changes, on purpose).
-- `templates/`, `static/` — the served pages and their assets; `tests/` — the regression suite.
+The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/feed_status.py`): Yahoo stock quotes, Binance crypto quotes, Polymarket odds, Polymarket order books, the trading-AI profiles, accounts and login security, each checked with a tiny live request (parallel, 45 s cache, refreshed every minute while the tab is visible). States are Live, Slow, Not set up and Down; details never include hosts or secrets. A pulsing **PAPER TRADING · SIMULATED** badge sits beside it and turns red (**REAL ACCOUNT**) only in the real-account view; every paper P&L panel carries a **SIMULATED** tag.
 
-Older desktop-era launchers, installers, duplicated guides and unreferenced modules were removed in 2026-10 and 2026-11 (old standalone bot, crypto trainer, Supabase vault); history retains them.
+### Opening experience
+
+`static/js/loki_scene.js` + `static/css/loki_scene.css` add a once-per-visit intro, animated market canvases, a live price tape and motion to the gate page and overview, plus an interface motion system: view transitions, 3D card tilt, a cursor aura, ambient aurora, numbers that count to new values, self-drawing charts and an animated allocation ring. `static/js/loki_radar.js` draws the **AI Market Radar** in the home banner — the Portfolio AI's 21 markets placed by live trend score, held positions glowing and pinging under a rotating sweep (data from `/api/fusion/ai/portfolio`). All presentation only; honours reduced-motion and pauses in hidden tabs.
+
+### Games (Bored?)
+
+- **Market Word** (`static/js/market_word.js`): a five-letter trading-vocabulary puzzle with a definition for every answer. Daily (same word for everyone, by date) and unlimited Practice; hint, hard mode, colour-blind palette, streaks, guess distribution and a copyable result grid.
+- **Beat the Bots** (`static/js/beat_bots.js`): ten rounds of real daily crypto history (Binance, device-direct) at a random date with the name hidden. You and the six-bot council each call the next five days; sure calls pay double and cost points when wrong; "Ask a bot" reveals one bot's view. Name and date are revealed after each call.
+- **Loki Dive** (`static/js/game.js`): rare-answer trivia, now 69 hand-picked prompts including markets topics (crypto, exchanges, S&P 500 members, investors, candlesticks, indicators, central banks, crashes). Daily runs stay server-verified because the server reads the same bank.
+
+## 7. Release notes
+
+Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
+
+### 2.66: a tidy-up — dead code out, scripts untangled, labels fixed
+
+**Removed** (nothing in the app used any of it)
+- `static/js/strategy-lab.js` (352 lines) and its tests: an old in-browser strategy engine that no page loaded.
+- Chart.js (205 KB): no page used it.
+- `run_strategy_lab.py`: an undocumented command-line wrapper around the strategy lab.
+- `loki_v8/broker.py` and the engine's `ExecutionAgent`: a dormant paper broker and order-execution path. The live AI only ever returned decisions, and the browser keeps the paper ledger.
+- Three functions that only their own tests called (`portfolio_backtest`, `analyze_trend`, and `evaluate_factor_panel` with its vendored factor-analysis maths).
+- Unused settings, including placeholder broker-credential fields in the engine's config.
+- 123 style rules left behind by the pages removed in 2.56.
+
+**Untangled**
+- `workspace.js` used to share about twenty helper names with nine other scripts invisibly, as browser globals. It now hands them out through one object, `window.LokiWorkspace`, and each script names what it takes on its first line.
+- Four more scripts that declared global names are now wrapped. Every script on the site is self-contained.
+- A linter run over all 79 scripts reports no undefined names and no unused variables.
+
+**Fixed**
+- **Loki Dive never saved its on-device snapshot.** A constant was reassigned; the error was silently swallowed, so the save always failed. It now saves.
+- An assignment to a variable that was never declared.
+- A stray byte-order mark at the top of `watchtower.js`.
+- **Three Day Trader figures were a tenth of a point out.** The record kept two decimals and the pages showed one, and a number rounded twice can land on the wrong side. The record now keeps three decimals. One minute late is +5.9% a year for stocks (was shown as +6.0%) and +6.2% for futures (was +6.3%); the futures headline is +7.9% (was shown as +7.8%). The chat and the page now round the same way.
+- `docs/ACCOUNT_STORAGE.md` pointed at a schema file that was deleted long ago.
+
+**Labelled**
+- Every Python module, script and stylesheet starts with a description of what it is for, and `server.py` has section headings.
+- Package descriptions that still described long-deleted code (`loki`, `core`, `loki_v8`) are rewritten. The chat room is no longer called "sentient" in the code.
+- `pyproject.toml`: placeholder links are replaced with the real site and repository, and six stale type-check exemptions are gone.
+- This README is reorganised: numbered sections, a contents list, a map of the app, a project layout, and release notes in order.
+- `tests/test_code_structure.py` keeps these rules from slipping.
+
+**Checked**
+- 1,102 Python tests and 35 script tests pass, including new ones for the Loki Dive save and the house rules.
+- flake8, mypy (Linux and Windows targets) and the script linter are clean.
+- Every page was scanned on desktop and mobile, and 262 buttons were clicked: no errors.
+
+### 2.65: Day Trader v3 — feed-proof signals, a wider test, and what slow fills cost
+
+**The rules**
+- **Same signals from every price feed.** The rules compare price with the session's average price. The published method weights that average by volume, but free feeds disagree about intraday volume (two servers of the same provider differed on about 20% of bars), so a signal could depend on which server answered. The average is now time-weighted and uses no volume. In the 10-year test the two versions give near-identical results (daily correlation 0.97–0.99).
+- **Exact accounting.** A position is tracked from its fill price to its exit price. A short is a fixed number of shares; nothing is compounded bar by bar. The paper book on the page has always worked this way, and the test now matches it.
+
+**A wider, stricter test** (`train_daytrade.py`)
+- 28 markets instead of 12: index funds, large stocks, sector funds, gold, silver, bonds, oil, gas, emerging markets and China.
+- A market is traded only if it passed on 2016–2021 with instant fills *and* with fills 5 minutes late (Sharpe above 0.3 both ways). Six passed: QQQ, NVDA, TSLA, AMZN, AMD, ARKK.
+- On unseen data the rules lost money on 20 of the 28 markets. All 28 together made −3.6% a year.
+
+**Results on unseen data (2022 → November 2026, simulated, after costs)**
+
+| Book | Instant fills | 1 min late | 2 min late | 3 min late | 5 min late |
+|---|---|---|---|---|---|
+| Stocks and funds (6 markets, mistake filter on) | +7.4%/yr, Sharpe 1.00, worst drop −9.0% | +5.9% | +4.8% | +4.4% | +4.2%, Sharpe 0.61 |
+| Futures (MES and MNQ, filter off) | +7.9%/yr, Sharpe 1.06, worst drop −9.2% | +6.2% | +5.1% | +4.0% | +5.1%, Sharpe 0.74 |
+
+- Without the mistake filter the stock book made +3.2% a year with instant fills and −0.9% with fills 5 minutes late.
+- The 1–3 minute columns use 1-minute bars: each order is re-priced at the open of the minute N minutes after its signal. Two cross-checks hold exactly: at 0 minutes this method reproduces the main test, and at 5 minutes it reproduces the 5-minute-bar late test.
+- In 2016–21 a one-minute delay cost almost nothing. Since 2022 it costs about a fifth of the result: the edge goes to whoever acts first.
+- Futures are tested on each contract's index fund at futures costs. Over the last 35 sessions the funds' daily results matched the real contracts' (NQ=F, ES=F) with a correlation of 0.99.
+
+**So the live trader acts faster**
+- A decision on the bar that just closed is reported at once (`pending`), and the paper book acts on it straight away at the latest price in the feed (`now_price`). Before, it waited five minutes for the next bar to print.
+- The page checks again 12 and 40 seconds after every half hour, when the rules decide. For two minutes after each half hour the server re-reads prices every 15 seconds, and a plan built before the latest 5-minute bar closed is never reused.
+- Between full history reads (every ten minutes) only today's bars are fetched, which is a small request.
+- The mistake filter rates a pending first signal too, so the book never opens a trade the tested rules would have skipped.
+- Every paper fill logs how many seconds after the signal it happened. The page shows the running average beside the fill-speed figures.
+- If the feed stops printing bars for 30 minutes during a session (a halt or an early close), the market is treated as closed and the book goes flat.
+
+**Honest summary.** The day-trading edge is real in the test, thin, and dependent on speed. A browser on a free price feed cannot be instant, so expect the paper book between the "instant" and "1 min late" columns at best. The Portfolio AI (unseen +14.2% a year, Sharpe 1.29) remains the stronger tested strategy.
+
+### 2.64: 3D engine map, glitch fixes and a lighter, sharper look
+
+**Fixed**
+- **Flickering static.** A per-frame film-grain effect read as a glitch; it is removed.
+- **Rainbow edges.** Colour fringing is cut to a trace.
+- **Stretched stage.** The stage used to stretch to the height of the tables beside it, becoming a tall narrow strip with the camera far too close. It now has its own height, and the camera pulls back on narrow stages so the whole map stays in frame.
+- **Stutter.** Rendering is much lighter: a lower pixel ratio, the glow pass at one-third resolution with two blur passes, and less anti-aliasing.
+- **Quality governor.** If frames stay slow, it lowers the resolution first and then switches the glow pass off.
+
+**Added** (all cheap to draw)
+- Aurora ribbons.
+- Counter-rotating dashed HUD rings on the floor.
+- A lens streak across the core.
+- A shockwave from the core when an agent fires.
+- Energy running up each venue's pillar, faster when that venue is in use.
+
+The legend still says which parts are decoration.
+
+### 2.63: forward record for the Day Trader
+
+- The tested record ends on a fixed date (`data_through`). Every completed session after it is one the rules could not have been fitted to.
+- `GET /api/fusion/ai/daytrade` now returns `forward`: those sessions replayed with the frozen rules and the frozen mistake model, as an equal-capital book.
+- The page shows the total, up and down days, worst drop and a bar per day, with a plain note that a handful of days proves nothing.
+- Limits: the price feed keeps about 60 days of 5-minute bars, so the strip shows at most the last 60 days. It is simulated on delayed prices, not real trades.
+
+### 2.62: 3D engine map, second upgrade
+
+**New look** (`engine/execmap.js`)
+- **Post-processing glow.** A bloom pipeline written for this page (bright pass, separable blur, filmic tone mapping, vignette, light film grain). No extra libraries; it falls back to plain rendering if the device cannot do it.
+- **Plasma core.** The heart is an animated noise shader that runs hotter with real request traffic.
+- **Energy shield and particle disk.** A fresnel shell and thousands of orbiting points around the core.
+- **Holo floor.** A shader-drawn polar grid with an outward sweep.
+- **Light pillars.** Each venue stands on a pillar with a landing ring that brightens when it is used.
+- **Shooting stars** and a fly-in when the map opens.
+
+**New data on the map**
+- The Day Trader is now a live node. It pulses when the paper book buys, shorts or closes, and its tooltip shows the current plan.
+- A failed request flashes the shield and the screen edge red.
+
+**Still honest**
+- Bright comets are real requests and agent events only.
+- The disk, shield and shooting stars are decoration, and the legend says so.
+- Reduced-motion settings skip the fly-in and shooting stars and slow everything down. Small screens use fewer particles and a lighter glow.
+
+### 2.61: Day Trader learns from its mistakes; futures mode
+
+**Learning from mistakes** (`daytrade.learn_from_mistakes`)
+- At each day's first signal the Day Trader rates the setup from what is known at that moment: the opening gap, the day's normal range, yesterday's move, the weekday, and the signal's side and time.
+- It sits out days that look like past losing days (estimated win chance under 40%).
+- Each year is traded with a model fitted only on earlier years' days. The live site uses the model fitted on all ~8,000 past trading days.
+- It is kept only where it earned it. It had to beat the plain rules on 2018–2021 **and** beat filters trained on scrambled outcomes; it won 29 of 30 and 30 of 30. That rules out "it only helped because it traded less".
+
+| Stocks book (QQQ, NVDA, TSLA, AMZN, AMD), 2022 → now, unseen | Return / yr | Sharpe | Worst drop |
+|---|---|---|---|
+| Plain rules | +5.8% | 0.55 | −17.0% |
+| **With learning** | **+8.0%** | **1.10** | **−9.8%** |
+
+**Futures mode** (`?mode=futures`)
+- It trades micro Nasdaq-100 (MNQ) and micro S&P 500 (MES) with the same rules, tested at futures costs (0.5 bp per side) on each contract's index fund during regular US hours.
+- Unseen 2022 → now: **+8.4%/yr, Sharpe 1.13, worst drop −9.0%**. On 2016–21 it made +6.2%/yr.
+- The fund is a stand-in for the contract. Checked against the real futures over the last 35 sessions, daily results correlate 0.98–0.99.
+- Micro Russell (M2K) and micro Dow (MYM) lost money and are left out.
+- The mistake filter is **off** for futures: it did not help there on 2018–21.
+- Sizing is shown in contracts, with a plain warning. One MNQ plus one MES controls about $95,000; the test used no leverage; real futures can lose more than the deposit.
+
+**Tested and rejected**
+- An adaptive market switch (trade a market only while its recent results are positive): worse than the fixed list.
+- Volatility-scaled position size: too small a gain to matter.
+
+### 2.60: Day Trader AI (main mode)
+
+The AI trading page now leads with a **Day Trader**: in and out the same day, flat every night, paper money.
+
+**How it trades** (`loki_v8/daytrade.py`)
+- The method is published intraday momentum with noise bands (Zarattini, Aziz and Barbon, 2024), used as written with no tuning.
+- For every 5-minute slot it measures how far price normally sits from the day's open at that time (14-session average).
+- Every 30 minutes it goes long above that band and the session VWAP, short below, flat in between.
+- Orders fill at the next bar's open, and everything closes at the last bar.
+- One function, `replay_day`, runs both the 10-year test and the live plan (`GET /api/fusion/ai/daytrade`), so the page trades what was tested.
+
+**How it tested** (`train_daytrade.py` → `loki_v8/daytrade_record.json`; 10 years of 5-minute bars from Alpaca; 1 bp per side on index funds, 2 bp on stocks)
+- Twelve liquid stocks and funds were tested. Markets were chosen on 2016–2021 only (Sharpe above 0.3) and judged on 2022 onward.
+- The book holds QQQ, NVDA, TSLA, AMZN and AMD, with equal capital each.
+
+| Window | Return / yr | Sharpe | Worst drop |
+|---|---|---|---|
+| 2016–2021 (markets chosen here) | +13.0% | 1.34 | −8.9% |
+| **2022 → now (unseen)** | **+5.8%** | **0.55** | **−17.0%** |
+
+**What the record also says**
+- The rules lost money after costs on 7 of the 12 markets on unseen data. All 12 together made −0.8% a year since 2022.
+- 2025 was a losing year (−10.7%).
+- It is very sensitive to costs: at double the assumed cost most of the edge is gone.
+- It tested weaker than the Portfolio AI (+14.2% a year, worst drop −9.2% on its own unseen window).
+- Simpler rules were tested first on hourly bars and all lost after costs: opening-range breakout, first-hour and last-half-hour momentum, gap fades, and crypto breakout, dip-buying and trend rules. They are listed in the record and on the page.
+
+**On the site**
+- The browser keeps a paper book that mirrors the plan every minute: equal capital per market, long and short, closed before the bell.
+- Prices are delayed 5-minute bars. No orders leave the browser.
+- Talk to Loki answers day-trading questions from the same record.
+
+### 2.59: risk levels; another round of honest research
+
+**Risk levels (AI trading page, `GET /api/fusion/ai/portfolio?risk=steady|balanced|growth`).**
+- The same tested rules can now run at three risk levels. Each level publishes its whole simulated record (2005 → now, same fees, slippage and T-bill cash):
+
+| Level | Risk target | Return / yr | Worst drop | Losing years (of 21) | Sharpe |
+|---|---|---|---|---|---|
+| **Steady** (tested default) | 10% | +13.3% | −15.9% | 2 | 1.26 |
+| Balanced | 15% | +16.0% | −18.2% | 2 | 1.24 |
+| Growth | 20% | +17.1% | −20.3% | 4 | 1.21 |
+
+- Steady stays the default because it earned the most for the risk it took on 2005–2022. Higher levels hold more of each market, so both returns and drops grow.
+- Nothing borrows: total holdings stay capped at 100%, which is why returns flatten above Growth.
+- The Alpaca forward test and the website's Alpaca panel stay on Steady.
+- Switching level reuses the downloaded market data for a minute, so it never refetches 21 markets.
+
+**Research that did not earn a place** (chosen on 2005–2022 only; baseline score 1.19, logged in `rejected_experiments`):
+- capital tilted to the strongest markets (6- and 12-month momentum): 0.99–1.17;
+- a drawdown brake (halve or stop after a 5% or 8% drop): smaller drops but 0.25–1.13;
+- dip-buying sleeves on index funds (2-day RSI): no edge after costs, 1.04;
+- crisis diversifiers (dollar, commodities, mid-term Treasuries): 1.20, inside the noise.
+
+Twelve alternatives across three rounds have now failed to beat the current rules by the 0.05 promotion margin. That is evidence the rules sit on a robust plateau, and it is the reason no "better" signal was shipped: one chosen from this many tries would mostly be luck.
+
+**Error sweep.** Every page on the live site (desktop and mobile), every data endpoint and every button was re-checked; no new errors were found.
+
+### 2.58: idle cash earns Treasury-bill interest; year-by-year record
+
+**Idle cash in Treasury bills.**
+- The Portfolio AI holds markets only while they trend, so on average about 37% of the account sat in cash earning nothing.
+- That cash is now parked in a 0–3 month Treasury-bill fund (SGOV) in four places:
+  - the tested record;
+  - the live plan (`cash_parking`);
+  - the website's paper book, which accrues the current yield;
+  - the Alpaca paper forward test and the website's Alpaca panel, which buy and sell SGOV.
+- How the replay credits the interest:
+  - it uses yesterday's published 13-week bill yield (`^IRX`);
+  - minus a conservative 0.14% a year fee;
+  - with 2 bps charged on every move in or out.
+- The risk level was re-chosen on 2005–2022 with the cash included; it stayed at 10%.
+
+| Window | Before | With T-bills |
+|---|---|---|
+| 2005–2018 | +11.5%/yr, Sharpe 1.15, worst −15.1% | +12.0%/yr, Sharpe 1.19, worst −14.9% |
+| 2019–2022 | +15.6%/yr, Sharpe 1.39 | +15.9%/yr, Sharpe 1.42 |
+| 2023 → now (unseen) | +13.3%/yr, Sharpe 1.21, worst −9.8% | **+14.2%/yr, Sharpe 1.29, worst −9.2%** |
+
+**Year-by-year record (simulated).**
+- The AI trading page, Talk to Loki and the record (`calendar_years`) now show every calendar year since 2005.
+- It was up in 19 of 21 full years. The losing years were 2008 (−6.1%) and 2022 (−4.1%).
+- No strategy can promise a profit every year, or every month; the page says so.
+
+### 2.57: is the trading AI actually good? An honest audit
+
+**Does it work?**
+- On the live site, the Portfolio AI, the per-symbol AI (10 tickers including BRK.B and EURUSD=X), and Talk to Loki all answered correctly.
+- The live plan matches the tested 20-year replay. The live site replays only 5 years per market, yet in/out decisions disagree on at most 0.8% of days in any market.
+- The backtest is causal: it decides on the previous completed bar and fills on the next one, with stop gaps handled.
+
+**How good is it?**
+- **Portfolio AI, data it never saw (2023 on):** +13.3%/yr, Sharpe 1.21, worst drop −9.8%. Buy-and-hold of the same markets: +21.9%/yr, Sharpe 0.98, worst drop −28.3%.
+- **Hindsight check (new):** the 21 markets include individual stocks that are known winners today, which flatters any backtest.
+  - The identical method was re-run on index funds, gold, bonds, BTC and ETH.
+  - Result: +10.2%/yr, Sharpe 1.03, worst drop −8.6%, against buy-and-hold's +16.2%/yr, Sharpe 1.03, −22.0%.
+  - It **matches** buy-and-hold on risk-adjusted return; its real edge is far smaller drops.
+  - This check is now shipped in the record (`hindsight_check`), shown on the AI trading page, and given by Talk to Loki.
+- **Six-bot council:** it was scored against always guessing each market's usual up-rate, not a coin flip.
+  - Data: 10 years of 10 markets, then confirmed on 11 others.
+  - Its skill was about zero (−0.3%). Its ~55% hit rate came from markets rising more often than they fall.
+
+**What changed**
+- **Council calibration.**
+  - Bots now predict departures from the usual rate, in half-size steps.
+  - Skill vs the usual rate went from −0.31% to +0.17% on the set the change was picked on, and from −0.56% to −0.15% on the 11 markets it was not.
+  - That is less wrong, not a new edge, and the page now says so.
+  - Autopilot, consensus and the jury read the council relative to the usual rate too.
+- **Alpaca forward-test report:** today's equity is now included. Alpaca's daily history ends yesterday, so the "since" return used to lag the balance shown next to it.
+
+**Tried and rejected** (chosen on 2005–2022 only, as before; logged in `rejected_experiments`):
+- risk-balanced (inverse-volatility) weights: Sharpe 0.95–0.99 vs 1.15;
+- fixed stock/crypto budgets: 1.152 vs 1.151;
+- a multi-horizon trend blend: 1.19 vs 1.15, below the 0.05 promotion margin.
+
+The current rules sit on a robust plateau; none of these is a real improvement.
+
+### 2.56: leaner workspace, cooler 3D map
+
+- **Retired:** the Trading desk, the Scenarios page and the Research review (the AI-council review form, the narrative/MiroFish scenario engine and the Fincept bridge). Their pages, sidebar links, server endpoints (`/api/desk/*`, `/api/fusion/council`, `/api/fusion/scenario`, `/api/fusion/narrative`, `/api/fusion/*mirofish*`, `/api/fusion/fincept/*`), modules and tests are gone. Use the **Red Team lab** to review a trade before you place it; stress tests live there too.
+- **Sidebar:** the "Your research" card is gone, NEW badges stay only on the newest page (Red Team lab), and the 3D engine map moved into the main navigation.
+- **3D engine map, rebuilt:**
+  - starfield, nebula and polar-grid backdrop with tone mapping and fog;
+  - a reactor core whose heartbeat follows the real request rate;
+  - glowing curved arcs to each venue;
+  - an agent ring wired to the core;
+  - comets coloured by outcome (sent / ok / slow / failed), plus scan waves that turn red on a failure.
+- **Map controls and HUD:**
+  - drag to orbit, wheel or pinch to zoom, hover for a tooltip, click to fly to a node, double-click to reset;
+  - auto-orbit toggle and fullscreen (left automatically when you switch pages);
+  - a live HUD with requests/min, average latency, errors/min and active agents.
+- **Honest by design:** the bright comets are real requests only; the faint particles on the arcs are decorative. Reduced-motion settings slow everything down and turn off auto-orbit.
+
+### 2.55 and earlier
+
+- **2.55: Red Team lab.** See [Red Team lab](#red-team-lab-255) in the feature reference.
+- **2.54: Engine v3 and the Command Center.** See [Engine v3 and the Command Center](#engine-v3-and-the-command-center-254).
+- **2.52: the on-device engine.** See [On-device engine](#on-device-engine-252).
+- Older desktop-era launchers, installers, duplicated guides and unreferenced modules were removed in 2026-10 and 2026-11 (the old standalone bot, the crypto trainer, the Supabase vault). The repository's history retains them.

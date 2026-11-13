@@ -1,3 +1,5 @@
+"""Workspace autosave: owner derived server-side, credentials never stored, saves confirmed."""
+
 from fastapi.testclient import TestClient
 import pytest
 

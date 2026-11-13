@@ -12,7 +12,7 @@ Regime-adaptive entries:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -520,32 +520,3 @@ def walk_forward(
             continue
         results.append(run_backtest(seg, cfg, symbol=symbol, bars_per_year=bars_per_year))
     return results
-
-
-def portfolio_backtest(
-    dfs: Dict[str, pd.DataFrame],
-    cfg: LokiConfig,
-    bars_per_year: int = 252,
-) -> BacktestResult:
-    """Equal-weight portfolio backtest across multiple symbols.
-
-    Splits the starting capital evenly, backtests each symbol independently,
-    then combines the equity curves into one portfolio curve. Diversification
-    usually smooths the drawdown versus any single symbol.
-    """
-    n = len(dfs)
-    if n == 0:
-        raise ValueError("no dataframes supplied")
-
-    per_symbol = cfg.initial_cash / n
-    curves: Dict[str, pd.Series] = {}
-    all_trades: List[Trade] = []
-
-    for sym, df in dfs.items():
-        sub = LokiConfig(**{**cfg.to_dict(), "initial_cash": per_symbol})
-        r = run_backtest(df, sub, symbol=sym, bars_per_year=bars_per_year)
-        curves[sym] = r.equity_curve
-        all_trades.extend(r.trades)
-
-    combined = pd.DataFrame(curves).ffill().sum(axis=1).dropna()
-    return _build_result("PORTFOLIO", cfg.initial_cash, combined, all_trades, bars_per_year)

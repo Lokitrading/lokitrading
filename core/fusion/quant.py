@@ -15,18 +15,14 @@ from dataclasses import asdict, dataclass, fields
 from typing import Any
 
 from core.strategy_lab import Bar, validate_bars
-from third_party.vibe_trading.factor_analysis import compute_group_equity, compute_ic_series
 from third_party.vibe_trading.indicators import compute_rsi
 
 PROVENANCE = {
     "project": "Vibe-Trading",
     "license": "MIT",
     "archive_sha256": "7ab43d041d44ca9b4bc0c32e69ec763c6e406972edd9201f6e539be0bc8f8f76",
-    "modules": [
-        "agent/src/shadow_account/indicators.py",
-        "agent/src/factors/factor_analysis_core.py",
-    ],
-    "adaptation": "Dependency-free Wilder RSI and paired-rank factor analysis; Loki fixed-rule replay.",
+    "modules": ["agent/src/shadow_account/indicators.py"],
+    "adaptation": "Dependency-free Wilder RSI; Loki fixed-rule replay.",
 }
 
 
@@ -509,62 +505,5 @@ def run_shadow_replay(
             "Participation is capped at 0.5% of the preceding candle's volume; order-book liquidity is not modeled.",
             "No leverage, shorting, exchange minimums, funding, tax, corporate actions or partial fills.",
             "The 95% Wilson interval is descriptive and assumes independent trades; no future win rate is guaranteed.",
-        ],
-    }
-
-
-def evaluate_factor_panel(
-    factors: Mapping[str, Mapping[str, float | None]],
-    forward_returns: Mapping[str, Mapping[str, float | None]],
-    *,
-    n_groups: int = 5,
-) -> dict[str, Any]:
-    """Evaluate aligned cross-sectional panels using Vibe's paired-rank math.
-
-    Returns must be point-in-time labels after each factor timestamp. This API
-    cannot establish that provenance itself. Use nonoverlapping label periods
-    when interpreting cumulative quantile equity.
-    """
-    if not isinstance(factors, Mapping) or not isinstance(forward_returns, Mapping):
-        raise ValueError("factors and forward_returns must be timestamp-to-symbol mappings")
-    if len(factors) > 10_000 or len(forward_returns) > 10_000:
-        raise ValueError("Factor panels support at most 10000 observations")
-    total_cells = 0
-    for panel_index, panel in enumerate((factors, forward_returns)):
-        for timestamp, row in panel.items():
-            if not isinstance(timestamp, str) or not isinstance(row, Mapping) or len(row) > 1000:
-                raise ValueError(
-                    "Each factor-panel timestamp needs a symbol mapping of at most 1000 assets"
-                )
-            total_cells += len(row)
-            if total_cells > 200_000:
-                raise ValueError("Factor panels support at most 200000 total cells")
-            for symbol, value in row.items():
-                if not isinstance(symbol, str) or (
-                    value is not None
-                    and (
-                        isinstance(value, bool)
-                        or not isinstance(value, (int, float))
-                        or not math.isfinite(value)
-                    )
-                ):
-                    raise ValueError("Factor values must be finite numbers or None")
-                if panel_index == 1 and value is not None and value < -1:
-                    raise ValueError("Unlevered forward returns cannot be less than -1")
-    ic = compute_ic_series(factors, forward_returns)
-    values = [row["ic"] for row in ic]
-    deviation = statistics.stdev(values) if len(values) > 1 else 0
-    return {
-        "mode": "factor_diagnostics",
-        "observations": len(ic),
-        "ic_series": ic,
-        "mean_ic": statistics.mean(values) if values else None,
-        "ic_information_ratio": statistics.mean(values) / deviation if deviation else None,
-        "group_equity": compute_group_equity(factors, forward_returns, n_groups),
-        "provenance": dict(PROVENANCE),
-        "limitations": [
-            "IC needs five paired assets per timestamp; missing/constant ranks are omitted.",
-            "Factor labels must occur strictly after factor observation; caller supplies that evidence.",
-            "Quantile equity is gross and omits fees; overlapping labels are not investable compounded returns.",
         ],
     }

@@ -19,7 +19,6 @@
 .loki-workspace .sidebar nav a { font-size: 12px; min-height: 46px; border: 1px solid transparent; border-radius: 9px; transition: background .18s, border-color .18s; }
 .loki-workspace .sidebar nav a:hover { background: #182435; border-color: #2a3a50; }
 .loki-workspace .sidebar nav a.active { background: #17312e; border-color: #2b5146; color: #b3f2da; box-shadow: inset 3px 0 #86e2c5; }
-.loki-workspace .sidebar-context { background: #111e2b; border-color: #2a394b; border-radius: 12px; padding: 16px; }
 .loki-workspace .topbar { min-height: 88px; font-size: 12px; border-bottom-color: #263143; }
 .loki-workspace .topbar strong { font-weight: 600; }
 .loki-workspace .eyebrow { font-size: 10px; letter-spacing: 1.8px; }

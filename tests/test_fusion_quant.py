@@ -4,7 +4,7 @@ import math
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from core.fusion.quant import analyze_factors, evaluate_factor_panel, run_shadow_replay
+from core.fusion.quant import analyze_factors, run_shadow_replay
 from third_party.vibe_trading.indicators import compute_rsi
 
 
@@ -36,31 +36,6 @@ class VibeMathTests(unittest.TestCase):
         self.assertIsNone(compute_rsi([1, 2, None, 3, 4], period=2)[3])
         with self.assertRaises(ValueError):
             compute_rsi([1, float("nan")])
-
-    def test_factor_panel_uses_paired_ranks_and_minimum_five_assets(self):
-        factors = {"2024-01-01": dict(zip("ABCDEF", [1, 1, 2, 3, 4, None])),
-                   "2024-01-02": dict(zip("ABCD", [1, 2, 3, 4]))}
-        returns = {"2024-01-01": dict(zip("ABCDEF", [.01, .01, .02, .03, .04, .99])),
-                   "2024-01-02": dict(zip("ABCD", [.01, .02, .03, .04]))}
-        result = evaluate_factor_panel(factors, returns, n_groups=5)
-        self.assertEqual(result["observations"], 1)
-        self.assertAlmostEqual(result["mean_ic"], 1.0)
-        self.assertEqual(result["ic_series"][0]["assets"], 5)
-        self.assertIsNone(result["ic_information_ratio"])
-        self.assertAlmostEqual(result["group_equity"][0]["groups"]["Group_5"], 1.04)
-
-    def test_constant_factor_is_missing_evidence_and_groups_are_not_advertised_net(self):
-        factors = {"2024-01-01": dict.fromkeys("ABCDE", 1)}
-        returns = {"2024-01-01": dict(zip("ABCDE", [.01, .02, .03, .04, .05]))}
-        result = evaluate_factor_panel(factors, returns)
-        self.assertIsNone(result["mean_ic"])
-        self.assertTrue(any("gross" in item for item in result["limitations"]))
-
-    def test_unlevered_forward_loss_cannot_be_hidden_by_group_averaging(self):
-        factors = {"2024-01-01": dict(zip("ABCDE", [1, 2, 3, 4, 5]))}
-        returns = {"2024-01-01": dict(zip("ABCDE", [-2, 2, .01, .02, .03]))}
-        with self.assertRaises(ValueError):
-            evaluate_factor_panel(factors, returns, n_groups=1)
 
 
 class FusionReplayTests(unittest.TestCase):

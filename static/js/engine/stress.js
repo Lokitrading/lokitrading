@@ -28,7 +28,6 @@
     { id: 'yen2024', name: 'Yen carry-trade unwind', start: '2024-07-31', end: '2024-08-07', anchor: 'SPY', cryptoAnchor: 'BTC-USD', note: 'A global de-leveraging day on 5 August 2024.' },
   ];
   const isCrypto = (s) => /(-USD|USDT)$/.test(s) && !/^(EUR|GBP|JPY|AUD)/.test(s);
-  const day = (t) => new Date(t).toISOString().slice(0, 10);
 
   async function history(sym, start, end) {
     const pair = Loki.data.binancePair && Loki.data.binancePair(sym);

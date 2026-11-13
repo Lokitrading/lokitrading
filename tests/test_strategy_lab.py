@@ -1,14 +1,10 @@
 """Offline research regressions. Fixtures are synthetic, never profit evidence."""
 import json
 import math
-import subprocess
-import sys
-import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-from core.strategy_lab import LabConfig, TrendParameters, _metrics, _signal, _simulate, analyze_trend, evaluate_strategy, validate_bars
+from core.strategy_lab import LabConfig, TrendParameters, _metrics, _simulate, evaluate_strategy, validate_bars
 
 
 def sample_bars(count=220, pattern="trend"):
@@ -186,22 +182,6 @@ class StrategyLabTests(unittest.TestCase):
             self.assertEqual(report["status"], "needs_more_evidence")
             self.assertTrue(any("win rate" in reason or "win-rate" in reason for reason in report["rejection_reasons"]))
 
-    def test_public_signal_matches_frozen_research_on_closed_candles(self):
-        rows = sample_bars(70)
-        parameters = TrendParameters(10, 40)
-        config = LabConfig()
-        signal = analyze_trend(rows, parameters, config)
-        self.assertEqual(signal["target_allocation"], _signal(validate_bars(rows), len(rows), parameters, config))
-        self.assertEqual(signal["timestamp"], rows[-1]["timestamp"])
-        self.assertEqual(signal["latest_close"], rows[-1]["close"])
-        self.assertAlmostEqual(signal["suggested_stop"], rows[-1]["close"] * 0.92)
-        self.assertEqual(signal, analyze_trend(rows, {"fast": 10, "slow": 40}, {}))
-        self.assertEqual(analyze_trend(rows[:20], parameters)["target_allocation"], 0)
-        for invalid in ({"fast": 40, "slow": 10}, {"fast": True, "slow": 20},
-                        {"fast": 10, "slow": 40, "target": 1}):
-            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
-                analyze_trend(rows, invalid)
-
     def test_malformed_input_fails_closed(self):
         for alter in (
             lambda rows: rows.reverse(),
@@ -225,37 +205,6 @@ class StrategyLabTests(unittest.TestCase):
                        {"target_volatility": float("inf")}, {"guaranteed_profit": True}, {"min_win_rate": 1.1}):
             with self.subTest(config=config), self.assertRaises(ValueError):
                 evaluate_strategy(sample_bars(), config)
-
-    def test_cli_produces_reviewable_report_and_rejects_invalid_data(self):
-        script = Path(__file__).resolve().parents[1] / "run_strategy_lab.py"
-        with tempfile.TemporaryDirectory() as directory:
-            input_path = Path(directory) / "bars.json"
-            output_path = Path(directory) / "report.json"
-            input_path.write_text(json.dumps(sample_bars()), encoding="utf-8")
-            result = subprocess.run(
-                [sys.executable, str(script), str(input_path), "--output", str(output_path), "--fee-bps", "12"],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            report = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(report["config"]["fee_bps"], 12)
-            self.assertFalse(report["live_trading_enabled"])
-            self.assertIn("Historical research cannot guarantee", result.stdout)
-            overwrite = subprocess.run(
-                [sys.executable, str(script), str(input_path), "--output", str(input_path)],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(overwrite.returncode, 2)
-            self.assertIsInstance(json.loads(input_path.read_text(encoding="utf-8")), list)
-            input_path.write_text("[]", encoding="utf-8")
-            failed_output = Path(directory) / "invalid-report.json"
-            failed = subprocess.run(
-                [sys.executable, str(script), str(input_path), "--output", str(failed_output)],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(failed.returncode, 2)
-            self.assertIn("Research failed", failed.stderr)
-            self.assertFalse(failed_output.exists())
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@
  */
 'use strict';
 (() => {
+  const { $, element, message } = window.LokiWorkspace; // shared helpers (workspace.js)
   const viewActive = () => location.hash === '#news';
   const STALE_MS = 120000; // refetch at most every two minutes on view arrival
   const SEEN_KEY = 'loki_news_seen_v1'; // last look timestamp, this browser only

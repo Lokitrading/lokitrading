@@ -1,3 +1,5 @@
+"""Historical-analogue model: no look-ahead, honest calibration, and no broker authority."""
+
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 import math

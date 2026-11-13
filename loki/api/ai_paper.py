@@ -81,7 +81,6 @@ def _get_pipeline(symbol: str) -> Tuple[Any, Any, bool]:
         if cached:
             return cached
     from loki_v8.agents import LokiAgentPipeline
-    from loki_v8.broker import PaperBroker
     from loki_v8.config import LokiConfig
     from loki_v8.data import is_crypto
     from loki_v8.train import apply_best, apply_crypto_consensus, apply_universal, load_report
@@ -113,7 +112,7 @@ def _get_pipeline(symbol: str) -> Tuple[Any, Any, bool]:
                 apply_crypto_consensus(report, cfg)
     except Exception as exc:  # noqa: BLE001 - degrade to default config
         logger.warning("trained profile unavailable for %s: %s", symbol, exc.__class__.__name__)
-    pipeline = LokiAgentPipeline(cfg, broker=PaperBroker(cfg))
+    pipeline = LokiAgentPipeline(cfg)
     _PROFILE_SOURCE[symbol] = source
     entry = (pipeline, cfg, bool(applied))
     with _PIPELINE_LOCK:

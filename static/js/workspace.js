@@ -1,4 +1,12 @@
+/* Research workspace: page navigation, the Quant lab (dataset import and research
+ * runs), the paper portfolio and Talk to Loki.
+ *
+ * It also owns the small helpers the other workspace scripts are built from
+ * (see "Shared helpers" below). They are handed out through
+ * `window.LokiWorkspace`; nothing else in this file is visible outside it.
+ */
 'use strict';
+(() => {
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 $('#signal-motion-toggle')?.addEventListener('click', event => {
@@ -14,7 +22,7 @@ let quantResult=null, portfolio=null, capabilities=null;
 let previousConversation=null;
 let pullbackResult=null, pullbackDataRevision=-1;
 let learningResult=null;
-let portfolioBusy=false, datasetRevision=0, portfolioRevision=0, toastTimer=null, finceptStatus=null, pendingImportFile=null;
+let portfolioBusy=false, datasetRevision=0, toastTimer=null, pendingImportFile=null;
 const storageKey='loki-fusion-paper-v1';
 const pct = value => value==null || !Number.isFinite(Number(value)) ? '—' : `${(Number(value)*100).toFixed(2)}%`;
 const pctPoints = value => value==null || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toFixed(2)}%`;
@@ -50,6 +58,18 @@ function detailsJSON(data,label='Inspect complete result'){const details=element
 function exportJSON(data,filename){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=element('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function exportWorkspace(){exportJSON({application:'Loki Fusion',exported_at:new Date().toISOString(),mode:'paper_research',dataset:currentBars?{symbol:currentSymbol,file:currentFile,bars:currentBars}:null,research:report,quant:quantResult,pullback:pullbackResult,market_learning:learningResult,portfolio,synthetic_practice:window.lokiSimulatedMarket?.snapshot()||null},`loki-workspace-${new Date().toISOString().slice(0,10)}.json`);}
 
+// --- Shared helpers ---------------------------------------------------------------
+// The other workspace scripts take what they need from here, by name, on their
+// first line. `capabilities()` asks the server once and then remembers; `dataset()`
+// is the history imported in the Quant lab (or null).
+async function ensureCapabilities(){if(!capabilities)await loadCapabilities();return capabilities;}
+window.LokiWorkspace=Object.freeze({
+  $,element,number,pct,human,message,request,post,table,bulletList,inlineMetrics,detailsJSON,exportJSON,csvRows,parseBars,syncContext,
+  capabilities:ensureCapabilities,
+  dataset:()=>currentBars?{bars:currentBars,symbol:currentSymbol}:null,
+});
+
+// --- Page logic --------------------------------------------------------------------
 $('#train-history').addEventListener('click',async()=>{
   const button=$('#train-history');button.disabled=true;message('#learning-message','Fetching public history and fitting training dates only…');
   try{
@@ -300,7 +320,7 @@ function renderPortfolio(){const m=portfolio.metrics||{},s=portfolio.state||{},p
   const ledger=s.ledger||s.trades||s.transactions||[];const researchLink=(fp)=>{if(!fp)return'—';if(report&&report.data_fingerprint===fp){const anchor=element('a','this run ↗','research-link');anchor.href='#strategy-lab';return anchor;}return`run ${String(fp).slice(0,10)}…`;};
   $('#portfolio-ledger').replaceChildren(ledger.length?table(['Action','Asset','Quantity','Price','Fees / costs','Recorded','Research link'],[...ledger].reverse().slice(0,100).map(item=>[human(item.action||item.side||item.type),item.symbol,number(item.quantity,8),displayMoney(item.price),displayMoney(item.fee??item.fees??item.costs),String(item.timestamp||item.recorded_at||item.as_of||'—'),researchLink(item.report_fingerprint)])):element('p','No paper activity recorded yet.','caption'));savePortfolio();
 }
-async function updatePortfolio(payload={action:'snapshot'}){if(portfolioBusy)throw new Error('A paper journal update is already running.');portfolioBusy=true;try{const result=await post('/api/fusion/portfolio',{...payload,state:payload.action==='reset'?null:portfolio?.state||null});portfolio=result;portfolioRevision++;renderPortfolio();if(payload.action!=='snapshot'){}return result;}finally{portfolioBusy=false;}}
+async function updatePortfolio(payload={action:'snapshot'}){if(portfolioBusy)throw new Error('A paper journal update is already running.');portfolioBusy=true;try{const result=await post('/api/fusion/portfolio',{...payload,state:payload.action==='reset'?null:portfolio?.state||null});portfolio=result;renderPortfolio();return result;}finally{portfolioBusy=false;}}
 async function loadPortfolio(){try{let stored=null;try{const raw=localStorage.getItem(storageKey);if(raw)stored=JSON.parse(raw);}catch{}if(stored){portfolio={state:stored,metrics:{}};await updatePortfolio();}else{portfolio=await request('/api/fusion/portfolio');renderPortfolio();}message('#portfolio-message','');}catch(error){message('#portfolio-message',`The saved paper journal could not be loaded: ${error.message} Export the workspace to preserve it, or reset the local journal.`,true);$('#portfolio-metrics').replaceChildren(metricCard('Paper journal unavailable','—','Refresh or reset after reviewing the error.'));}}
 function updatePaperAction(){const action=$('#portfolio-form [name="action"]').value,isMark=action==='mark';$('#quantity-label').hidden=isMark;$('#portfolio-form [name="quantity"]').required=!isMark;$('#paper-stop-label').hidden=action!=='buy';}
 function prefillPaper(values){for(const[key,value]of Object.entries(values)){const input=$(`#portfolio-form [name="${key}"]`);if(input&&value!=null)input.value=value;}if(!values.action)$('#portfolio-form [name="action"]').value='buy';updatePaperAction();}
@@ -425,3 +445,4 @@ if(dataFileInput&&fileLabel)dataFileInput.addEventListener('change',()=>{
   else fileLabel.textContent='Choose historical OHLCV data';
 });
 $('#generate-practice').addEventListener('click',generatePracticeDataset);
+})();
