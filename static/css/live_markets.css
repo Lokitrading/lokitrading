@@ -209,3 +209,7 @@
 #dt-metrics strong { font: 650 15px var(--mono, monospace); }
 .dt-mode { margin: 4px 0 10px; } .dt-futures-note { border-left: 3px solid #ff8a7a; padding: 8px 12px; background: rgba(255,138,122,.06); border-radius: 8px; } .dt-learn { border-left-color: #6fd3bf; background: rgba(111,211,191,.07); } .dt-learn strong { color: #a8f0c6; }
 .dt-forward { border-color: #3b6f63; } .dt-forward-bars { height: 52px; }
+
+/* Auto day trading on Alpaca (Day Trader panel) */
+.dt-alpaca { margin: 18px 0 8px; padding: 16px 18px; border: 1px solid var(--line, #2a394b); border-radius: 12px; }
+.dt-alpaca h3 { margin: 4px 0 6px; }
