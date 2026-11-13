@@ -1,6 +1,4 @@
 """Contract tests for Loki's paper-only web surface."""
-from dataclasses import dataclass
-
 from fastapi.testclient import TestClient
 
 import loki.api.server as server

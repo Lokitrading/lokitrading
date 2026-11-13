@@ -1,5 +1,10 @@
+/* Broker link (practice view): connect a paper broker account through the local
+ * launcher, train an instrument model, compare strategies and run the paper agent.
+ * Hosted sessions have no launcher, so these controls stay off there.
+ */
 'use strict';
 (()=>{
+  const { $, element, number, message, request, pct, human, table, inlineMetrics, bulletList, exportJSON, detailsJSON, parseBars, capabilities, dataset } = window.LokiWorkspace; // shared helpers (workspace.js)
   let connection=null,model=null,agent=null,busy=false,active=false,timer=null,generation=0,stopping=false;
   const onPaper=()=>location.hash==='#simulated-market'&&!document.hidden;
   const paperConnection=()=>connection?.connected&&connection.provider==='alpaca'&&connection.mode==='paper';
@@ -16,7 +21,7 @@
     const compare=$('#compare-paper-strategies');
     if(compare)compare.disabled=busy||active||!paperConnection()||!['loki_instrument_daily_logistic_v1','loki_instrument_daily_logistic_v2','loki_instrument_daily_rich_v3'].includes(model?.artifact?.version);
   }
-  async function ready(){if(!capabilities)await loadCapabilities();if(!capabilities?.local_actions_enabled)throw new Error('Broker key entry and AI paper trading need the local Loki launcher.');}
+  async function ready(){if(!(await capabilities())?.local_actions_enabled)throw new Error('Broker key entry and AI paper trading need the local Loki launcher.');}
   async function perform(task,target){if(busy)return;busy=true;controls();try{await ready();await task();}catch(error){message(target,error.message,true);}finally{busy=false;controls();}}
   function accountCard(){
     for(const target of ['#broker-paper-account','#broker-live-account']){
@@ -140,7 +145,7 @@
     event.preventDefault();const data=new FormData(event.target),payload={symbol:String(data.get('symbol')).toUpperCase(),years:Number(data.get('years')),source:String(data.get('source'))};
     perform(async()=>{message('#instrument-train-message','Fetching completed daily history and fitting training dates only…');const result=await request('/api/fusion/broker/train-history',payload,true);await loadModels(result.id);message('#instrument-train-message',`Trained on the earlier dates in ${result.coverage.years.toFixed(2)} years of actual history. Later test dates stayed outside model selection.`);},'#instrument-train-message');
   });
-  $('#train-imported-instrument').addEventListener('click',()=>perform(async()=>{if(!currentBars)throw new Error('Import daily OHLCV history in Quant lab first.');const years=Number($('#instrument-train-form select[name=years]').value);const result=await request('/api/fusion/broker/train-upload',{symbol:currentSymbol.toUpperCase(),years,bars:currentBars},true);await loadModels(result.id);message('#instrument-train-message','Imported instrument trained. Inspect source assumptions and later-date evaluation.');},'#instrument-train-message'));
+  $('#train-imported-instrument').addEventListener('click',()=>perform(async()=>{const imported=dataset();if(!imported)throw new Error('Import daily OHLCV history in Quant lab first.');const years=Number($('#instrument-train-form select[name=years]').value);const result=await request('/api/fusion/broker/train-upload',{symbol:imported.symbol.toUpperCase(),years,bars:imported.bars},true);await loadModels(result.id);message('#instrument-train-message','Imported instrument trained. Inspect source assumptions and later-date evaluation.');},'#instrument-train-message'));
   const comparisonButton=element('button','Compare lower-turnover strategies','button secondary');
   comparisonButton.id='compare-paper-strategies';comparisonButton.type='button';
   $('#paper-model-select').closest('label').after(comparisonButton);

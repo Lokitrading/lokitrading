@@ -1,4 +1,4 @@
-"""The sentient chat room: Loki talks, learns from the internet, remembers.
+"""The private chat room: Loki talks, reads public market feeds, and remembers.
 
 Design honesty first: this module gives the same paper-research AI a persistent
 memory and internet eyes — it is still a deterministic reasoning engine over

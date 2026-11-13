@@ -1,3 +1,5 @@
+"""Private chat security: admin access, rate limits, signed cookies and isolated histories."""
+
 from fastapi.testclient import TestClient
 
 from loki.api import ai_chat

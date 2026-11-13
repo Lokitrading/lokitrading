@@ -1,3 +1,5 @@
+"""Binance public market data: mapping, input validation and brief caching."""
+
 import unittest
 from unittest.mock import patch
 

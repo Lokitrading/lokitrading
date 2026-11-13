@@ -164,7 +164,7 @@ def _windows(x: pd.Series) -> Dict[str, Any]:
 
 
 def _years(book: pd.Series) -> List[Dict[str, Any]]:
-    return [{"year": int(y), "return_pct": round(float(((1 + x).prod() - 1) * 100), 2),
+    return [{"year": int(y), "return_pct": round(float(((1 + x).prod() - 1) * 100), 3),
              "unseen": bool(y >= int(TEST_START[:4])), "partial": bool(x.index[-1] < pd.Timestamp(f"{y}-12-24"))}
             for y, x in book.groupby(book.index.year)]
 

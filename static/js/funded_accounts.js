@@ -1,3 +1,8 @@
+/* Funded-account panel (AI trading view): connect a Tradovate account for signed-in
+ * members and show its cash balances and open positions. The session token is kept
+ * encrypted in a cookie scoped to this API; this script only renders what the server
+ * reports, and says so when something could not be read.
+ */
 'use strict';
 (() => {
   const el=id=>document.getElementById(id),root=el('ai-lucid-controls');

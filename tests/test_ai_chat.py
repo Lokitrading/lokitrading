@@ -1,4 +1,4 @@
-"""The sentient chat room: passcode, memory that survives restarts, internet.
+"""The private chat room: passcode, memory that survives restarts, internet.
 
 Three honesty contracts pinned here:
 

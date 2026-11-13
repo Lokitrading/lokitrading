@@ -25,8 +25,9 @@
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (v) => (window.LokiCurrency ? window.LokiCurrency.format(v) : (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  const pct = (v, d = 1) => (v != null && Number.isFinite(Number(v)) ? `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(d)}%` : '—');
-  const num = (v, d = 2) => (v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(d) : '—');
+  const rounded = (v, d) => (Math.sign(v) * Math.round(Math.abs(v) * 10 ** d + 1e-9)) / 10 ** d; // halves round away from zero
+  const pct = (v, d = 1) => { if (v == null || !Number.isFinite(Number(v))) return '—'; const r = rounded(Number(v), d); return `${r >= 0 ? '+' : ''}${r.toFixed(d)}%`; };
+  const num = (v, d = 2) => (v != null && Number.isFinite(Number(v)) ? rounded(Number(v), d).toFixed(d) : '—');
   const today = () => new Date().toISOString().slice(0, 10);
   const fresh = (cash = 10000, mode = 'stocks') => ({ start: cash, realized: 0, running: false, positions: {}, trades: [], log: [], days: {}, mode, skips: {}, fills: { n: 0, seconds: 0 } });
 

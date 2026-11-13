@@ -1,3 +1,5 @@
+"""Long history: 10-20 year windows across models, comparisons and the Alpaca feed."""
+
 from datetime import date, timedelta
 
 import pandas as pd

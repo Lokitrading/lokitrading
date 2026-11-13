@@ -67,11 +67,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .nav-more[aria-expanded="true"] .nav-chevron { transform: rotate(180deg); }
 .loki-workspace .nav-more-group { gap: 3px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; }
 .loki-workspace .nav-more-group a { font-size: 12px; min-height: 40px; }
-.loki-workspace .sidebar-context { margin: 28px 2px 30px; padding: 18px; border-radius: 12px; background: var(--surface-sheen), var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-panel); }
-.loki-workspace .sidebar-context .eyebrow { color: var(--subtle); font-size: 9px; }
-.loki-workspace .sidebar-context strong { margin-top: 10px; font-size: 13px; font-weight: 550; }
-.loki-workspace .sidebar-context > span { font-size: 11px; line-height: 1.65; }
-.loki-workspace .sidebar-context-link { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--accent); font-size: 11px; }
 .loki-workspace .sidebar-bottom { border-top: 1px solid var(--line); padding: 20px 12px 0; color: var(--muted); }
 .loki-workspace .sidebar-bottom p { font-size: 10px; margin-bottom: 2px; }
 .loki-workspace .status-dot { background: var(--green); width: 6px; height: 6px; box-shadow: 0 0 0 3px #a8f0c60b; animation: none; }
@@ -272,7 +267,7 @@ html { scroll-padding-top: 100px; }
 .loki-workspace td { border-color: var(--line-soft); padding: 13px 12px; font-variant-numeric: tabular-nums; }
 .loki-workspace tbody tr:hover { background: var(--surface-hover); }
 .loki-workspace .table-scroll { overflow-x: auto; border-radius: 8px; }
-.loki-workspace .news-item, .loki-workspace .analyst-card, .loki-workspace .factor-card, .loki-workspace .integration-card, .loki-workspace .desk-agent { background: var(--surface-sheen), var(--panel); border-color: var(--line); border-radius: 12px; box-shadow: var(--shadow-panel); }
+.loki-workspace .news-item, .loki-workspace .analyst-card, .loki-workspace .factor-card, .loki-workspace .integration-card { background: var(--surface-sheen), var(--panel); border-color: var(--line); border-radius: 12px; box-shadow: var(--shadow-panel); }
 .loki-workspace .news-item { padding: 22px; }
 .loki-workspace .news-title { font-size: 16px; line-height: 1.6; letter-spacing: -.25px; }
 .loki-workspace .news-item:hover { border-color: var(--line-strong); }
@@ -348,7 +343,7 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .brand-mark { width: 34px; height: 34px; border-radius: 8px; }
   .loki-workspace .brand-name { font-size: 27px; }
   .loki-workspace .brand-caption { display: none; }
-  .loki-workspace .nav-label, .loki-workspace .sidebar-context, .loki-workspace .sidebar-bottom { display: none; }
+  .loki-workspace .nav-label, .loki-workspace .sidebar-bottom { display: none; }
   .loki-workspace .sidebar nav { display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 20px; padding-bottom: 13px; overflow-x: auto; }
   .loki-workspace .sidebar nav > a, .loki-workspace .sidebar nav > button { flex-shrink: 0; min-height: 40px; padding: 9px 13px; font-size: 12px; gap: 9px; white-space: nowrap; }
   .loki-workspace .sidebar nav:has(.nav-more[aria-expanded="true"]) { flex-wrap: wrap; }

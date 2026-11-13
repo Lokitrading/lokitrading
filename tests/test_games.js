@@ -49,3 +49,45 @@ test('beat the bots pays double for sure calls and costs points when sure and wr
   assert.equal(BB.points('down', true, true), -10);
   assert.equal(BB.points('down', true, false), 20);
 });
+
+// --- Loki Dive: the on-device snapshot ----------------------------------------------
+function loadDive(saved = {}) {
+  const node = () => ({ children: [], dataset: {}, style: {}, classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
+    hidden: false, disabled: false, innerHTML: '', textContent: '', value: '', addEventListener() {}, removeEventListener() {},
+    setAttribute() {}, removeAttribute() {}, getAttribute: () => null, focus() {}, blur() {}, querySelectorAll: () => [], querySelector: () => null,
+    appendChild() {}, append() {}, replaceChildren() {}, remove() {}, closest: () => null, getContext: () => null, scrollIntoView() {},
+    getBoundingClientRect: () => ({ width: 300, height: 200, left: 0, top: 0 }) });
+  const nodes = {}, store = { ...saved };
+  const document = { getElementById: (id) => (nodes[id] ||= node()), createElement: node, querySelector: node, querySelectorAll: () => [],
+    addEventListener() {}, body: node(), documentElement: node(), hidden: false, visibilityState: 'visible' };
+  const ctx = { console, Math, Date, JSON, document, URL, URLSearchParams, Intl, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {},
+    requestAnimationFrame: () => 0, cancelAnimationFrame() {}, navigator: {}, performance: { now: () => 0 }, location: { hash: '', pathname: '/', search: '' },
+    matchMedia: () => ({ matches: false, addEventListener() {} }), fetch: async () => ({ ok: false, json: async () => ({}) }),
+    CustomEvent: class { constructor(n, d) { this.detail = d && d.detail; } },
+    localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } },
+    sessionStorage: { getItem: () => null, setItem() {} } };
+  ctx.window = ctx; ctx.addEventListener = () => {}; ctx.dispatchEvent = () => {};
+  vm.createContext(ctx);
+  for (const file of ['game_data.js', 'game.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', file), 'utf8'), ctx, { filename: file });
+  return { dive: ctx.LokiDive, store };
+}
+
+test('loki dive saves its on-device snapshot, journal included, and reads it back', () => {
+  const journal = { 'name a stock exchange': { best: 3, times: 2 }, 'name a candlestick pattern': { best: 1, times: 5 } };
+  const { dive, store } = loadDive({ loki_dive_journal: JSON.stringify(journal) });
+  assert.equal(dive.autosave(), true); // it used to throw inside and report false every time
+  const snapshot = JSON.parse(store.loki_dive_last_open);
+  assert.deepEqual(snapshot.journal, journal);
+  assert.ok(snapshot.when && /saved automatically on this device/.test(snapshot.note));
+  assert.equal(dive.lastSaved().when, snapshot.when);
+  assert.equal(JSON.parse(JSON.stringify(dive.exportData())).saved_locally_on_this_device, true);
+});
+
+test('loki dive keeps only the newest journal entries in the snapshot', () => {
+  const big = Object.fromEntries(Array.from({ length: 150 }, (_, i) => [`prompt ${String(i).padStart(3, '0')}`, { best: 1, times: 1 }]));
+  const { dive, store } = loadDive({ loki_dive_journal: JSON.stringify(big) });
+  assert.equal(dive.autosave(), true);
+  const kept = Object.keys(JSON.parse(store.loki_dive_last_open).journal);
+  assert.equal(kept.length, 120);
+  assert.equal(kept[0], 'prompt 030'); // the oldest thirty are dropped
+});

@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from loki_v8 import train as T
-from loki_v8.backtest import Trade
 from loki_v8.config import LokiConfig
 from loki_v8.regime import Regime, detect_regime, is_bearish, is_bullish, regime_distribution
 from loki_v8.strategy import FACTOR_KEYS, EnsembleStrategy, normalize_weights

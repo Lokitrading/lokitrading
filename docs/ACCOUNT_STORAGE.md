@@ -6,7 +6,7 @@
   `python main.py` loads the local Git-ignored `.env`; hosted deployments require
   these variables in the host's secret settings as well. Local changes do not
   configure or redeploy a hosted website.
-- Apply `supabase/schema_member_data.sql`, `supabase_schema.sql` and
+- Apply `supabase/schema_member_data.sql` and
   `supabase/schema_workspace_autosave.sql` to the same project.
 - Keep a stable `LOKI_GATE_SECRET` on every production instance. Changing this
   signing secret invalidates existing logins. Without an explicit signing secret,

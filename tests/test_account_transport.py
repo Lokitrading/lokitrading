@@ -1,3 +1,5 @@
+"""Account storage calls go only to the configured database, and never forward credentials through a redirect."""
+
 import pytest
 
 from loki.api import site_access, member_data

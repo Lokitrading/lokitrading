@@ -108,7 +108,7 @@
     let cash = o.cash, qty = 0, entry = 0, liquidations = 0, seed = o.seed;
     const equity = [], trades = [], log = [];
     for (let i = 1; i < bars.length - 1; i++) {
-      const px = bars[i].c, exposure = Math.abs(qty) * px, eq = cash + qty * px;
+      const px = bars[i].c, eq = cash + qty * px;
       // Broker margin check on the bar's worst price.
       if (qty !== 0 && o.leverage > 1) {
         const worst = qty > 0 ? bars[i].l : bars[i].h, eqWorst = cash + qty * worst;

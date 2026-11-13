@@ -1,3 +1,5 @@
+"""Paper-evidence gate: a candidate never claims profit, and weak evidence blocks entries."""
+
 from copy import deepcopy
 
 import pytest

@@ -1,21 +1,22 @@
-"""LOKI v8 — unified multi-market trading engine.
+"""LOKI v8 — the trading engine behind the AI pages.
 
-Consolidates the best parts of the Loki platform (and the merged
-strategy repos) into one clean, testable core:
+    data -> indicators -> strategy / regime -> risk -> backtest
 
-    data -> indicators -> strategy -> risk -> broker -> backtest
-    (plus a Director->Quant->Risk->Execution multi-agent layer)
+On top of that core sit the pieces the site serves:
 
-The engine is broker-agnostic: it trades US stocks, crypto, and NSE
-instruments through a single interface, with a paper/live switch and
-live market data in both modes.
+* ``live_engine``  — the per-symbol live AI, which follows the backtest's rules bar for bar;
+* ``portfolio_ai`` — the same verified rules on 21 markets at once;
+* ``daytrade``     — the Day Trader (intraday, flat every night);
+* ``agents``       — the Director, Quant and Risk agents behind each live decision;
+* ``train``, ``mistake_model``, ``evolution`` — fitting, learning from past trades, weekly self-review;
+* ``memory_agent`` — a causal review of the Director's past calls.
 
-Research tooling: train (walk-forward book), live_engine (live decisions
-that mirror the backtest rules), memory_agent (self-review).
+The engine produces decisions and tested records. It never places an order: paper
+ledgers live in the visitor's browser, and broker relays live in ``loki/api``.
 """
 
 __version__ = "8.8.0"
 __all__ = [
-    "config", "data", "indicators", "strategy", "risk", "broker",
-    "backtest", "regime", "agents", "train", "live_engine", "memory_agent",
+    "agents", "backtest", "config", "data", "daytrade", "evolution", "indicators", "live_engine",
+    "memory_agent", "mistake_model", "portfolio_ai", "regime", "risk", "strategy", "train",
 ]

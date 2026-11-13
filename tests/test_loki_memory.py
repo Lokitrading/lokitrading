@@ -1,3 +1,4 @@
+"""Loki's local memory notes: persistence, bounded recall and refusal to store credentials."""
 
 import pytest
 from fastapi.testclient import TestClient

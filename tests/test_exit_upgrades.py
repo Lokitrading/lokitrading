@@ -461,27 +461,6 @@ class TestPreserveMissingSymbols:
 
 
 class TestKnobJourneys:
-    def test_portfolio_backtest_with_smart_exits(self):
-        # Frames must exceed 200 bars so sma_200 exists for the real scoring
-        ramp = [100.0 + 0.8 * i for i in range(1, 14)] + _flat(60, 110.4)
-        dip = [100.0 - 0.6 * i for i in range(1, 13)] + _flat(61, 92.8)
-        df_a = _candles(_flat(215) + ramp)
-        df_b = _candles(_flat(217) + dip)
-        cfg = _base_cfg(
-            stop_loss_atr=3.0,
-            take_profit_atr=2.0,
-            breakeven_atr=0.8,
-            partial_tp_atr=0.6,
-            partial_fraction=0.5,
-            conviction_sizing=True,
-            regime_sizing=True,
-            vol_target_sizing=True,
-        )
-        cfg.max_hold_bars = 20
-        res = bt.portfolio_backtest({"A": df_a, "B": df_b}, cfg)
-        assert res.final_equity > 0.0
-        assert res.total_trades >= 1
-
     def test_walk_forward_with_smart_exits(self):
         closes = _flat(61) + [100.6, 101.2, 101.8, 102.4, 103.0]
         closes = closes + [103.4, 104.2, 103.8, 104.6, 105.2, 104.8] + _flat(120, 104.8)

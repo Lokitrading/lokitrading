@@ -1,3 +1,7 @@
+/* Account page (/account): shows the signed-in member, and saves, loads, exports
+ * or deletes their workspace. Only an allowlist of workspace keys is ever sent;
+ * credentials and guest/login state stay in the browser.
+ */
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);

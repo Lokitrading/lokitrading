@@ -207,7 +207,7 @@
           return raw === null || raw === undefined ? fallback : raw;
         } catch { return fallback; }
       };
-      const journal = readJSON(LS_JOURNAL, {});
+      let journal = readJSON(LS_JOURNAL, {});
       if (journal && typeof journal === "object" && !Array.isArray(journal)) {
         const keys = Object.keys(journal).sort().slice(-AUTOSAVE_JOURNAL_MAX);
         const bounded = {};

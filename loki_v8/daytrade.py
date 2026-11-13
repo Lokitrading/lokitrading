@@ -320,9 +320,10 @@ def stats(returns: pd.Series) -> Dict[str, Any]:
     eq = (1.0 + x).cumprod()
     active = x[x != 0]
     return {
-        "cagr_pct": round(float((eq.iloc[-1] ** (252 / len(x)) - 1) * 100), 2),
+        # Three decimals: pages show one, and rounding a twice-rounded figure can land on the wrong side.
+        "cagr_pct": round(float((eq.iloc[-1] ** (252 / len(x)) - 1) * 100), 3),
         "sharpe": round(float(x.mean() / x.std() * math.sqrt(252)), 3),
-        "max_dd_pct": round(float((eq / eq.cummax() - 1).min() * 100), 2),
+        "max_dd_pct": round(float((eq / eq.cummax() - 1).min() * 100), 3),
         "win_days_pct": round(float((active > 0).mean() * 100), 1) if len(active) else 0.0,
         "days_traded_pct": round(float(len(active) / len(x) * 100), 1),
         "days": int(len(x)),

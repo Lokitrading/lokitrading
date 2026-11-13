@@ -7,7 +7,7 @@
   const Loki = window.Loki;
   if (!root || !Loki || !Loki.jury) return;
   const $ = (id) => document.getElementById(id);
-  const F = Loki.fmt, esc = F.esc, Q = Loki.quant;
+  const F = Loki.fmt, esc = F.esc;
   const pct = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : `${(x * 100).toFixed(d)}%`);
   const num = (x, d = 2) => (x == null || !Number.isFinite(x) ? '—' : x.toFixed(d));
   const msg = (id, t, bad = false) => { const e = $(id); if (e) { e.textContent = t; e.classList.toggle('bad', bad); } };
