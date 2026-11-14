@@ -77,6 +77,35 @@ def window(r: pd.Series, start: str = "", end: str = "") -> pd.Series:
     return r
 
 
+def walk_forward(data: Dict[str, Dict[str, pd.Series]]) -> Dict[str, Any]:
+    """Re-pick the best rule every month from the 6 months before it, then judge it on that unseen month."""
+    import numpy as np
+
+    daily = {}
+    for rule in mc.GRID:
+        r = mc.book_returns(data[rule["bars"]], rule)
+        daily[mc.label(rule)] = (1 + r).groupby(r.index.floor("D")).prod() - 1
+    frame = pd.DataFrame(daily).fillna(0.0)
+    hold = mc.hold_returns(data["1d"])
+    hold.index = hold.index.floor("D")
+    pieces, picks = [], []
+    for month in pd.period_range("2021-01", pd.Timestamp.now(tz="UTC").strftime("%Y-%m"), freq="M"):
+        start = month.start_time.tz_localize("UTC")
+        past = frame[(frame.index < start) & (frame.index >= start - pd.DateOffset(months=6))]
+        if len(past) < 100:
+            continue
+        best = (past.mean() / past.std() * np.sqrt(365)).idxmax()
+        picks.append(best)
+        pieces.append(frame[(frame.index >= start) & (frame.index < (month + 1).start_time.tz_localize("UTC"))][best])
+    wf = pd.concat(pieces)
+    out: Dict[str, Any] = {"how": "each month uses the rule with the best Sharpe over the 6 months before it", "periods": {}}
+    for name, a, b in (("2021 to mid-2024", "2021-01-01", "2024-06-30"), ("mid-2024 on", "2024-07-01", "2100-01-01"), ("all", "2021-01-01", "2100-01-01")):
+        part = wf[(wf.index >= pd.Timestamp(a, tz="UTC")) & (wf.index <= pd.Timestamp(b, tz="UTC"))]
+        out["periods"][name] = {"rule": mc.stats(part, "1d"), "hold": mc.stats(hold.reindex(part.index).fillna(0.0), "1d")}
+    out["most_picked"] = pd.Series(picks).value_counts().head(3).to_dict()
+    return out
+
+
 def build(cache: Path) -> Dict[str, Any]:
     coins = mc.COINS + mc.RESEARCH_ONLY
     data = {b: closes(cache, b, coins) for b in ("4h", "1d")}
@@ -109,6 +138,8 @@ def build(cache: Path) -> Dict[str, Any]:
         "choose_until": CHOOSE_UNTIL, "test_from": TEST_FROM,
         "chosen": chosen, "hold": {"choose": mc.stats(window(hold[bars], end=CHOOSE_UNTIL), bars), "test": hold_test},
         "chosen_test_rank": f"{rank} of {len(rows)}", "per_coin_test": per_coin, "all_rules": rows,
+        "walk_forward": walk_forward(data),
+        "alpaca_spreads_pct": {"DOGE": 0.35, "SHIB": 0.24, "PEPE": 0.47, "BONK": 0.39, "WIF": 0.34, "TRUMP": 0.34, "measured": "2026-11-14"},
         "passed": verdict,
         "pass_rule": "Sharpe above 0.5 and a positive return on 2024-07 onward, with a smaller worst drop than holding the coins",
         "caveats": [
@@ -116,6 +147,7 @@ def build(cache: Path) -> Dict[str, Any]:
             "These coins are famous today; memecoins that collapsed to nothing are not in the test, which flatters every result.",
             "Memecoins can fall 50-90% in weeks; the rule can only step aside after a move has started.",
             "Long or cash only: Alpaca does not short crypto.",
+            "Alpaca's memecoin spreads (0.24-0.47% on 14 November 2026) are wider than Binance's, so real fills there cost more than the 0.35% per side assumed.",
         ],
     }
 

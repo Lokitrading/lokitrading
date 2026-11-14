@@ -451,7 +451,17 @@
         <div class="section-title"><div><p class="eyebrow">MEMECOIN BOT <span class="sim-tag" title="Paper only: it never sends an order">PAPER ONLY</span></p><h2>Memecoins, with the brakes on.</h2></div><span class="tag" id="mc-status">Loading…</span></div>
         <p class="muted">Follows DOGE, SHIB, PEPE, BONK, WIF and TRUMP on 4-hour bars. It buys a coin after it breaks above its 10-day high and sells after it falls below its 5-day low, with smaller stakes in wilder coins. The rest of the money waits in cash.</p>
         <div id="mc-verdict"></div>
-        <div id="mc-holdings" class="table-scroll"></div>
+        <div class="mc-scan-head"><p class="eyebrow">LIVE SCAN · BINANCE ORDER BOOKS</p><span class="caption" id="mc-scan-time"></span></div>
+        <div id="mc-scan" class="table-scroll"><p class="muted">Reading the order books…</p></div>
+        <div class="dt-alpaca mc-alpaca" id="mc-alpaca">
+          <div class="section-title"><div><p class="eyebrow">YOUR ALPACA PAPER ACCOUNT <span class="sim-tag" title="Paper money at Alpaca, not real money">PAPER</span></p><h3>Let it trade memecoins on paper, by itself.</h3></div><span class="tag" id="mca-status">Off</span></div>
+          <p class="muted" id="mca-intro">Uses the Alpaca paper keys you saved on the Real account page.</p>
+          <div class="pf-controls"><label>Share of the account it may use (%)<input id="mca-allocation" type="number" min="1" max="25" step="1" value="10"></label><div class="button-row"><button id="mca-start" class="button primary" type="button" disabled>Start on paper</button><button id="mca-stop" class="button secondary" type="button" disabled>Stop and sell its coins</button><button id="mca-check" class="button secondary" type="button" disabled>Check now ↻</button></div></div>
+          <p id="mca-message" class="form-message" role="status"></p>
+          <div id="mca-out" class="table-scroll"></div>
+          <details class="pf-log-box"><summary>Memecoin order log</summary><ul id="mca-log" class="pf-log"></ul></details>
+          <p class="caption">Paper money only: orders go to Alpaca's paper endpoint and nowhere else. It checks every 5 minutes while this tab is open (crypto trades around the clock; the rule decides on 4-hour bars). It buys a coin when the rule turns it on and sells it in full when the rule turns it off. This rule did not pass its own test; running it on paper builds an honest record with real fills.</p>
+        </div>
         <div id="mc-record" class="table-scroll"></div>
         <details class="pf-log-box"><summary>Every rule tested, and what failed</summary><div id="mc-rules" class="table-scroll"></div></details>
         <p class="caption" id="mc-caveats"></p>

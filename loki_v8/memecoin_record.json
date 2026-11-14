@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-14T13:15:42+00:00",
+ "generated_at": "2026-11-14T13:49:28+00:00",
  "data": "Binance public 4-hour and daily bars (USDT pairs), from each coin's listing",
  "coins": [
   "DOGE",
@@ -678,12 +678,86 @@
    }
   }
  ],
+ "walk_forward": {
+  "how": "each month uses the rule with the best Sharpe over the 6 months before it",
+  "periods": {
+   "2021 to mid-2024": {
+    "rule": {
+     "cagr_pct": 72.1,
+     "sharpe": 1.19,
+     "max_dd_pct": -57.69,
+     "total_pct": 568.19,
+     "from": "2021-01-01",
+     "to": "2024-06-30"
+    },
+    "hold": {
+     "cagr_pct": 252.58,
+     "sharpe": 1.139,
+     "max_dd_pct": -90.79,
+     "total_pct": 8115.68,
+     "from": "2021-01-01",
+     "to": "2024-06-30"
+    }
+   },
+   "mid-2024 on": {
+    "rule": {
+     "cagr_pct": -22.82,
+     "sharpe": -0.606,
+     "max_dd_pct": -59.95,
+     "total_pct": -45.94,
+     "from": "2024-07-01",
+     "to": "2026-11-14"
+    },
+    "hold": {
+     "cagr_pct": -49.52,
+     "sharpe": -0.278,
+     "max_dd_pct": -92.02,
+     "total_pct": -80.29,
+     "from": "2024-07-01",
+     "to": "2026-11-14"
+    }
+   },
+   "all": {
+    "rule": {
+     "cagr_pct": 24.44,
+     "sharpe": 0.667,
+     "max_dd_pct": -59.95,
+     "total_pct": 261.19,
+     "from": "2021-01-01",
+     "to": "2026-11-14"
+    },
+    "hold": {
+     "cagr_pct": 60.65,
+     "sharpe": 0.792,
+     "max_dd_pct": -92.02,
+     "total_pct": 1519.44,
+     "from": "2021-01-01",
+     "to": "2026-11-14"
+    }
+   }
+  },
+  "most_picked": {
+   "breakout 4h entry 120 exit 60": 16,
+   "breakout 4h entry 60 exit 30": 12,
+   "breakout 4h entry 240 exit 120": 10
+  }
+ },
+ "alpaca_spreads_pct": {
+  "DOGE": 0.35,
+  "SHIB": 0.24,
+  "PEPE": 0.47,
+  "BONK": 0.39,
+  "WIF": 0.34,
+  "TRUMP": 0.34,
+  "measured": "2026-11-14"
+ },
  "passed": false,
  "pass_rule": "Sharpe above 0.5 and a positive return on 2024-07 onward, with a smaller worst drop than holding the coins",
  "caveats": [
   "Simulated on past prices with assumed costs, not real trading.",
   "These coins are famous today; memecoins that collapsed to nothing are not in the test, which flatters every result.",
   "Memecoins can fall 50-90% in weeks; the rule can only step aside after a move has started.",
-  "Long or cash only: Alpaca does not short crypto."
+  "Long or cash only: Alpaca does not short crypto.",
+  "Alpaca's memecoin spreads (0.24-0.47% on 14 November 2026) are wider than Binance's, so real fills there cost more than the 0.35% per side assumed."
  ]
 }

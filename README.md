@@ -431,6 +431,43 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.76: memecoin scanner and an Alpaca paper connector
+
+**Connectors.**
+- **Analysis:** Binance's public market data, already reachable from the hosted site.
+- **Trading:** Alpaca, which trades all six coins as crypto pairs (DOGE/USD and so on), 24/7, on paper.
+- **Not used:** DexScreener, CoinGecko and GeckoTerminal were considered, but they are not reachable from the build environment, so nothing built on them could be tested.
+
+**Live scan** (`/api/fusion/ai/memecoin/scan`, in the Memecoins tab). For each coin:
+- price, 24-hour change, volume and trade count;
+- spread, and order-book depth within 1% on each side;
+- whether the book leans to bids or asks;
+- what the rule holds, and how far price must move to trigger the next buy or sell;
+- a short read such as "deep book", "thin book" or "wide spread".
+
+One 24-hour ticker call covers all six coins, and their order books are read at the same time. A scan takes under a second, and the server reuses it for 15 seconds. The page refreshes it every 20 seconds while the tab is open. It describes the market right now; it does not forecast.
+
+**Paper trading on Alpaca** (`/api/broker/alpaca/memecoin`). With the paper keys saved on the Real account page, the memecoin rule trades the visitor's Alpaca **paper** account by itself, checking every 5 minutes while the tab is open.
+- **Allocation:** 1–25% of equity (10% by default), split by the rule's weights. It uses cash only (Alpaca's non-marginable buying power), because crypto cannot be bought on margin.
+- **When it trades:** it buys when the rule turns a coin on and sells it in full when the rule turns it off. There is no resizing in between.
+- **Guards:**
+  - no buy when Alpaca's spread is over 0.60% or its quote is over 5 minutes old;
+  - US$10 minimum order;
+  - fixed order ids, so a retried check cannot buy twice;
+  - it refuses to start on an account already holding these coins;
+  - Stop sells everything.
+- **Records:** every order and every blocked order gets a receipt in the device's signed log.
+- **No real money:** it never trades real money.
+
+**Fixes found by testing the connector against a real paper account** (read-only calls; no order was placed):
+- Crypto prices were being rounded to cents, which turned PEPE at US$0.0000043 into 0.
+- Margin buying power (US$84,540) was used where crypto may only use cash (US$18,411).
+
+**Is it profitable? No, and the record says so.**
+- **Walk-forward:** a fairer test re-picks the best rule each month from the 6 months before it. It made +568% during the 2021–mid-2024 boom (holding made +8,116%), but **lost 46% since mid-2024** (holding lost 80%).
+- **Fees are higher than tested:** Alpaca's memecoin spreads (0.24–0.47%) are wider than the 0.35% total cost per side assumed in the test.
+- **Purpose:** the paper connector exists to build an honest record with real fills, not because the rule is expected to make money.
+
 ### 2.75: a memecoin bot, tested honestly (paper only)
 
 **What it does.** The new **Memecoins** tab under AI trading follows DOGE, SHIB, PEPE, BONK, WIF and TRUMP (the memecoins Alpaca trades) on Binance's public 4-hour prices. It buys a coin after it breaks above its 10-day high and sells after it falls below its 5-day low. Wilder coins get smaller stakes, so each stays near an 80%-a-year volatility, and the rest of the money stays in cash. It shows what it holds now, its tested record, every rule tried, and its record since it was frozen.
