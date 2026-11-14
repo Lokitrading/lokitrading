@@ -431,6 +431,46 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.77: new-launch memecoins, Phase 1 shadow mode (paper only)
+
+**Screening** (`loki_v8/launch_filters.py`, pure and tested). A new Solana token is rejected unless:
+- its mint authority and freeze authority are revoked;
+- its liquidity is at least 90% locked or burned, or it trades on a launchpad bonding curve;
+- the top 10 wallets hold at most 25% (pools, bonding curves and lockers left out);
+- RugCheck finds no linked insider wallets and no danger-level risk;
+- wallets other than pools bought less than 40% of the supply in the launch slot and the next one, checked from Solana's own transaction history.
+
+A token that passes is only entered on organic velocity: 5-minute volume at least 2x the pool's liquidity, buys at least 1.5x sells, and at least US$5,000 of liquidity.
+
+**Exits:**
+- sell 50% at 2x and 25% at 4.5x, then trail the last 25% 30% under its peak;
+- exit everything if it has not reached +20% within 12 minutes;
+- exit everything if it falls 30% below entry (a hard stop added to the plan as given, because rugs fall faster than a time stop);
+- exit everything if the creator or a tracked top-5 holder sells more than half their tokens.
+
+**Shadow runner** (`memecoin_shadow.py`). It reads RugCheck's new-token feed and DexScreener's latest Solana tokens every 20 seconds. It screens them, simulates US$20 entries and every exit with real Jupiter quotes (real price impact and pool fees), charges 0.0003 SOL per transaction for priority fees and tips, and logs every token, verdict and trade to SQLite. `--report` prints:
+- the rejection reasons;
+- the closed trades, expectancy and win rate;
+- the Phase 2 gate: at least 200 closed trades with a positive net result.
+
+A position it cannot sell for three checks in a row is counted as lost. It cannot measure failed or late transactions during a spike, MEV against a real order, or wash trading by one wallet (DexScreener counts transactions, not wallets), so real results would be worse. It holds no keys and signs nothing.
+
+Because the site only runs while a page is open, the runner is a script for any always-on computer:
+
+```bash
+python memecoin_shadow.py --minutes 0 --db shadow.db
+```
+
+**Launch radar** (Memecoins tab, `/api/fusion/ai/memecoin/launches`). The 12 newest launches, each with its verdict and the reasons, refreshed every minute. It takes about 1.5 s and is cached for 60 s.
+
+**Not built, by decision:**
+- **Multi-wallet orchestration to hide a footprint from other traders:** it misleads the market and overlaps with manipulation.
+- **A real-money engine holding keys:** the site never holds wallet keys.
+- **X and Telegram sentiment agents:** X's API is paid and Telegram scraping is against its terms.
+- **Language-model agents:** the deterministic filters come first.
+
+Pump.fun's own API blocks automated requests, so new launches come from RugCheck's feed instead.
+
 ### 2.76: memecoin scanner and an Alpaca paper connector
 
 **Connectors.**
