@@ -431,6 +431,60 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.78: hardening the bots against a misbehaving world
+
+**Orders that are never placed twice** (`loki/api/order_safety.py`, used by the Day Trader and the memecoin bot). Every order already had a fixed client id built from its signal. Now, when Alpaca's answer to an order is lost (a timeout or a 5xx), the bot asks Alpaca for that order by its id before reporting anything:
+- **found:** the order landed;
+- **no record:** nothing was placed, and the next check retries with the same id;
+- **lookup fails too:** the result is reported as unknown, and the next check, which re-reads the account first, settles it.
+
+Every check was already a full reconciliation against Alpaca's positions and orders.
+
+**Memecoin bot on Alpaca paper:** a daily loss stop. At 3% down on the day it sells its coins and stops buying until the next day.
+
+**Shadow runner** (`memecoin_shadow.py`):
+- **Strict trade states:** PENDING_ENTRY → OPEN → PARTIAL_EXIT → CLOSED, or FAILED_SAFE. An illegal move raises an error, and an entry stuck pending for a minute is rolled back.
+- **"Simulate before signing":** before entering, it quotes a buy and then the sale of what that buy returns. Losing more than 10% on the round trip points to a hidden tax or a honeypot, and the token is rejected. Tokens with a transfer fee are rejected outright.
+- **Latency:** a second quote 2 seconds after the decision stands in for the moment a real order lands. If the price moved more than 3% against it, the entry fails safe and only the fee is charged.
+- **Cabal check:** the biggest launch buyers are traced one hop back to whoever funded their wallets. Three or more funded by the same wallet rejects the token. (One hop, not 3–5: deeper tracing on the public Solana endpoint would be rate-limited.)
+- **Failover and breakers:**
+  - Solana calls fail over across `SOLANA_RPC_URLS` plus the public endpoint, and a failing endpoint sits out for a minute;
+  - new entries pause while more than half of recent outside calls fail;
+  - a daily kill switch stops entries after US$100 of losses (`--kill-usd`).
+- **Hash-chained ledger:** every trade event goes into a ledger that `--verify` re-checks.
+- **Bug fixed:** `--report` would have crashed on the first closed trade (an SQL `is not None` where SQL needs `is not null`). The new chaos tests found it.
+
+**Chaos and property-based tests** (`tests/test_chaos.py`, Hypothesis):
+- **Random inputs:** 300 random RugCheck reports, 300 random DexScreener answers, 200 junk transactions and 400 random price paths (including NaN and infinity).
+- **Exit-engine invariants:** nothing is sold twice or lost, a closed position never sells again, and each take-profit fires at most once.
+- **Injected failures:**
+  - 429 and 503 answers, malformed JSON and HTML;
+  - a 90% flash crash, a price run before landing, a honeypot, no route to sell;
+  - a stuck pending entry, the kill switch, the error breaker, RPC failover;
+  - an illegal state change and a tampered ledger.
+
+  Filters that crashed on non-dict fields were hardened.
+- **Lost order answers** are tested for both bots.
+
+**Interface:**
+- **Memecoins tab:** live scan first, then the honest verdict, the paper-trading panel, how it was tested, and the launch radar at the bottom.
+- **Tables:** figures no longer wrap mid-word.
+- **Failing checks:** five failed checks in a row raise one alert; the bots keep trying, since positions may need closing.
+
+**Already in place, so not rebuilt:**
+- signed, hash-chained receipts for every order;
+- a weekly offline self-review with a shadow test before any new setting goes live;
+- the Red Team jury for adversarial review;
+- volatility-scaled sizing in the memecoin rule;
+- the Day Trader's learn-from-mistakes filter.
+
+**Not built:**
+- **A regime classifier or order-flow signals added to the live rules:** they are untested, and adding them would trade new rules without a test.
+- **Maker or post-only orders:** they would trade fill certainty for fees, untested.
+- **Polymarket-to-memecoin "front-running":** no evidence of an edge.
+- **Language-model debate agents:** no language models in trading decisions.
+- **3–5 hop funding graphs:** these need a paid RPC.
+
 ### 2.77: new-launch memecoins, Phase 1 shadow mode (paper only)
 
 **Screening** (`loki_v8/launch_filters.py`, pure and tested). A new Solana token is rejected unless:

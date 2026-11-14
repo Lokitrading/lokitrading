@@ -71,6 +71,7 @@
     try {
       const data = await request('/api/broker/alpaca/daytrade', { ...saved, confirm: CONFIRM, start, stop });
       last = data;
+      state.failures = 0;
       tally(data);
       for (const a of data.actions || []) {
         if (a.did === 'close' && a.status === 'refused' && once(`close-refused:${a.symbol}`)) notify('Loki: a close was refused', `${a.symbol}: ${a.detail || 'Alpaca refused it'}. It tries again on the next check; check the Alpaca dashboard.`);
@@ -112,6 +113,11 @@
       return data;
     } catch (error) {
       message('#dta-message', error.message || 'Alpaca could not be reached; it will try again.', true);
+      state.failures = (state.failures || 0) + 1;
+      if (state.running && state.failures === 5) {  // keep trying (positions may need closing), but say so once
+        log(`Five checks in a row failed (${error.message || 'no answer'}). It keeps trying; check the Alpaca dashboard if this goes on.`, 'bad');
+        notify('Loki: Alpaca checks are failing', error.message || 'Five checks in a row failed.');
+      }
       if (/rejected those keys|blocked trading|already holds|at least US\$/.test(error.message || '')) {
         if (state.running) notify('Loki auto trading switched off', error.message);
         state.running = false; log(error.message, 'bad');

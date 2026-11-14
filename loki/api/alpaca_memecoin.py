@@ -23,6 +23,10 @@ Guards, checked on every call:
 * Orders: market, immediate-or-cancel, by dollar amount; each carries a fixed client order id built
   from the coin and the rule's bar, so a retried check cannot buy twice.
 * Stop sells every bot coin at once and trades no more.
+* A daily loss stop: if the paper account is down 3% or more since yesterday's close, every bot coin
+  is sold and nothing is bought until the next day.
+* A lost order answer (a timeout or a 5xx) is looked up by its client id before it is reported
+  (``loki/api/order_safety.py``), so a retry can never buy twice.
 """
 from __future__ import annotations
 
@@ -42,6 +46,7 @@ from pydantic import ConfigDict, Field
 
 from loki.api.alpaca_daytrade import AlpacaAccount, _valid, _when
 from loki.api.broker_alpaca import _DATA_BASE, AlpacaPaperKeys, _exchange, _order_view, _paper_exchange, _require_gate
+from loki.api.order_safety import submit_once
 from loki_v8 import memecoin as mc
 
 logger = logging.getLogger(__name__)
@@ -54,6 +59,7 @@ POLICY: Dict[str, Any] = {
     "allocation_pct": {"default": 10, "max": 25},
     "max_buying_power_used": "0.95",
     "max_spread_pct": 0.60,
+    "daily_loss_stop_pct": 3.0,
     "quote_max_age_seconds": 300,
     "min_order_usd": 10,
     "order_type": "market, immediate-or-cancel, by dollar amount",
@@ -61,6 +67,7 @@ POLICY: Dict[str, Any] = {
 }
 POLICY_HASH = hashlib.sha256(json.dumps(POLICY, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 MAX_SPREAD_PCT = float(POLICY["max_spread_pct"])
+DAILY_LOSS_STOP_PCT = float(POLICY["daily_loss_stop_pct"])
 QUOTE_MAX_AGE = int(POLICY["quote_max_age_seconds"])
 MIN_ORDER = Decimal(POLICY["min_order_usd"])
 BUYING_POWER_USE = Decimal(POLICY["max_buying_power_used"])
@@ -203,7 +210,10 @@ def _check(body: AlpacaMemecoinCheck) -> Dict[str, Any]:
     plan = memecoin_api._cached_plan()
     raw_orders = _paper_exchange("GET", "/v2/orders?status=open&limit=200", keys)
     busy = {str(o.get("symbol") or "").replace("/", "")[:-3] for o in raw_orders if isinstance(o, dict)} if isinstance(raw_orders, list) else set()
-    rows = plan_actions(plan["holdings"], held, busy, account.equity, body.allocation_pct, body.stop)
+    last_equity = account.last_equity or account.equity
+    day_change_pct = (account.equity / last_equity - 1.0) * 100 if last_equity > 0 else 0.0
+    stopped_for_loss = day_change_pct <= -DAILY_LOSS_STOP_PCT
+    rows = plan_actions(plan["holdings"], held, busy, account.equity, body.allocation_pct, body.stop or stopped_for_loss)
     buying = [r["coin"] for r in rows if r["action"] == "buy"]
     quotes = _quote(keys, buying, now) if buying else {}
     room = crypto_room(raw_account)
@@ -214,7 +224,7 @@ def _check(body: AlpacaMemecoinCheck) -> Dict[str, Any]:
             if action == "sell":
                 closed = _paper_exchange("DELETE", f"/v2/positions/{coin}USD", keys)
                 actions.append({"coin": coin, "did": "sell", "status": "sent", "order": _order_view(closed) if isinstance(closed, dict) else {},
-                                "receipt": _receipt(trace, coin, "sell", {"why": "stop" if body.stop else "the rule turned it off"})})
+                                "receipt": _receipt(trace, coin, "sell", {"why": "stop" if body.stop else "daily loss stop" if stopped_for_loss else "the rule turned it off"})})
             elif action == "buy":
                 quote, why = quotes.get(coin) or (None, "no quote from Alpaca")
                 amount = min(Decimal(str(row["target_usd"])), room).quantize(CENT, rounding=ROUND_FLOOR)
@@ -231,14 +241,7 @@ def _check(body: AlpacaMemecoinCheck) -> Dict[str, Any]:
                 room -= amount
                 order = {"symbol": pair(coin), "notional": str(amount), "side": "buy", "type": "market", "time_in_force": "ioc",
                          "client_order_id": order_id(coin, row["as_of"])}
-                try:
-                    sent = _paper_exchange("POST", "/v2/orders", keys, order)
-                    view = _order_view(sent) if isinstance(sent, dict) else {}
-                except HTTPException as error:
-                    if error.status_code == 422 and "client_order_id" in str(error.detail):
-                        view = {"status": "already sent"}  # a retried check: Alpaca has this order
-                    else:
-                        raise
+                view = submit_once(_paper_exchange, keys, order)  # a lost answer is looked up by id before it is reported
                 actions.append({"coin": coin, "did": "buy", "status": "sent", "usd": float(amount), "order": view,
                                 "receipt": _receipt(trace, coin, "buy", {**(quote or {}), "usd": float(amount), "allocation_pct": body.allocation_pct})})
         except HTTPException as error:
@@ -250,7 +253,8 @@ def _check(body: AlpacaMemecoinCheck) -> Dict[str, Any]:
     return {"ok": True, "paper": True, "trace_id": trace, "policy": POLICY, "policy_hash": POLICY_HASH,
             "equity": round(account.equity, 2), "crypto_buying_power": float(crypto_room(raw_account) / BUYING_POWER_USE),
             "allocation_pct": body.allocation_pct,
-            "coins": rows, "actions": actions, "stopped": body.stop, "rule": plan.get("label"), "checked_at": now.isoformat() if now else None}
+            "coins": rows, "actions": actions, "stopped": body.stop, "stopped_for_loss": stopped_for_loss,
+            "day_change_pct": round(day_change_pct, 3), "rule": plan.get("label"), "checked_at": now.isoformat() if now else None}
 
 
 @router.post("/memecoin", include_in_schema=False)
