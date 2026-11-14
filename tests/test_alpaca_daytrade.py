@@ -433,3 +433,10 @@ def test_signal_and_quote_ages_use_alpacas_clock_not_the_servers(run):
                             next_close="2026-11-12T16:00:00-05:00")
     assert round(nanos.minutes_to_close(), 3) == 359.998
     assert adt._when("2026-11-12T15:00:00") is None and adt._when("junk") is None
+
+
+def test_a_refused_sip_feed_still_reports_why_the_iex_quote_was_not_used(run):
+    """Free data plans get a 403 for SIP; the IEX reason (here a one-sided quote) must reach the receipt."""
+    alpaca = FakeAlpaca(sip=False, ask=0.0)
+    out = run(alpaca, [market("QQQ", pending=1)])
+    assert alpaca.sent == [] and "no two-sided quote on IEX" in out["actions"][0]["detail"]

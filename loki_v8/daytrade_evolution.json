@@ -53,6 +53,60 @@
     },
     "passed": false
    }
+  },
+  {
+   "generation": 2,
+   "run_at": "2026-11-14T06:52:56+00:00",
+   "champion": "lookback 14, band 1",
+   "outcome": "walk-forward did not pass (worse over the last 24 months: -0.613 vs -0.603): current rules kept",
+   "walk_forward": {
+    "months_tested": 119,
+    "adaptive_sharpe": 1.029,
+    "champion_sharpe": 0.895,
+    "adaptive_recent_sharpe": -0.613,
+    "champion_recent_sharpe": -0.603,
+    "months_on_champion_pct": 10.9,
+    "current_pick": "lookback 20, band 1",
+    "fixed_settings": {
+     "lookback 10, band 0.8": {
+      "sharpe_2016_21": 1.462,
+      "sharpe_2022_on": 0.485
+     },
+     "lookback 10, band 1": {
+      "sharpe_2016_21": 1.464,
+      "sharpe_2022_on": 0.416
+     },
+     "lookback 10, band 1.2": {
+      "sharpe_2016_21": 1.266,
+      "sharpe_2022_on": 0.466
+     },
+     "lookback 14, band 0.8": {
+      "sharpe_2016_21": 1.425,
+      "sharpe_2022_on": 0.261
+     },
+     "lookback 14, band 1": {
+      "sharpe_2016_21": 1.423,
+      "sharpe_2022_on": 0.35
+     },
+     "lookback 14, band 1.2": {
+      "sharpe_2016_21": 1.281,
+      "sharpe_2022_on": 0.233
+     },
+     "lookback 20, band 0.8": {
+      "sharpe_2016_21": 1.49,
+      "sharpe_2022_on": 0.279
+     },
+     "lookback 20, band 1": {
+      "sharpe_2016_21": 1.612,
+      "sharpe_2022_on": 0.337
+     },
+     "lookback 20, band 1.2": {
+      "sharpe_2016_21": 1.373,
+      "sharpe_2022_on": 0.176
+     }
+    },
+    "passed": false
+   }
   }
  ],
  "champion": {

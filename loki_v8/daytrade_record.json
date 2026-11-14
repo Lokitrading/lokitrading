@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-13T13:53:42+00:00",
+ "generated_at": "2026-11-14T06:52:33+00:00",
  "method": "Intraday momentum with noise bands (Zarattini, Aziz, Barbon 2024), as published: 14-session noise, decisions every 30 minutes, long and short, flat at the close. The average-price line is time-weighted (no volume), so different price feeds give the same signals.",
  "anchor": "twap",
  "params": {
@@ -7,7 +7,7 @@
   "band": 1.0
  },
  "data": "5-minute bars, regular US hours, Alpaca market data",
- "data_through": "2026-11-06",
+ "data_through": "2026-11-13",
  "windows": {
   "select": [
    "2016-01-01",
@@ -52,40 +52,40 @@
     "payoff": 1.549
    },
    "test": {
-    "cagr_pct": 1.517,
-    "sharpe": 0.258,
+    "cagr_pct": 1.707,
+    "sharpe": 0.287,
     "max_dd_pct": -16.829,
-    "win_days_pct": 42.2,
+    "win_days_pct": 42.3,
     "days_traded_pct": 62.4,
-    "days": 1217,
-    "payoff": 1.458
+    "days": 1222,
+    "payoff": 1.462
    },
    "test_late": {
-    "cagr_pct": -0.264,
-    "sharpe": -0.008,
+    "cagr_pct": -0.162,
+    "sharpe": 0.007,
     "max_dd_pct": -15.925,
-    "win_days_pct": 40.7,
+    "win_days_pct": 40.8,
     "days_traded_pct": 62.4,
-    "days": 1217,
-    "payoff": 1.454
+    "days": 1222,
+    "payoff": 1.453
    },
    "all": {
-    "cagr_pct": 1.004,
-    "sharpe": 0.184,
+    "cagr_pct": 1.09,
+    "sharpe": 0.196,
     "max_dd_pct": -16.829,
     "win_days_pct": 40.4,
     "days_traded_pct": 60.4,
-    "days": 2713,
-    "payoff": 1.549
+    "days": 2718,
+    "payoff": 1.55
    },
    "before_costs": {
-    "cagr_pct": 5.71,
-    "sharpe": 0.872,
+    "cagr_pct": 5.797,
+    "sharpe": 0.885,
     "max_dd_pct": -11.749,
     "win_days_pct": 44.2,
     "days_traded_pct": 60.1,
-    "days": 2713,
-    "payoff": 1.584
+    "days": 2718,
+    "payoff": 1.586
    }
   },
   {
@@ -111,40 +111,40 @@
     "payoff": 1.676
    },
    "test": {
-    "cagr_pct": 9.357,
-    "sharpe": 1.034,
+    "cagr_pct": 9.572,
+    "sharpe": 1.057,
     "max_dd_pct": -9.264,
-    "win_days_pct": 44.9,
+    "win_days_pct": 45.0,
     "days_traded_pct": 59.3,
-    "days": 1217,
-    "payoff": 1.593
+    "days": 1222,
+    "payoff": 1.595
    },
    "test_late": {
-    "cagr_pct": 5.696,
-    "sharpe": 0.676,
+    "cagr_pct": 5.868,
+    "sharpe": 0.695,
     "max_dd_pct": -10.457,
     "win_days_pct": 43.4,
     "days_traded_pct": 59.3,
-    "days": 1217,
-    "payoff": 1.546
+    "days": 1222,
+    "payoff": 1.547
    },
    "all": {
-    "cagr_pct": 7.912,
-    "sharpe": 0.939,
+    "cagr_pct": 8.01,
+    "sharpe": 0.95,
     "max_dd_pct": -9.965,
     "win_days_pct": 42.4,
     "days_traded_pct": 58.5,
-    "days": 2711,
-    "payoff": 1.736
+    "days": 2716,
+    "payoff": 1.737
    },
    "before_costs": {
-    "cagr_pct": 12.702,
-    "sharpe": 1.453,
+    "cagr_pct": 12.803,
+    "sharpe": 1.464,
     "max_dd_pct": -9.834,
-    "win_days_pct": 44.9,
+    "win_days_pct": 45.0,
     "days_traded_pct": 58.4,
-    "days": 2711,
-    "payoff": 1.803
+    "days": 2716,
+    "payoff": 1.804
    }
   },
   {
@@ -170,40 +170,40 @@
     "payoff": 1.294
    },
    "test": {
-    "cagr_pct": -9.643,
-    "sharpe": -1.128,
+    "cagr_pct": -9.423,
+    "sharpe": -1.099,
     "max_dd_pct": -42.061,
     "win_days_pct": 37.1,
     "days_traded_pct": 64.2,
-    "days": 1212,
-    "payoff": 1.326
+    "days": 1217,
+    "payoff": 1.334
    },
    "test_late": {
-    "cagr_pct": -10.845,
-    "sharpe": -1.317,
+    "cagr_pct": -10.737,
+    "sharpe": -1.302,
     "max_dd_pct": -45.975,
     "win_days_pct": 38.2,
     "days_traded_pct": 64.2,
-    "days": 1212,
-    "payoff": 1.214
+    "days": 1217,
+    "payoff": 1.22
    },
    "all": {
-    "cagr_pct": -8.083,
-    "sharpe": -0.943,
+    "cagr_pct": -7.986,
+    "sharpe": -0.931,
     "max_dd_pct": -66.24,
     "win_days_pct": 37.7,
     "days_traded_pct": 63.2,
-    "days": 2698,
-    "payoff": 1.331
+    "days": 2703,
+    "payoff": 1.335
    },
    "before_costs": {
-    "cagr_pct": -3.399,
-    "sharpe": -0.365,
+    "cagr_pct": -3.296,
+    "sharpe": -0.352,
     "max_dd_pct": -52.17,
     "win_days_pct": 40.5,
     "days_traded_pct": 63.1,
-    "days": 2698,
-    "payoff": 1.349
+    "days": 2703,
+    "payoff": 1.354
    }
   },
   {
@@ -229,40 +229,40 @@
     "payoff": 1.31
    },
    "test": {
-    "cagr_pct": -3.179,
-    "sharpe": -0.493,
+    "cagr_pct": -3.123,
+    "sharpe": -0.484,
     "max_dd_pct": -17.105,
     "win_days_pct": 36.2,
-    "days_traded_pct": 62.5,
-    "days": 1208,
-    "payoff": 1.578
+    "days_traded_pct": 62.3,
+    "days": 1213,
+    "payoff": 1.575
    },
    "test_late": {
-    "cagr_pct": -5.324,
-    "sharpe": -0.882,
+    "cagr_pct": -5.271,
+    "sharpe": -0.875,
     "max_dd_pct": -25.652,
-    "win_days_pct": 38.4,
-    "days_traded_pct": 62.5,
-    "days": 1208,
-    "payoff": 1.313
+    "win_days_pct": 38.5,
+    "days_traded_pct": 62.3,
+    "days": 1213,
+    "payoff": 1.31
    },
    "all": {
-    "cagr_pct": -4.092,
-    "sharpe": -0.632,
+    "cagr_pct": -4.066,
+    "sharpe": -0.628,
     "max_dd_pct": -38.62,
     "win_days_pct": 36.6,
     "days_traded_pct": 60.2,
-    "days": 2693,
-    "payoff": 1.483
+    "days": 2698,
+    "payoff": 1.482
    },
    "before_costs": {
-    "cagr_pct": 0.412,
-    "sharpe": 0.097,
+    "cagr_pct": 0.433,
+    "sharpe": 0.1,
     "max_dd_pct": -15.761,
     "win_days_pct": 40.3,
-    "days_traded_pct": 60.1,
-    "days": 2693,
-    "payoff": 1.518
+    "days_traded_pct": 60.0,
+    "days": 2698,
+    "payoff": 1.517
    }
   },
   {
@@ -288,39 +288,39 @@
     "payoff": 1.455
    },
    "test": {
-    "cagr_pct": -2.536,
-    "sharpe": -0.049,
+    "cagr_pct": -2.204,
+    "sharpe": -0.031,
     "max_dd_pct": -41.083,
-    "win_days_pct": 39.4,
+    "win_days_pct": 39.6,
     "days_traded_pct": 59.6,
-    "days": 1217,
-    "payoff": 1.518
+    "days": 1222,
+    "payoff": 1.517
    },
    "test_late": {
-    "cagr_pct": -6.314,
-    "sharpe": -0.281,
+    "cagr_pct": -5.982,
+    "sharpe": -0.261,
     "max_dd_pct": -46.876,
-    "win_days_pct": 39.2,
+    "win_days_pct": 39.3,
     "days_traded_pct": 59.6,
-    "days": 1217,
+    "days": 1222,
     "payoff": 1.459
    },
    "all": {
-    "cagr_pct": 3.591,
-    "sharpe": 0.292,
+    "cagr_pct": 3.739,
+    "sharpe": 0.301,
     "max_dd_pct": -41.083,
     "win_days_pct": 41.5,
     "days_traded_pct": 57.6,
-    "days": 2706,
+    "days": 2711,
     "payoff": 1.508
    },
    "before_costs": {
-    "cagr_pct": 13.158,
-    "sharpe": 0.815,
+    "cagr_pct": 13.313,
+    "sharpe": 0.824,
     "max_dd_pct": -34.232,
-    "win_days_pct": 43.8,
+    "win_days_pct": 43.9,
     "days_traded_pct": 57.3,
-    "days": 2706,
+    "days": 2711,
     "payoff": 1.553
    }
   },
@@ -329,58 +329,58 @@
    "cost_bps_per_side": 2.0,
    "chosen": false,
    "select": {
-    "cagr_pct": -1.063,
-    "sharpe": -0.065,
-    "max_dd_pct": -25.77,
-    "win_days_pct": 38.8,
-    "days_traded_pct": 57.4,
+    "cagr_pct": -2.225,
+    "sharpe": -0.188,
+    "max_dd_pct": -29.387,
+    "win_days_pct": 38.4,
+    "days_traded_pct": 57.6,
     "days": 1494,
-    "payoff": 1.552
+    "payoff": 1.532
    },
    "select_late": {
-    "cagr_pct": -0.597,
-    "sharpe": -0.021,
-    "max_dd_pct": -27.937,
-    "win_days_pct": 39.2,
-    "days_traded_pct": 57.4,
+    "cagr_pct": -1.354,
+    "sharpe": -0.104,
+    "max_dd_pct": -29.768,
+    "win_days_pct": 39.4,
+    "days_traded_pct": 57.6,
     "days": 1494,
-    "payoff": 1.546
+    "payoff": 1.502
    },
    "test": {
-    "cagr_pct": -4.987,
-    "sharpe": -0.393,
-    "max_dd_pct": -28.049,
-    "win_days_pct": 35.7,
-    "days_traded_pct": 59.1,
-    "days": 1217,
-    "payoff": 1.632
+    "cagr_pct": -5.216,
+    "sharpe": -0.413,
+    "max_dd_pct": -28.568,
+    "win_days_pct": 35.8,
+    "days_traded_pct": 58.8,
+    "days": 1222,
+    "payoff": 1.62
    },
    "test_late": {
-    "cagr_pct": -7.742,
-    "sharpe": -0.662,
-    "max_dd_pct": -34.211,
-    "win_days_pct": 39.1,
-    "days_traded_pct": 59.1,
-    "days": 1217,
-    "payoff": 1.319
+    "cagr_pct": -7.746,
+    "sharpe": -0.663,
+    "max_dd_pct": -34.613,
+    "win_days_pct": 39.0,
+    "days_traded_pct": 58.8,
+    "days": 1222,
+    "payoff": 1.323
    },
    "all": {
-    "cagr_pct": -2.844,
-    "sharpe": -0.226,
-    "max_dd_pct": -33.655,
-    "win_days_pct": 37.4,
-    "days_traded_pct": 58.2,
-    "days": 2711,
-    "payoff": 1.584
+    "cagr_pct": -3.582,
+    "sharpe": -0.298,
+    "max_dd_pct": -38.61,
+    "win_days_pct": 37.2,
+    "days_traded_pct": 58.1,
+    "days": 2716,
+    "payoff": 1.568
    },
    "before_costs": {
-    "cagr_pct": 6.245,
-    "sharpe": 0.638,
-    "max_dd_pct": -14.525,
-    "win_days_pct": 41.7,
-    "days_traded_pct": 57.6,
-    "days": 2711,
-    "payoff": 1.639
+    "cagr_pct": 5.471,
+    "sharpe": 0.566,
+    "max_dd_pct": -14.068,
+    "win_days_pct": 41.6,
+    "days_traded_pct": 57.7,
+    "days": 2716,
+    "payoff": 1.616
    }
   },
   {
@@ -406,40 +406,40 @@
     "payoff": 1.589
    },
    "test": {
-    "cagr_pct": 17.472,
-    "sharpe": 0.863,
+    "cagr_pct": 17.214,
+    "sharpe": 0.854,
     "max_dd_pct": -29.251,
-    "win_days_pct": 41.6,
-    "days_traded_pct": 61.8,
-    "days": 1217,
-    "payoff": 1.702
+    "win_days_pct": 41.5,
+    "days_traded_pct": 61.7,
+    "days": 1222,
+    "payoff": 1.707
    },
    "test_late": {
-    "cagr_pct": 8.344,
-    "sharpe": 0.497,
+    "cagr_pct": 8.238,
+    "sharpe": 0.493,
     "max_dd_pct": -31.151,
     "win_days_pct": 40.2,
-    "days_traded_pct": 61.8,
-    "days": 1217,
-    "payoff": 1.664
+    "days_traded_pct": 61.7,
+    "days": 1222,
+    "payoff": 1.661
    },
    "all": {
-    "cagr_pct": 20.396,
-    "sharpe": 0.978,
+    "cagr_pct": 20.272,
+    "sharpe": 0.973,
     "max_dd_pct": -29.251,
-    "win_days_pct": 42.7,
+    "win_days_pct": 42.6,
     "days_traded_pct": 60.4,
-    "days": 2708,
-    "payoff": 1.693
+    "days": 2713,
+    "payoff": 1.695
    },
    "before_costs": {
-    "cagr_pct": 31.643,
-    "sharpe": 1.4,
+    "cagr_pct": 31.5,
+    "sharpe": 1.395,
     "max_dd_pct": -21.706,
     "win_days_pct": 44.8,
     "days_traded_pct": 60.0,
-    "days": 2708,
-    "payoff": 1.719
+    "days": 2713,
+    "payoff": 1.721
    }
   },
   {
@@ -465,40 +465,40 @@
     "payoff": 1.425
    },
    "test": {
-    "cagr_pct": -9.065,
-    "sharpe": -0.912,
+    "cagr_pct": -8.769,
+    "sharpe": -0.879,
     "max_dd_pct": -39.269,
-    "win_days_pct": 36.1,
-    "days_traded_pct": 58.5,
-    "days": 1211,
-    "payoff": 1.433
+    "win_days_pct": 36.4,
+    "days_traded_pct": 58.6,
+    "days": 1216,
+    "payoff": 1.427
    },
    "test_late": {
-    "cagr_pct": -11.6,
-    "sharpe": -1.198,
+    "cagr_pct": -11.274,
+    "sharpe": -1.161,
     "max_dd_pct": -46.925,
-    "win_days_pct": 36.2,
-    "days_traded_pct": 58.5,
-    "days": 1211,
-    "payoff": 1.327
+    "win_days_pct": 36.5,
+    "days_traded_pct": 58.6,
+    "days": 1216,
+    "payoff": 1.323
    },
    "all": {
-    "cagr_pct": -6.917,
-    "sharpe": -0.686,
+    "cagr_pct": -6.785,
+    "sharpe": -0.672,
     "max_dd_pct": -55.051,
-    "win_days_pct": 36.9,
+    "win_days_pct": 37.1,
     "days_traded_pct": 59.3,
-    "days": 2698,
-    "payoff": 1.452
+    "days": 2703,
+    "payoff": 1.449
    },
    "before_costs": {
-    "cagr_pct": 2.056,
-    "sharpe": 0.259,
+    "cagr_pct": 2.199,
+    "sharpe": 0.273,
     "max_dd_pct": -17.467,
-    "win_days_pct": 40.7,
+    "win_days_pct": 40.9,
     "days_traded_pct": 59.0,
-    "days": 2698,
-    "payoff": 1.548
+    "days": 2703,
+    "payoff": 1.547
    }
   },
   {
@@ -524,40 +524,40 @@
     "payoff": 1.635
    },
    "test": {
-    "cagr_pct": -11.605,
-    "sharpe": -0.976,
+    "cagr_pct": -11.959,
+    "sharpe": -1.01,
     "max_dd_pct": -54.501,
-    "win_days_pct": 37.6,
-    "days_traded_pct": 61.1,
-    "days": 1217,
-    "payoff": 1.342
+    "win_days_pct": 37.5,
+    "days_traded_pct": 61.0,
+    "days": 1222,
+    "payoff": 1.333
    },
    "test_late": {
-    "cagr_pct": -13.362,
-    "sharpe": -1.176,
+    "cagr_pct": -13.764,
+    "sharpe": -1.216,
     "max_dd_pct": -57.772,
-    "win_days_pct": 39.2,
-    "days_traded_pct": 61.1,
-    "days": 1217,
-    "payoff": 1.202
+    "win_days_pct": 39.0,
+    "days_traded_pct": 61.0,
+    "days": 1222,
+    "payoff": 1.199
    },
    "all": {
-    "cagr_pct": -2.168,
-    "sharpe": -0.138,
+    "cagr_pct": -2.363,
+    "sharpe": -0.156,
     "max_dd_pct": -54.501,
-    "win_days_pct": 38.8,
+    "win_days_pct": 38.7,
     "days_traded_pct": 59.4,
-    "days": 2702,
-    "payoff": 1.531
+    "days": 2707,
+    "payoff": 1.525
    },
    "before_costs": {
-    "cagr_pct": 7.112,
-    "sharpe": 0.67,
+    "cagr_pct": 6.9,
+    "sharpe": 0.652,
     "max_dd_pct": -31.957,
     "win_days_pct": 41.9,
     "days_traded_pct": 59.1,
-    "days": 2702,
-    "payoff": 1.623
+    "days": 2707,
+    "payoff": 1.617
    }
   },
   {
@@ -583,40 +583,40 @@
     "payoff": 1.391
    },
    "test": {
-    "cagr_pct": -8.204,
-    "sharpe": -0.513,
-    "max_dd_pct": -49.563,
-    "win_days_pct": 36.4,
-    "days_traded_pct": 58.7,
-    "days": 1212,
-    "payoff": 1.55
+    "cagr_pct": -8.362,
+    "sharpe": -0.527,
+    "max_dd_pct": -50.067,
+    "win_days_pct": 36.3,
+    "days_traded_pct": 58.6,
+    "days": 1217,
+    "payoff": 1.552
    },
    "test_late": {
-    "cagr_pct": -9.805,
-    "sharpe": -0.676,
-    "max_dd_pct": -50.854,
-    "win_days_pct": 36.0,
-    "days_traded_pct": 58.7,
-    "days": 1212,
-    "payoff": 1.524
+    "cagr_pct": -9.866,
+    "sharpe": -0.682,
+    "max_dd_pct": -50.935,
+    "win_days_pct": 35.9,
+    "days_traded_pct": 58.6,
+    "days": 1217,
+    "payoff": 1.528
    },
    "all": {
-    "cagr_pct": -6.943,
-    "sharpe": -0.512,
-    "max_dd_pct": -54.314,
-    "win_days_pct": 36.5,
+    "cagr_pct": -7.017,
+    "sharpe": -0.519,
+    "max_dd_pct": -54.77,
+    "win_days_pct": 36.4,
     "days_traded_pct": 59.3,
-    "days": 2703,
-    "payoff": 1.544
+    "days": 2708,
+    "payoff": 1.545
    },
    "before_costs": {
-    "cagr_pct": 1.949,
-    "sharpe": 0.217,
+    "cagr_pct": 1.866,
+    "sharpe": 0.21,
     "max_dd_pct": -29.343,
-    "win_days_pct": 39.9,
-    "days_traded_pct": 59.3,
-    "days": 2703,
-    "payoff": 1.587
+    "win_days_pct": 39.8,
+    "days_traded_pct": 59.2,
+    "days": 2708,
+    "payoff": 1.588
    }
   },
   {
@@ -642,40 +642,40 @@
     "payoff": 1.45
    },
    "test": {
-    "cagr_pct": -10.329,
-    "sharpe": -0.934,
+    "cagr_pct": -10.328,
+    "sharpe": -0.936,
     "max_dd_pct": -48.916,
-    "win_days_pct": 36.1,
+    "win_days_pct": 36.0,
     "days_traded_pct": 58.5,
-    "days": 1213,
+    "days": 1218,
     "payoff": 1.436
    },
    "test_late": {
-    "cagr_pct": -12.387,
-    "sharpe": -1.205,
+    "cagr_pct": -12.424,
+    "sharpe": -1.211,
     "max_dd_pct": -52.378,
-    "win_days_pct": 36.1,
+    "win_days_pct": 36.0,
     "days_traded_pct": 58.5,
-    "days": 1213,
-    "payoff": 1.355
+    "days": 1218,
+    "payoff": 1.353
    },
    "all": {
-    "cagr_pct": -6.914,
-    "sharpe": -0.653,
+    "cagr_pct": -6.921,
+    "sharpe": -0.654,
     "max_dd_pct": -57.035,
     "win_days_pct": 36.5,
     "days_traded_pct": 58.6,
-    "days": 2698,
+    "days": 2703,
     "payoff": 1.494
    },
    "before_costs": {
-    "cagr_pct": 1.842,
+    "cagr_pct": 1.837,
     "sharpe": 0.231,
     "max_dd_pct": -30.121,
     "win_days_pct": 40.0,
     "days_traded_pct": 58.1,
-    "days": 2698,
-    "payoff": 1.585
+    "days": 2703,
+    "payoff": 1.582
    }
   },
   {
@@ -701,40 +701,40 @@
     "payoff": 1.633
    },
    "test": {
-    "cagr_pct": 7.926,
-    "sharpe": 0.46,
+    "cagr_pct": 7.881,
+    "sharpe": 0.456,
     "max_dd_pct": -31.25,
-    "win_days_pct": 41.5,
-    "days_traded_pct": 57.7,
-    "days": 1217,
-    "payoff": 1.579
+    "win_days_pct": 41.4,
+    "days_traded_pct": 57.9,
+    "days": 1222,
+    "payoff": 1.578
    },
    "test_late": {
-    "cagr_pct": 5.879,
-    "sharpe": 0.376,
+    "cagr_pct": 5.928,
+    "sharpe": 0.377,
     "max_dd_pct": -29.286,
     "win_days_pct": 40.3,
-    "days_traded_pct": 57.7,
-    "days": 1217,
-    "payoff": 1.623
+    "days_traded_pct": 57.9,
+    "days": 1222,
+    "payoff": 1.624
    },
    "all": {
-    "cagr_pct": 12.949,
-    "sharpe": 0.661,
+    "cagr_pct": 12.918,
+    "sharpe": 0.659,
     "max_dd_pct": -31.25,
     "win_days_pct": 41.0,
-    "days_traded_pct": 57.9,
-    "days": 2712,
-    "payoff": 1.691
+    "days_traded_pct": 58.0,
+    "days": 2717,
+    "payoff": 1.69
    },
    "before_costs": {
-    "cagr_pct": 23.227,
-    "sharpe": 1.059,
+    "cagr_pct": 23.206,
+    "sharpe": 1.057,
     "max_dd_pct": -28.186,
     "win_days_pct": 42.6,
-    "days_traded_pct": 57.8,
-    "days": 2712,
-    "payoff": 1.753
+    "days_traded_pct": 57.9,
+    "days": 2717,
+    "payoff": 1.751
    }
   },
   {
@@ -760,40 +760,40 @@
     "payoff": 1.48
    },
    "test": {
-    "cagr_pct": 7.307,
-    "sharpe": 0.552,
+    "cagr_pct": 7.052,
+    "sharpe": 0.536,
     "max_dd_pct": -12.825,
     "win_days_pct": 43.8,
-    "days_traded_pct": 59.4,
-    "days": 1210,
-    "payoff": 1.457
+    "days_traded_pct": 59.5,
+    "days": 1215,
+    "payoff": 1.449
    },
    "test_late": {
-    "cagr_pct": 1.659,
-    "sharpe": 0.186,
+    "cagr_pct": 1.31,
+    "sharpe": 0.162,
     "max_dd_pct": -23.33,
     "win_days_pct": 39.6,
-    "days_traded_pct": 59.4,
-    "days": 1210,
-    "payoff": 1.589
+    "days_traded_pct": 59.5,
+    "days": 1215,
+    "payoff": 1.586
    },
    "all": {
-    "cagr_pct": 0.142,
-    "sharpe": 0.084,
+    "cagr_pct": 0.047,
+    "sharpe": 0.078,
     "max_dd_pct": -38.027,
     "win_days_pct": 40.5,
-    "days_traded_pct": 60.1,
-    "days": 2696,
-    "payoff": 1.501
+    "days_traded_pct": 60.2,
+    "days": 2701,
+    "payoff": 1.497
    },
    "before_costs": {
-    "cagr_pct": 9.708,
-    "sharpe": 0.696,
+    "cagr_pct": 9.615,
+    "sharpe": 0.691,
     "max_dd_pct": -26.151,
     "win_days_pct": 42.8,
     "days_traded_pct": 59.6,
-    "days": 2696,
-    "payoff": 1.583
+    "days": 2701,
+    "payoff": 1.58
    }
   },
   {
@@ -819,40 +819,40 @@
     "payoff": 1.313
    },
    "test": {
-    "cagr_pct": 4.893,
-    "sharpe": 0.383,
+    "cagr_pct": 4.496,
+    "sharpe": 0.359,
     "max_dd_pct": -21.467,
-    "win_days_pct": 38.5,
-    "days_traded_pct": 57.7,
-    "days": 1212,
-    "payoff": 1.747
+    "win_days_pct": 38.4,
+    "days_traded_pct": 57.8,
+    "days": 1217,
+    "payoff": 1.743
    },
    "test_late": {
-    "cagr_pct": 2.388,
-    "sharpe": 0.232,
+    "cagr_pct": 2.361,
+    "sharpe": 0.23,
     "max_dd_pct": -23.363,
-    "win_days_pct": 39.1,
-    "days_traded_pct": 57.7,
-    "days": 1212,
-    "payoff": 1.646
+    "win_days_pct": 39.0,
+    "days_traded_pct": 57.8,
+    "days": 1217,
+    "payoff": 1.651
    },
    "all": {
-    "cagr_pct": -3.169,
-    "sharpe": -0.164,
+    "cagr_pct": -3.32,
+    "sharpe": -0.176,
     "max_dd_pct": -49.474,
     "win_days_pct": 39.0,
     "days_traded_pct": 58.5,
-    "days": 2697,
-    "payoff": 1.504
+    "days": 2702,
+    "payoff": 1.502
    },
    "before_costs": {
-    "cagr_pct": 5.851,
-    "sharpe": 0.481,
+    "cagr_pct": 5.7,
+    "sharpe": 0.471,
     "max_dd_pct": -33.636,
     "win_days_pct": 41.4,
-    "days_traded_pct": 58.0,
-    "days": 2697,
-    "payoff": 1.591
+    "days_traded_pct": 58.1,
+    "days": 2702,
+    "payoff": 1.589
    }
   },
   {
@@ -878,40 +878,40 @@
     "payoff": 1.493
    },
    "test": {
-    "cagr_pct": -10.077,
-    "sharpe": -0.47,
+    "cagr_pct": -9.939,
+    "sharpe": -0.463,
     "max_dd_pct": -62.15,
-    "win_days_pct": 36.2,
+    "win_days_pct": 36.3,
     "days_traded_pct": 56.7,
-    "days": 1214,
-    "payoff": 1.578
+    "days": 1219,
+    "payoff": 1.571
    },
    "test_late": {
-    "cagr_pct": -12.498,
-    "sharpe": -0.668,
+    "cagr_pct": -12.074,
+    "sharpe": -0.642,
     "max_dd_pct": -64.398,
-    "win_days_pct": 35.3,
+    "win_days_pct": 35.6,
     "days_traded_pct": 56.7,
-    "days": 1214,
-    "payoff": 1.564
+    "days": 1219,
+    "payoff": 1.555
    },
    "all": {
-    "cagr_pct": -7.341,
-    "sharpe": -0.363,
+    "cagr_pct": -7.282,
+    "sharpe": -0.36,
     "max_dd_pct": -74.614,
-    "win_days_pct": 36.7,
+    "win_days_pct": 36.8,
     "days_traded_pct": 57.0,
-    "days": 2703,
-    "payoff": 1.582
+    "days": 2708,
+    "payoff": 1.579
    },
    "before_costs": {
-    "cagr_pct": 1.263,
-    "sharpe": 0.158,
+    "cagr_pct": 1.334,
+    "sharpe": 0.162,
     "max_dd_pct": -55.173,
     "win_days_pct": 38.9,
     "days_traded_pct": 56.8,
-    "days": 2703,
-    "payoff": 1.634
+    "days": 2708,
+    "payoff": 1.632
    }
   },
   {
@@ -937,39 +937,39 @@
     "payoff": 1.436
    },
    "test": {
-    "cagr_pct": -13.607,
-    "sharpe": -1.623,
+    "cagr_pct": -13.555,
+    "sharpe": -1.62,
     "max_dd_pct": -52.924,
     "win_days_pct": 34.6,
-    "days_traded_pct": 59.3,
-    "days": 1208,
+    "days_traded_pct": 59.0,
+    "days": 1213,
     "payoff": 1.314
    },
    "test_late": {
-    "cagr_pct": -13.848,
-    "sharpe": -1.699,
+    "cagr_pct": -13.795,
+    "sharpe": -1.696,
     "max_dd_pct": -53.373,
     "win_days_pct": 35.5,
-    "days_traded_pct": 59.3,
-    "days": 1208,
+    "days_traded_pct": 59.0,
+    "days": 1213,
     "payoff": 1.249
    },
    "all": {
-    "cagr_pct": -11.804,
-    "sharpe": -1.276,
+    "cagr_pct": -11.784,
+    "sharpe": -1.275,
     "max_dd_pct": -74.923,
     "win_days_pct": 35.1,
-    "days_traded_pct": 60.7,
-    "days": 2695,
+    "days_traded_pct": 60.6,
+    "days": 2700,
     "payoff": 1.383
    },
    "before_costs": {
-    "cagr_pct": -3.217,
+    "cagr_pct": -3.211,
     "sharpe": -0.302,
     "max_dd_pct": -32.697,
     "win_days_pct": 38.4,
-    "days_traded_pct": 59.9,
-    "days": 2695,
+    "days_traded_pct": 59.8,
+    "days": 2700,
     "payoff": 1.495
    }
   },
@@ -996,39 +996,39 @@
     "payoff": 1.394
    },
    "test": {
-    "cagr_pct": -10.683,
-    "sharpe": -1.592,
+    "cagr_pct": -10.641,
+    "sharpe": -1.589,
     "max_dd_pct": -44.035,
     "win_days_pct": 34.4,
-    "days_traded_pct": 62.5,
-    "days": 1208,
+    "days_traded_pct": 62.2,
+    "days": 1213,
     "payoff": 1.327
    },
    "test_late": {
-    "cagr_pct": -12.494,
-    "sharpe": -1.926,
+    "cagr_pct": -12.446,
+    "sharpe": -1.922,
     "max_dd_pct": -49.055,
     "win_days_pct": 33.6,
-    "days_traded_pct": 62.5,
-    "days": 1208,
+    "days_traded_pct": 62.2,
+    "days": 1213,
     "payoff": 1.279
    },
    "all": {
-    "cagr_pct": -9.841,
-    "sharpe": -1.375,
+    "cagr_pct": -9.824,
+    "sharpe": -1.374,
     "max_dd_pct": -68.836,
     "win_days_pct": 34.0,
-    "days_traded_pct": 59.3,
-    "days": 2695,
+    "days_traded_pct": 59.2,
+    "days": 2700,
     "payoff": 1.394
    },
    "before_costs": {
-    "cagr_pct": -1.45,
+    "cagr_pct": -1.448,
     "sharpe": -0.166,
     "max_dd_pct": -26.638,
     "win_days_pct": 39.0,
-    "days_traded_pct": 58.0,
-    "days": 2695,
+    "days_traded_pct": 57.9,
+    "days": 2700,
     "payoff": 1.5
    }
   },
@@ -1055,40 +1055,40 @@
     "payoff": 1.423
    },
    "test": {
-    "cagr_pct": 3.705,
-    "sharpe": 0.409,
+    "cagr_pct": 4.027,
+    "sharpe": 0.44,
     "max_dd_pct": -16.647,
-    "win_days_pct": 41.9,
+    "win_days_pct": 42.0,
     "days_traded_pct": 57.7,
-    "days": 1208,
-    "payoff": 1.535
+    "days": 1213,
+    "payoff": 1.54
    },
    "test_late": {
-    "cagr_pct": 2.376,
-    "sharpe": 0.286,
+    "cagr_pct": 2.58,
+    "sharpe": 0.306,
     "max_dd_pct": -12.815,
-    "win_days_pct": 42.8,
+    "win_days_pct": 42.9,
     "days_traded_pct": 57.7,
-    "days": 1208,
-    "payoff": 1.437
+    "days": 1213,
+    "payoff": 1.438
    },
    "all": {
-    "cagr_pct": 0.921,
-    "sharpe": 0.148,
+    "cagr_pct": 1.067,
+    "sharpe": 0.164,
     "max_dd_pct": -20.774,
-    "win_days_pct": 39.8,
+    "win_days_pct": 39.9,
     "days_traded_pct": 57.2,
-    "days": 2693,
-    "payoff": 1.57
+    "days": 2698,
+    "payoff": 1.573
    },
    "before_costs": {
-    "cagr_pct": 10.024,
-    "sharpe": 1.137,
+    "cagr_pct": 10.182,
+    "sharpe": 1.153,
     "max_dd_pct": -9.482,
-    "win_days_pct": 44.2,
+    "win_days_pct": 44.3,
     "days_traded_pct": 56.3,
-    "days": 2693,
-    "payoff": 1.698
+    "days": 2698,
+    "payoff": 1.697
    }
   },
   {
@@ -1114,40 +1114,40 @@
     "payoff": 1.533
    },
    "test": {
-    "cagr_pct": 5.477,
-    "sharpe": 0.479,
+    "cagr_pct": 5.743,
+    "sharpe": 0.498,
     "max_dd_pct": -14.503,
-    "win_days_pct": 40.8,
+    "win_days_pct": 40.9,
     "days_traded_pct": 57.2,
-    "days": 1208,
+    "days": 1213,
     "payoff": 1.622
    },
    "test_late": {
-    "cagr_pct": 2.776,
-    "sharpe": 0.286,
+    "cagr_pct": 3.026,
+    "sharpe": 0.306,
     "max_dd_pct": -15.68,
-    "win_days_pct": 40.8,
+    "win_days_pct": 40.9,
     "days_traded_pct": 57.2,
-    "days": 1208,
+    "days": 1213,
     "payoff": 1.548
    },
    "all": {
-    "cagr_pct": 3.406,
-    "sharpe": 0.359,
+    "cagr_pct": 3.527,
+    "sharpe": 0.369,
     "max_dd_pct": -27.093,
     "win_days_pct": 40.4,
     "days_traded_pct": 56.7,
-    "days": 2693,
-    "payoff": 1.611
+    "days": 2698,
+    "payoff": 1.612
    },
    "before_costs": {
-    "cagr_pct": 12.539,
-    "sharpe": 1.132,
+    "cagr_pct": 12.666,
+    "sharpe": 1.142,
     "max_dd_pct": -13.305,
     "win_days_pct": 44.0,
     "days_traded_pct": 56.1,
-    "days": 2693,
-    "payoff": 1.685
+    "days": 2698,
+    "payoff": 1.686
    }
   },
   {
@@ -1173,40 +1173,40 @@
     "payoff": 1.414
    },
    "test": {
-    "cagr_pct": -3.898,
-    "sharpe": -0.163,
+    "cagr_pct": -3.612,
+    "sharpe": -0.145,
     "max_dd_pct": -29.67,
-    "win_days_pct": 40.3,
-    "days_traded_pct": 61.3,
-    "days": 1208,
-    "payoff": 1.432
+    "win_days_pct": 40.4,
+    "days_traded_pct": 61.2,
+    "days": 1213,
+    "payoff": 1.428
    },
    "test_late": {
-    "cagr_pct": -8.312,
-    "sharpe": -0.46,
+    "cagr_pct": -8.126,
+    "sharpe": -0.449,
     "max_dd_pct": -44.227,
     "win_days_pct": 41.5,
-    "days_traded_pct": 61.3,
-    "days": 1208,
-    "payoff": 1.277
+    "days_traded_pct": 61.2,
+    "days": 1213,
+    "payoff": 1.279
    },
    "all": {
-    "cagr_pct": 3.188,
-    "sharpe": 0.285,
+    "cagr_pct": 3.338,
+    "sharpe": 0.295,
     "max_dd_pct": -29.67,
-    "win_days_pct": 42.5,
-    "days_traded_pct": 59.4,
-    "days": 2237,
-    "payoff": 1.445
+    "win_days_pct": 42.6,
+    "days_traded_pct": 59.3,
+    "days": 2242,
+    "payoff": 1.443
    },
    "before_costs": {
-    "cagr_pct": 12.92,
-    "sharpe": 0.897,
+    "cagr_pct": 13.077,
+    "sharpe": 0.907,
     "max_dd_pct": -24.335,
-    "win_days_pct": 45.5,
+    "win_days_pct": 45.6,
     "days_traded_pct": 59.2,
-    "days": 2237,
-    "payoff": 1.469
+    "days": 2242,
+    "payoff": 1.468
    }
   },
   {
@@ -1232,40 +1232,40 @@
     "payoff": 1.388
    },
    "test": {
-    "cagr_pct": -4.874,
-    "sharpe": -0.818,
-    "max_dd_pct": -22.422,
+    "cagr_pct": -4.837,
+    "sharpe": -0.811,
+    "max_dd_pct": -22.527,
     "win_days_pct": 35.5,
-    "days_traded_pct": 57.1,
-    "days": 1211,
-    "payoff": 1.485
+    "days_traded_pct": 57.2,
+    "days": 1216,
+    "payoff": 1.489
    },
    "test_late": {
-    "cagr_pct": -4.921,
-    "sharpe": -0.833,
+    "cagr_pct": -4.802,
+    "sharpe": -0.812,
     "max_dd_pct": -23.452,
-    "win_days_pct": 36.0,
-    "days_traded_pct": 57.1,
-    "days": 1211,
-    "payoff": 1.438
+    "win_days_pct": 36.1,
+    "days_traded_pct": 57.2,
+    "days": 1216,
+    "payoff": 1.437
    },
    "all": {
-    "cagr_pct": -7.157,
-    "sharpe": -1.435,
-    "max_dd_pct": -56.413,
+    "cagr_pct": -7.136,
+    "sharpe": -1.43,
+    "max_dd_pct": -56.472,
     "win_days_pct": 32.6,
     "days_traded_pct": 57.0,
-    "days": 2696,
-    "payoff": 1.456
+    "days": 2701,
+    "payoff": 1.458
    },
    "before_costs": {
-    "cagr_pct": 1.106,
-    "sharpe": 0.245,
+    "cagr_pct": 1.127,
+    "sharpe": 0.249,
     "max_dd_pct": -10.982,
-    "win_days_pct": 39.8,
+    "win_days_pct": 39.7,
     "days_traded_pct": 56.8,
-    "days": 2696,
-    "payoff": 1.614
+    "days": 2701,
+    "payoff": 1.616
    }
   },
   {
@@ -1291,40 +1291,40 @@
     "payoff": 1.578
    },
    "test": {
-    "cagr_pct": -9.423,
-    "sharpe": -0.75,
-    "max_dd_pct": -38.131,
+    "cagr_pct": -9.361,
+    "sharpe": -0.745,
+    "max_dd_pct": -38.407,
     "win_days_pct": 38.1,
-    "days_traded_pct": 58.0,
-    "days": 1213,
-    "payoff": 1.333
+    "days_traded_pct": 58.1,
+    "days": 1218,
+    "payoff": 1.331
    },
    "test_late": {
-    "cagr_pct": -11.495,
-    "sharpe": -0.949,
-    "max_dd_pct": -44.645,
+    "cagr_pct": -11.416,
+    "sharpe": -0.944,
+    "max_dd_pct": -44.801,
     "win_days_pct": 37.4,
-    "days_traded_pct": 58.0,
-    "days": 1213,
-    "payoff": 1.298
+    "days_traded_pct": 58.1,
+    "days": 1218,
+    "payoff": 1.296
    },
    "all": {
-    "cagr_pct": -7.826,
-    "sharpe": -0.746,
-    "max_dd_pct": -59.305,
-    "win_days_pct": 35.5,
+    "cagr_pct": -7.8,
+    "sharpe": -0.744,
+    "max_dd_pct": -59.486,
+    "win_days_pct": 35.6,
     "days_traded_pct": 56.2,
-    "days": 2700,
-    "payoff": 1.485
+    "days": 2705,
+    "payoff": 1.484
    },
    "before_costs": {
-    "cagr_pct": 0.196,
-    "sharpe": 0.069,
+    "cagr_pct": 0.227,
+    "sharpe": 0.072,
     "max_dd_pct": -18.162,
     "win_days_pct": 39.5,
-    "days_traded_pct": 55.3,
-    "days": 2700,
-    "payoff": 1.562
+    "days_traded_pct": 55.4,
+    "days": 2705,
+    "payoff": 1.561
    }
   },
   {
@@ -1350,40 +1350,40 @@
     "payoff": 1.391
    },
    "test": {
-    "cagr_pct": -6.983,
-    "sharpe": -1.439,
+    "cagr_pct": -6.831,
+    "sharpe": -1.406,
     "max_dd_pct": -30.279,
-    "win_days_pct": 32.4,
+    "win_days_pct": 32.5,
     "days_traded_pct": 59.8,
-    "days": 1214,
-    "payoff": 1.519
+    "days": 1219,
+    "payoff": 1.521
    },
    "test_late": {
-    "cagr_pct": -6.381,
-    "sharpe": -1.319,
-    "max_dd_pct": -27.843,
-    "win_days_pct": 35.5,
+    "cagr_pct": -6.265,
+    "sharpe": -1.293,
+    "max_dd_pct": -27.978,
+    "win_days_pct": 35.7,
     "days_traded_pct": 59.8,
-    "days": 1214,
-    "payoff": 1.348
+    "days": 1219,
+    "payoff": 1.349
    },
    "all": {
-    "cagr_pct": -7.539,
-    "sharpe": -1.531,
+    "cagr_pct": -7.469,
+    "sharpe": -1.516,
     "max_dd_pct": -56.805,
-    "win_days_pct": 31.4,
+    "win_days_pct": 31.5,
     "days_traded_pct": 60.3,
-    "days": 2699,
-    "payoff": 1.502
+    "days": 2704,
+    "payoff": 1.503
    },
    "before_costs": {
-    "cagr_pct": 1.216,
-    "sharpe": 0.269,
+    "cagr_pct": 1.286,
+    "sharpe": 0.283,
     "max_dd_pct": -9.054,
-    "win_days_pct": 39.3,
+    "win_days_pct": 39.4,
     "days_traded_pct": 59.2,
-    "days": 2699,
-    "payoff": 1.654
+    "days": 2704,
+    "payoff": 1.656
    }
   },
   {
@@ -1409,40 +1409,40 @@
     "payoff": 1.165
    },
    "test": {
-    "cagr_pct": -7.071,
-    "sharpe": -2.921,
-    "max_dd_pct": -29.998,
-    "win_days_pct": 27.7,
-    "days_traded_pct": 59.7,
-    "days": 1208,
-    "payoff": 1.351
+    "cagr_pct": -7.012,
+    "sharpe": -2.896,
+    "max_dd_pct": -30.08,
+    "win_days_pct": 27.8,
+    "days_traded_pct": 59.6,
+    "days": 1213,
+    "payoff": 1.355
    },
    "test_late": {
-    "cagr_pct": -7.167,
-    "sharpe": -3.171,
-    "max_dd_pct": -30.271,
-    "win_days_pct": 28.4,
-    "days_traded_pct": 59.7,
-    "days": 1208,
-    "payoff": 1.245
+    "cagr_pct": -7.106,
+    "sharpe": -3.143,
+    "max_dd_pct": -30.353,
+    "win_days_pct": 28.5,
+    "days_traded_pct": 59.6,
+    "days": 1213,
+    "payoff": 1.249
    },
    "all": {
-    "cagr_pct": -7.869,
-    "sharpe": -3.64,
-    "max_dd_pct": -58.35,
-    "win_days_pct": 25.0,
+    "cagr_pct": -7.841,
+    "sharpe": -3.627,
+    "max_dd_pct": -58.399,
+    "win_days_pct": 25.1,
     "days_traded_pct": 60.3,
-    "days": 2693,
-    "payoff": 1.298
+    "days": 2698,
+    "payoff": 1.301
    },
    "before_costs": {
-    "cagr_pct": 0.905,
-    "sharpe": 0.436,
+    "cagr_pct": 0.929,
+    "sharpe": 0.448,
     "max_dd_pct": -3.957,
     "win_days_pct": 40.1,
     "days_traded_pct": 58.5,
-    "days": 2693,
-    "payoff": 1.669
+    "days": 2698,
+    "payoff": 1.673
    }
   },
   {
@@ -1468,40 +1468,40 @@
     "payoff": 1.478
    },
    "test": {
-    "cagr_pct": -21.703,
-    "sharpe": -2.006,
+    "cagr_pct": -21.429,
+    "sharpe": -1.979,
     "max_dd_pct": -70.697,
-    "win_days_pct": 34.9,
-    "days_traded_pct": 62.9,
-    "days": 1208,
-    "payoff": 1.19
+    "win_days_pct": 35.0,
+    "days_traded_pct": 62.8,
+    "days": 1213,
+    "payoff": 1.188
    },
    "test_late": {
-    "cagr_pct": -24.102,
-    "sharpe": -2.276,
+    "cagr_pct": -23.853,
+    "sharpe": -2.251,
     "max_dd_pct": -74.537,
-    "win_days_pct": 35.8,
-    "days_traded_pct": 62.9,
-    "days": 1208,
-    "payoff": 1.065
+    "win_days_pct": 36.0,
+    "days_traded_pct": 62.8,
+    "days": 1213,
+    "payoff": 1.063
    },
    "all": {
-    "cagr_pct": -10.197,
-    "sharpe": -0.749,
+    "cagr_pct": -10.079,
+    "sharpe": -0.739,
     "max_dd_pct": -77.293,
-    "win_days_pct": 37.2,
-    "days_traded_pct": 61.5,
-    "days": 2699,
-    "payoff": 1.402
+    "win_days_pct": 37.3,
+    "days_traded_pct": 61.4,
+    "days": 2704,
+    "payoff": 1.401
    },
    "before_costs": {
-    "cagr_pct": -1.665,
-    "sharpe": -0.063,
+    "cagr_pct": -1.545,
+    "sharpe": -0.054,
     "max_dd_pct": -59.958,
-    "win_days_pct": 40.2,
-    "days_traded_pct": 60.6,
-    "days": 2699,
-    "payoff": 1.465
+    "win_days_pct": 40.3,
+    "days_traded_pct": 60.5,
+    "days": 2704,
+    "payoff": 1.464
    }
   },
   {
@@ -1527,40 +1527,40 @@
     "payoff": 1.298
    },
    "test": {
-    "cagr_pct": -10.35,
-    "sharpe": -0.488,
+    "cagr_pct": -10.277,
+    "sharpe": -0.485,
     "max_dd_pct": -51.185,
     "win_days_pct": 37.1,
     "days_traded_pct": 61.6,
-    "days": 1212,
-    "payoff": 1.52
+    "days": 1217,
+    "payoff": 1.526
    },
    "test_late": {
-    "cagr_pct": -9.031,
-    "sharpe": -0.413,
+    "cagr_pct": -8.999,
+    "sharpe": -0.412,
     "max_dd_pct": -47.427,
-    "win_days_pct": 39.0,
+    "win_days_pct": 39.1,
     "days_traded_pct": 61.6,
-    "days": 1212,
-    "payoff": 1.426
+    "days": 1217,
+    "payoff": 1.423
    },
    "all": {
-    "cagr_pct": -13.668,
-    "sharpe": -0.831,
+    "cagr_pct": -13.63,
+    "sharpe": -0.829,
     "max_dd_pct": -79.872,
     "win_days_pct": 34.3,
     "days_traded_pct": 61.4,
-    "days": 2697,
-    "payoff": 1.58
+    "days": 2702,
+    "payoff": 1.583
    },
    "before_costs": {
-    "cagr_pct": -5.155,
-    "sharpe": -0.25,
+    "cagr_pct": -5.108,
+    "sharpe": -0.248,
     "max_dd_pct": -59.439,
     "win_days_pct": 37.0,
     "days_traded_pct": 60.5,
-    "days": 2697,
-    "payoff": 1.603
+    "days": 2702,
+    "payoff": 1.606
    }
   },
   {
@@ -1586,40 +1586,40 @@
     "payoff": 1.234
    },
    "test": {
-    "cagr_pct": -5.858,
-    "sharpe": -1.077,
+    "cagr_pct": -5.733,
+    "sharpe": -1.054,
     "max_dd_pct": -33.076,
-    "win_days_pct": 35.8,
+    "win_days_pct": 35.9,
     "days_traded_pct": 53.5,
-    "days": 1208,
-    "payoff": 1.383
+    "days": 1213,
+    "payoff": 1.382
    },
    "test_late": {
-    "cagr_pct": -7.738,
-    "sharpe": -1.57,
+    "cagr_pct": -7.683,
+    "sharpe": -1.56,
     "max_dd_pct": -36.635,
     "win_days_pct": 34.2,
     "days_traded_pct": 53.5,
-    "days": 1208,
-    "payoff": 1.32
+    "days": 1213,
+    "payoff": 1.324
    },
    "all": {
-    "cagr_pct": -7.18,
-    "sharpe": -1.33,
+    "cagr_pct": -7.122,
+    "sharpe": -1.319,
     "max_dd_pct": -56.627,
     "win_days_pct": 35.3,
     "days_traded_pct": 55.9,
-    "days": 2693,
+    "days": 2698,
     "payoff": 1.331
    },
    "before_costs": {
-    "cagr_pct": 0.962,
-    "sharpe": 0.204,
+    "cagr_pct": 1.02,
+    "sharpe": 0.215,
     "max_dd_pct": -15.298,
     "win_days_pct": 40.7,
     "days_traded_pct": 54.9,
-    "days": 2693,
-    "payoff": 1.535
+    "days": 2698,
+    "payoff": 1.534
    }
   },
   {
@@ -1645,40 +1645,40 @@
     "payoff": 1.234
    },
    "test": {
-    "cagr_pct": -2.457,
-    "sharpe": -0.318,
+    "cagr_pct": -2.471,
+    "sharpe": -0.32,
     "max_dd_pct": -23.359,
     "win_days_pct": 37.8,
-    "days_traded_pct": 47.4,
-    "days": 1208,
-    "payoff": 1.509
+    "days_traded_pct": 47.3,
+    "days": 1213,
+    "payoff": 1.505
    },
    "test_late": {
-    "cagr_pct": -4.997,
-    "sharpe": -0.752,
-    "max_dd_pct": -29.457,
-    "win_days_pct": 36.5,
-    "days_traded_pct": 47.4,
-    "days": 1208,
-    "payoff": 1.418
+    "cagr_pct": -5.027,
+    "sharpe": -0.758,
+    "max_dd_pct": -29.691,
+    "win_days_pct": 36.6,
+    "days_traded_pct": 47.3,
+    "days": 1213,
+    "payoff": 1.413
    },
    "all": {
-    "cagr_pct": -6.264,
+    "cagr_pct": -6.263,
     "sharpe": -1.029,
     "max_dd_pct": -50.345,
     "win_days_pct": 35.0,
     "days_traded_pct": 51.2,
-    "days": 2693,
-    "payoff": 1.417
+    "days": 2698,
+    "payoff": 1.415
    },
    "before_costs": {
-    "cagr_pct": 1.251,
-    "sharpe": 0.237,
+    "cagr_pct": 1.256,
+    "sharpe": 0.238,
     "max_dd_pct": -14.812,
-    "win_days_pct": 40.2,
+    "win_days_pct": 40.3,
     "days_traded_pct": 49.8,
-    "days": 2693,
-    "payoff": 1.584
+    "days": 2698,
+    "payoff": 1.583
    }
   }
  ],
@@ -1693,22 +1693,22 @@
    "payoff": 1.655
   },
   "test": {
-   "cagr_pct": 7.41,
-   "sharpe": 1.0,
+   "cagr_pct": 7.372,
+   "sharpe": 0.994,
    "max_dd_pct": -9.043,
-   "win_days_pct": 41.9,
+   "win_days_pct": 41.8,
    "days_traded_pct": 87.8,
-   "days": 1217,
-   "payoff": 1.713
+   "days": 1222,
+   "payoff": 1.71
   },
   "all": {
-   "cagr_pct": 8.956,
-   "sharpe": 1.286,
+   "cagr_pct": 8.936,
+   "sharpe": 1.283,
    "max_dd_pct": -9.043,
    "win_days_pct": 44.0,
    "days_traded_pct": 88.6,
-   "days": 2712,
-   "payoff": 1.67
+   "days": 2717,
+   "payoff": 1.669
   }
  },
  "book_late": {
@@ -1722,22 +1722,22 @@
    "payoff": 1.529
   },
   "test": {
-   "cagr_pct": 4.158,
-   "sharpe": 0.614,
+   "cagr_pct": 4.132,
+   "sharpe": 0.61,
    "max_dd_pct": -9.675,
    "win_days_pct": 41.2,
    "days_traded_pct": 87.8,
-   "days": 1217,
-   "payoff": 1.619
+   "days": 1222,
+   "payoff": 1.617
   },
   "all": {
-   "cagr_pct": 6.352,
-   "sharpe": 0.97,
+   "cagr_pct": 6.336,
+   "sharpe": 0.967,
    "max_dd_pct": -9.675,
    "win_days_pct": 44.0,
    "days_traded_pct": 88.6,
-   "days": 2712,
-   "payoff": 1.558
+   "days": 2717,
+   "payoff": 1.557
   }
  },
  "book_plain": {
@@ -1751,21 +1751,21 @@
    "payoff": 1.711
   },
   "test": {
-   "cagr_pct": 3.212,
-   "sharpe": 0.347,
+   "cagr_pct": 3.243,
+   "sharpe": 0.35,
    "max_dd_pct": -16.212,
    "win_days_pct": 40.9,
    "days_traded_pct": 95.7,
-   "days": 1217,
-   "payoff": 1.548
+   "days": 1222,
+   "payoff": 1.549
   },
   "all": {
-   "cagr_pct": 8.225,
+   "cagr_pct": 8.23,
    "sharpe": 0.873,
    "max_dd_pct": -16.212,
    "win_days_pct": 42.6,
    "days_traded_pct": 95.9,
-   "days": 2712,
+   "days": 2717,
    "payoff": 1.614
   }
  },
@@ -1780,21 +1780,21 @@
    "payoff": 1.57
   },
   "test": {
-   "cagr_pct": -0.876,
-   "sharpe": -0.036,
+   "cagr_pct": -0.841,
+   "sharpe": -0.033,
    "max_dd_pct": -22.773,
    "win_days_pct": 40.9,
    "days_traded_pct": 95.7,
-   "days": 1217,
-   "payoff": 1.437
+   "days": 1222,
+   "payoff": 1.438
   },
   "all": {
-   "cagr_pct": 4.508,
+   "cagr_pct": 4.515,
    "sharpe": 0.525,
    "max_dd_pct": -22.773,
    "win_days_pct": 42.7,
    "days_traded_pct": 95.9,
-   "days": 2712,
+   "days": 2717,
    "payoff": 1.49
   }
  },
@@ -1825,234 +1825,234 @@
   "models": {
    "QQQ": {
     "w": [
-     -0.310786,
-     0.139372,
-     0.209231,
-     0.083921,
-     0.093189,
-     -0.13794,
-     0.108367,
-     0.012077,
-     -0.078047,
-     0.041294
+     -0.30884,
+     0.136504,
+     0.203639,
+     0.086753,
+     0.094184,
+     -0.137469,
+     0.107066,
+     0.010006,
+     -0.073908,
+     0.04518
     ],
     "mu": [
-     0.052446,
-     0.512807,
-     0.55815,
-     -0.033477,
-     0.982198,
-     0.053628,
-     0.24198,
-     0.191798,
-     0.200631
+     0.054158,
+     0.513649,
+     0.558776,
+     -0.033162,
+     0.981727,
+     0.054156,
+     0.241814,
+     0.192065,
+     0.200882
     ],
     "sd": [
-     0.762305,
-     0.566471,
-     0.250156,
-     1.446371,
-     1.06226,
-     0.998561,
-     0.222872,
-     0.393715,
-     0.400472
+     0.763271,
+     0.567169,
+     0.250349,
+     1.445475,
+     1.061465,
+     0.998532,
+     0.222744,
+     0.393924,
+     0.40066
     ],
-    "lessons": 1585
+    "lessons": 1588
    },
    "NVDA": {
     "w": [
-     -0.344948,
-     -0.004678,
-     0.142863,
-     -0.038691,
-     0.099049,
-     -0.007615,
-     0.029112,
-     0.011888,
-     0.022869,
-     0.042825
+     -0.342894,
+     -0.005602,
+     0.145051,
+     -0.037313,
+     0.096452,
+     -0.006612,
+     0.024923,
+     0.010097,
+     0.022708,
+     0.045472
     ],
     "mu": [
-     0.188731,
-     1.084449,
-     1.382844,
-     0.107633,
-     2.23627,
-     0.067351,
-     0.230819,
-     0.198204,
-     0.19628
+     0.18971,
+     1.087028,
+     1.383503,
+     0.098261,
+     2.241141,
+     0.066581,
+     0.230671,
+     0.197823,
+     0.196543
     ],
     "sd": [
-     1.669332,
-     1.283066,
-     0.49851,
-     3.236442,
-     2.342059,
-     0.997729,
-     0.217615,
-     0.398647,
-     0.397183
+     1.670993,
+     1.283191,
+     0.498462,
+     3.240463,
+     2.34255,
+     0.997781,
+     0.217449,
+     0.398358,
+     0.397384
     ],
-    "lessons": 1559
+    "lessons": 1562
    },
    "TSLA": {
     "w": [
-     -0.301742,
-     0.015319,
-     -0.013983,
-     0.065763,
-     0.091652,
-     -0.204153,
-     0.111452,
-     0.061481,
-     0.049916,
-     0.111767
+     -0.303821,
+     0.014543,
+     -0.012728,
+     0.063006,
+     0.089397,
+     -0.203342,
+     0.111904,
+     0.062561,
+     0.047795,
+     0.109233
     ],
     "mu": [
-     0.116716,
-     1.292182,
-     1.652956,
-     0.069635,
-     2.673826,
-     0.013447,
-     0.232133,
-     0.216381,
-     0.18643
+     0.11759,
+     1.291622,
+     1.653616,
+     0.073232,
+     2.674243,
+     0.013431,
+     0.23199,
+     0.216728,
+     0.186813
     ],
     "sd": [
-     2.091009,
-     1.648091,
-     0.581129,
-     3.844279,
-     2.762968,
+     2.089902,
+     1.647189,
+     0.581116,
+     3.843565,
+     2.761663,
      0.99991,
-     0.221806,
-     0.411777,
-     0.389454
+     0.221713,
+     0.412016,
+     0.389761
     ],
-    "lessons": 1636
+    "lessons": 1638
    },
    "AMZN": {
     "w": [
-     -0.46378,
-     0.026561,
-     -0.030159,
-     0.050883,
-     -0.018688,
-     -0.193745,
-     0.030549,
-     -0.026742,
-     0.001063,
-     0.085142
+     -0.464243,
+     0.028539,
+     -0.029269,
+     0.05098,
+     -0.017607,
+     -0.195258,
+     0.026289,
+     -0.025998,
+     0.001594,
+     0.084934
     ],
     "mu": [
-     0.110948,
-     0.728373,
-     0.926866,
-     0.07563,
-     1.48076,
-     0.018069,
-     0.236808,
-     0.202492,
-     0.176324
+     0.111554,
+     0.728195,
+     0.927685,
+     0.07715,
+     1.481822,
+     0.018657,
+     0.236558,
+     0.202114,
+     0.175995
     ],
     "sd": [
-     1.265008,
-     1.040206,
-     0.368331,
-     2.154418,
-     1.566711,
-     0.999837,
-     0.219546,
-     0.401857,
-     0.381096
+     1.264107,
+     1.039299,
+     0.368477,
+     2.154352,
+     1.565691,
+     0.999826,
+     0.219423,
+     0.401577,
+     0.380816
     ],
-    "lessons": 1605
+    "lessons": 1608
    },
    "AMD": {
     "w": [
-     -0.369154,
-     0.002283,
-     0.156057,
-     -0.032735,
-     0.165016,
-     -0.123581,
-     0.106716,
-     0.037516,
-     0.014343,
-     0.010031
+     -0.369217,
+     -0.001391,
+     0.157592,
+     -0.035016,
+     0.1652,
+     -0.124242,
+     0.103342,
+     0.034876,
+     0.01947,
+     0.015746
     ],
     "mu": [
-     0.185516,
-     1.265863,
-     1.741198,
-     0.132344,
-     2.616918,
-     0.036943,
-     0.225674,
-     0.196815,
-     0.184076
+     0.190874,
+     1.273328,
+     1.743578,
+     0.156912,
+     2.633598,
+     0.03873,
+     0.225543,
+     0.196825,
+     0.184127
     ],
     "sd": [
-     1.975443,
-     1.527868,
-     0.563074,
-     3.943141,
-     2.952561,
-     0.999317,
-     0.211805,
-     0.397592,
-     0.387547
+     1.984346,
+     1.533852,
+     0.563841,
+     3.968203,
+     2.972443,
+     0.99925,
+     0.211617,
+     0.397599,
+     0.387588
     ],
-    "lessons": 1570
+    "lessons": 1575
    },
    "ARKK": {
     "w": [
-     -0.310826,
-     0.125778,
-     0.083878,
-     0.05846,
-     -0.036688,
-     -0.268778,
-     0.039103,
-     -0.042224,
-     0.046107,
-     0.035302
+     -0.307167,
+     0.126711,
+     0.080708,
+     0.061066,
+     -0.03581,
+     -0.266837,
+     0.038676,
+     -0.044276,
+     0.049858,
+     0.03896
     ],
     "mu": [
-     0.102891,
-     0.931144,
-     1.346952,
-     -0.045945,
-     2.040529,
-     -0.003012,
-     0.230943,
-     0.188253,
-     0.189759
+     0.103342,
+     0.93035,
+     1.347496,
+     -0.045341,
+     2.041771,
+     -0.003008,
+     0.230711,
+     0.188722,
+     0.190226
     ],
     "sd": [
-     1.349445,
-     0.982119,
-     0.587065,
-     2.756803,
-     1.854269,
+     1.348504,
+     0.981627,
+     0.586797,
+     2.757015,
+     1.853202,
      0.999995,
-     0.21964,
-     0.390914,
-     0.39211
+     0.219556,
+     0.391287,
+     0.392479
     ],
-    "lessons": 1328
+    "lessons": 1330
    }
   },
   "lessons": {
-   "QQQ": 1585,
-   "NVDA": 1559,
-   "TSLA": 1636,
-   "AMZN": 1605,
-   "AMD": 1570,
-   "ARKK": 1328
+   "QQQ": 1588,
+   "NVDA": 1562,
+   "TSLA": 1638,
+   "AMZN": 1608,
+   "AMD": 1575,
+   "ARKK": 1330
   }
  },
  "calendar_years": [
@@ -2118,7 +2118,7 @@
   },
   {
    "year": 2026,
-   "return_pct": 2.198,
+   "return_pct": 2.164,
    "unseen": true,
    "partial": true
   }
@@ -2186,7 +2186,7 @@
   },
   {
    "year": 2026,
-   "return_pct": 5.078,
+   "return_pct": 5.036,
    "unseen": true,
    "partial": true
   }
@@ -2206,12 +2206,12 @@
      "payoff": 1.646
     },
     "test": {
-     "cagr_pct": 5.947,
-     "sharpe": 0.832,
+     "cagr_pct": 5.942,
+     "sharpe": 0.83,
      "max_dd_pct": -8.698,
      "win_days_pct": 42.0,
      "days_traded_pct": 87.8,
-     "days": 1217,
+     "days": 1222,
      "payoff": 1.635
     }
    },
@@ -2227,13 +2227,13 @@
      "payoff": 1.638
     },
     "test": {
-     "cagr_pct": 4.839,
-     "sharpe": 0.692,
+     "cagr_pct": 4.811,
+     "sharpe": 0.688,
      "max_dd_pct": -8.509,
      "win_days_pct": 41.6,
      "days_traded_pct": 87.8,
-     "days": 1217,
-     "payoff": 1.618
+     "days": 1222,
+     "payoff": 1.616
     }
    },
    {
@@ -2248,93 +2248,93 @@
      "payoff": 1.581
     },
     "test": {
-     "cagr_pct": 4.424,
-     "sharpe": 0.644,
+     "cagr_pct": 4.403,
+     "sharpe": 0.641,
      "max_dd_pct": -9.138,
      "win_days_pct": 42.2,
      "days_traded_pct": 87.8,
-     "days": 1217,
-     "payoff": 1.56
+     "days": 1222,
+     "payoff": 1.559
     }
    }
   ]
  },
  "market_baselines": {
   "QQQ": {
-   "cagr_pct": 9.773,
-   "sharpe": 1.279,
+   "cagr_pct": 9.987,
+   "sharpe": 1.305,
    "max_dd_pct": -5.003,
-   "win_days_pct": 47.9,
-   "days_traded_pct": 33.8,
-   "days": 1217,
-   "payoff": 1.695
+   "win_days_pct": 48.1,
+   "days_traded_pct": 33.9,
+   "days": 1222,
+   "payoff": 1.699
   },
   "NVDA": {
-   "cagr_pct": -1.003,
-   "sharpe": 0.009,
+   "cagr_pct": -0.976,
+   "sharpe": 0.011,
    "max_dd_pct": -29.94,
-   "win_days_pct": 38.9,
+   "win_days_pct": 39.0,
    "days_traded_pct": 41.6,
-   "days": 1217,
-   "payoff": 1.572
+   "days": 1222,
+   "payoff": 1.57
   },
   "TSLA": {
-   "cagr_pct": 26.122,
-   "sharpe": 1.363,
+   "cagr_pct": 25.809,
+   "sharpe": 1.352,
    "max_dd_pct": -18.242,
-   "win_days_pct": 43.8,
+   "win_days_pct": 43.7,
    "days_traded_pct": 45.2,
-   "days": 1217,
-   "payoff": 1.841
+   "days": 1222,
+   "payoff": 1.848
   },
   "AMZN": {
-   "cagr_pct": -2.439,
-   "sharpe": -0.287,
+   "cagr_pct": -2.676,
+   "sharpe": -0.318,
    "max_dd_pct": -23.53,
-   "win_days_pct": 38.6,
+   "win_days_pct": 38.5,
    "days_traded_pct": 28.1,
-   "days": 1217,
-   "payoff": 1.448
+   "days": 1222,
+   "payoff": 1.44
   },
   "AMD": {
-   "cagr_pct": 6.451,
-   "sharpe": 0.491,
+   "cagr_pct": 6.413,
+   "sharpe": 0.484,
    "max_dd_pct": -25.394,
-   "win_days_pct": 43.1,
-   "days_traded_pct": 35.5,
-   "days": 1217,
-   "payoff": 1.527
+   "win_days_pct": 43.0,
+   "days_traded_pct": 35.8,
+   "days": 1222,
+   "payoff": 1.524
   },
   "ARKK": {
-   "cagr_pct": 3.939,
-   "sharpe": 0.349,
+   "cagr_pct": 4.017,
+   "sharpe": 0.355,
    "max_dd_pct": -20.02,
-   "win_days_pct": 42.0,
-   "days_traded_pct": 44.5,
-   "days": 1208,
-   "payoff": 1.506
+   "win_days_pct": 42.1,
+   "days_traded_pct": 44.4,
+   "days": 1213,
+   "payoff": 1.502
   }
  },
  "all_candidates_book": {
   "count": 28,
   "losing_on_unseen": 20,
   "test": {
-   "cagr_pct": -3.598,
-   "sharpe": -0.653,
-   "max_dd_pct": -19.714,
-   "win_days_pct": 37.7,
+   "cagr_pct": -3.542,
+   "sharpe": -0.643,
+   "max_dd_pct": -19.748,
+   "win_days_pct": 37.8,
    "days_traded_pct": 100.0,
-   "days": 1217,
-   "payoff": 1.442
+   "days": 1222,
+   "payoff": 1.44
   },
   "test_late": {
-   "cagr_pct": -5.804,
-   "sharpe": -1.162,
-   "max_dd_pct": -27.391,
-   "win_days_pct": 36.6,
+   "cagr_pct": -5.73,
+   "sharpe": -1.148,
+   "max_dd_pct": -27.392,
+   "win_days_pct": 36.7,
    "days_traded_pct": 100.0,
-   "days": 1217,
-   "payoff": 1.366
+   "days": 1222,
+   "payoff": 1.369
   }
  },
  "futures": {
@@ -2368,31 +2368,31 @@
      "payoff": 1.319
     },
     "test": {
-     "cagr_pct": -7.362,
-     "sharpe": -0.843,
+     "cagr_pct": -7.136,
+     "sharpe": -0.815,
      "max_dd_pct": -34.803,
      "win_days_pct": 38.9,
      "days_traded_pct": 64.2,
-     "days": 1212,
-     "payoff": 1.305
+     "days": 1217,
+     "payoff": 1.314
     },
     "test_late": {
-     "cagr_pct": -8.594,
-     "sharpe": -1.025,
+     "cagr_pct": -8.483,
+     "sharpe": -1.011,
      "max_dd_pct": -39.209,
      "win_days_pct": 39.6,
      "days_traded_pct": 64.2,
-     "days": 1212,
-     "payoff": 1.219
+     "days": 1217,
+     "payoff": 1.224
     },
     "all": {
-     "cagr_pct": -5.77,
-     "sharpe": -0.655,
+     "cagr_pct": -5.67,
+     "sharpe": -0.643,
      "max_dd_pct": -59.75,
      "win_days_pct": 39.2,
      "days_traded_pct": 63.2,
-     "days": 2698,
-     "payoff": 1.335
+     "days": 2703,
+     "payoff": 1.339
     }
    },
    {
@@ -2420,31 +2420,31 @@
      "payoff": 1.572
     },
     "test": {
-     "cagr_pct": 3.953,
-     "sharpe": 0.615,
+     "cagr_pct": 4.144,
+     "sharpe": 0.643,
      "max_dd_pct": -13.755,
-     "win_days_pct": 43.1,
+     "win_days_pct": 43.2,
      "days_traded_pct": 62.4,
-     "days": 1217,
-     "payoff": 1.528
+     "days": 1222,
+     "payoff": 1.532
     },
     "test_late": {
-     "cagr_pct": 2.129,
-     "sharpe": 0.356,
+     "cagr_pct": 2.23,
+     "sharpe": 0.372,
      "max_dd_pct": -11.39,
-     "win_days_pct": 42.7,
+     "win_days_pct": 42.8,
      "days_traded_pct": 62.4,
-     "days": 1217,
+     "days": 1222,
      "payoff": 1.459
     },
     "all": {
-     "cagr_pct": 3.33,
-     "sharpe": 0.527,
+     "cagr_pct": 3.417,
+     "sharpe": 0.54,
      "max_dd_pct": -13.755,
-     "win_days_pct": 41.8,
+     "win_days_pct": 41.9,
      "days_traded_pct": 60.4,
-     "days": 2713,
-     "payoff": 1.592
+     "days": 2718,
+     "payoff": 1.595
     }
    },
    {
@@ -2472,31 +2472,31 @@
      "payoff": 1.685
     },
     "test": {
-     "cagr_pct": 11.803,
-     "sharpe": 1.28,
+     "cagr_pct": 12.021,
+     "sharpe": 1.303,
      "max_dd_pct": -7.856,
-     "win_days_pct": 45.8,
+     "win_days_pct": 45.9,
      "days_traded_pct": 59.3,
-     "days": 1217,
-     "payoff": 1.633
+     "days": 1222,
+     "payoff": 1.636
     },
     "test_late": {
-     "cagr_pct": 8.06,
-     "sharpe": 0.929,
+     "cagr_pct": 8.234,
+     "sharpe": 0.948,
      "max_dd_pct": -9.077,
      "win_days_pct": 45.2,
      "days_traded_pct": 59.3,
-     "days": 1217,
-     "payoff": 1.533
+     "days": 1222,
+     "payoff": 1.535
     },
     "all": {
-     "cagr_pct": 10.281,
-     "sharpe": 1.196,
+     "cagr_pct": 10.381,
+     "sharpe": 1.207,
      "max_dd_pct": -9.879,
      "win_days_pct": 43.7,
      "days_traded_pct": 58.5,
-     "days": 2711,
-     "payoff": 1.768
+     "days": 2716,
+     "payoff": 1.77
     }
    },
    {
@@ -2524,31 +2524,31 @@
      "payoff": 1.298
     },
     "test": {
-     "cagr_pct": -0.844,
-     "sharpe": -0.107,
+     "cagr_pct": -0.795,
+     "sharpe": -0.1,
      "max_dd_pct": -10.875,
-     "win_days_pct": 37.7,
-     "days_traded_pct": 62.5,
-     "days": 1208,
-     "payoff": 1.609
+     "win_days_pct": 37.8,
+     "days_traded_pct": 62.3,
+     "days": 1213,
+     "payoff": 1.606
     },
     "test_late": {
-     "cagr_pct": -3.041,
-     "sharpe": -0.488,
+     "cagr_pct": -2.994,
+     "sharpe": -0.48,
      "max_dd_pct": -16.827,
-     "win_days_pct": 40.0,
-     "days_traded_pct": 62.5,
-     "days": 1208,
-     "payoff": 1.342
+     "win_days_pct": 40.1,
+     "days_traded_pct": 62.3,
+     "days": 1213,
+     "payoff": 1.34
     },
     "all": {
-     "cagr_pct": -1.866,
-     "sharpe": -0.269,
+     "cagr_pct": -1.842,
+     "sharpe": -0.265,
      "max_dd_pct": -21.964,
-     "win_days_pct": 38.3,
+     "win_days_pct": 38.4,
      "days_traded_pct": 60.2,
-     "days": 2693,
-     "payoff": 1.503
+     "days": 2698,
+     "payoff": 1.502
     }
    }
   ],
@@ -2563,22 +2563,22 @@
     "payoff": 2.14
    },
    "test": {
-    "cagr_pct": 7.853,
-    "sharpe": 1.063,
+    "cagr_pct": 8.058,
+    "sharpe": 1.09,
     "max_dd_pct": -9.163,
     "win_days_pct": 41.8,
-    "days_traded_pct": 70.3,
-    "days": 1217,
-    "payoff": 1.808
+    "days_traded_pct": 70.2,
+    "days": 1222,
+    "payoff": 1.813
    },
    "all": {
-    "cagr_pct": 6.794,
-    "sharpe": 0.976,
+    "cagr_pct": 6.887,
+    "sharpe": 0.988,
     "max_dd_pct": -9.163,
-    "win_days_pct": 39.3,
-    "days_traded_pct": 70.7,
-    "days": 2713,
-    "payoff": 1.985
+    "win_days_pct": 39.4,
+    "days_traded_pct": 70.6,
+    "days": 2718,
+    "payoff": 1.988
    }
   },
   "book_late": {
@@ -2592,22 +2592,22 @@
     "payoff": 1.92
    },
    "test": {
-    "cagr_pct": 5.1,
-    "sharpe": 0.737,
+    "cagr_pct": 5.236,
+    "sharpe": 0.756,
     "max_dd_pct": -9.386,
-    "win_days_pct": 42.1,
-    "days_traded_pct": 70.3,
-    "days": 1217,
-    "payoff": 1.638
+    "win_days_pct": 42.2,
+    "days_traded_pct": 70.2,
+    "days": 1222,
+    "payoff": 1.64
    },
    "all": {
-    "cagr_pct": 4.802,
-    "sharpe": 0.731,
+    "cagr_pct": 4.864,
+    "sharpe": 0.74,
     "max_dd_pct": -9.386,
     "win_days_pct": 40.3,
-    "days_traded_pct": 70.7,
-    "days": 2713,
-    "payoff": 1.785
+    "days_traded_pct": 70.6,
+    "days": 2718,
+    "payoff": 1.786
    }
   },
   "book_plain": {
@@ -2621,22 +2621,22 @@
     "payoff": 2.14
    },
    "test": {
-    "cagr_pct": 7.853,
-    "sharpe": 1.063,
+    "cagr_pct": 8.058,
+    "sharpe": 1.09,
     "max_dd_pct": -9.163,
     "win_days_pct": 41.8,
-    "days_traded_pct": 70.3,
-    "days": 1217,
-    "payoff": 1.808
+    "days_traded_pct": 70.2,
+    "days": 1222,
+    "payoff": 1.813
    },
    "all": {
-    "cagr_pct": 6.794,
-    "sharpe": 0.976,
+    "cagr_pct": 6.887,
+    "sharpe": 0.988,
     "max_dd_pct": -9.163,
-    "win_days_pct": 39.3,
-    "days_traded_pct": 70.7,
-    "days": 2713,
-    "payoff": 1.985
+    "win_days_pct": 39.4,
+    "days_traded_pct": 70.6,
+    "days": 2718,
+    "payoff": 1.988
    }
   },
   "book_plain_late": {
@@ -2650,22 +2650,22 @@
     "payoff": 1.92
    },
    "test": {
-    "cagr_pct": 5.1,
-    "sharpe": 0.737,
+    "cagr_pct": 5.236,
+    "sharpe": 0.756,
     "max_dd_pct": -9.386,
-    "win_days_pct": 42.1,
-    "days_traded_pct": 70.3,
-    "days": 1217,
-    "payoff": 1.638
+    "win_days_pct": 42.2,
+    "days_traded_pct": 70.2,
+    "days": 1222,
+    "payoff": 1.64
    },
    "all": {
-    "cagr_pct": 4.802,
-    "sharpe": 0.731,
+    "cagr_pct": 4.864,
+    "sharpe": 0.74,
     "max_dd_pct": -9.386,
     "win_days_pct": 40.3,
-    "days_traded_pct": 70.7,
-    "days": 2713,
-    "payoff": 1.785
+    "days_traded_pct": 70.6,
+    "days": 2718,
+    "payoff": 1.786
    }
   },
   "learning": {
@@ -2690,8 +2690,8 @@
    "shuffle_control": null,
    "models": {},
    "lessons": {
-    "MES": 1638,
-    "MNQ": 1585
+    "MES": 1641,
+    "MNQ": 1588
    }
   },
   "calendar_years": [
@@ -2757,7 +2757,7 @@
    },
    {
     "year": 2026,
-    "return_pct": 0.195,
+    "return_pct": 1.272,
     "unseen": true,
     "partial": true
    }
@@ -2825,7 +2825,7 @@
    },
    {
     "year": 2026,
-    "return_pct": 2.571,
+    "return_pct": 3.32,
     "unseen": true,
     "partial": true
    }
@@ -2845,13 +2845,13 @@
       "payoff": 2.149
      },
      "test": {
-      "cagr_pct": 6.247,
-      "sharpe": 0.882,
+      "cagr_pct": 6.47,
+      "sharpe": 0.911,
       "max_dd_pct": -9.964,
-      "win_days_pct": 41.3,
-      "days_traded_pct": 70.3,
-      "days": 1217,
-      "payoff": 1.756
+      "win_days_pct": 41.4,
+      "days_traded_pct": 70.2,
+      "days": 1222,
+      "payoff": 1.762
      }
     },
     {
@@ -2866,13 +2866,13 @@
       "payoff": 2.064
      },
      "test": {
-      "cagr_pct": 5.077,
-      "sharpe": 0.724,
+      "cagr_pct": 5.275,
+      "sharpe": 0.75,
       "max_dd_pct": -10.447,
       "win_days_pct": 41.1,
-      "days_traded_pct": 70.3,
-      "days": 1217,
-      "payoff": 1.705
+      "days_traded_pct": 70.2,
+      "days": 1222,
+      "payoff": 1.709
      }
     },
     {
@@ -2887,35 +2887,35 @@
       "payoff": 2.026
      },
      "test": {
-      "cagr_pct": 3.959,
-      "sharpe": 0.576,
+      "cagr_pct": 4.125,
+      "sharpe": 0.599,
       "max_dd_pct": -9.986,
-      "win_days_pct": 41.2,
-      "days_traded_pct": 70.3,
-      "days": 1217,
-      "payoff": 1.638
+      "win_days_pct": 41.3,
+      "days_traded_pct": 70.2,
+      "days": 1222,
+      "payoff": 1.641
      }
     }
    ]
   },
   "market_baselines": {
    "MES": {
-    "cagr_pct": 3.953,
-    "sharpe": 0.615,
+    "cagr_pct": 4.144,
+    "sharpe": 0.643,
     "max_dd_pct": -13.755,
-    "win_days_pct": 43.1,
+    "win_days_pct": 43.2,
     "days_traded_pct": 62.4,
-    "days": 1217,
-    "payoff": 1.528
+    "days": 1222,
+    "payoff": 1.532
    },
    "MNQ": {
-    "cagr_pct": 11.803,
-    "sharpe": 1.28,
+    "cagr_pct": 12.021,
+    "sharpe": 1.303,
     "max_dd_pct": -7.856,
-    "win_days_pct": 45.8,
+    "win_days_pct": 45.9,
     "days_traded_pct": 59.3,
-    "days": 1217,
-    "payoff": 1.633
+    "days": 1222,
+    "payoff": 1.636
    }
   },
   "contracts": {

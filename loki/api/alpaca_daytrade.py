@@ -529,6 +529,7 @@ def _quotes(keys: AlpacaPaperKeys, symbols: List[str], now: Optional[datetime]) 
     from the same moment. The feed is recorded in every receipt so missed entries can be traced to it.
     """
     out: Dict[str, Tuple[Optional[Dict[str, Any]], str]] = {s: (None, "no quote on SIP or IEX") for s in symbols}
+    answered: set = set()  # markets a feed actually answered for: its reason is kept over a later feed's
     for feed in ("sip", "iex"):
         wanted = [s for s in symbols if out[s][0] is None]
         if not wanted:
@@ -544,8 +545,9 @@ def _quotes(keys: AlpacaPaperKeys, symbols: List[str], now: Optional[datetime]) 
         for symbol in wanted:
             snap = snapshots.get(symbol) if isinstance(snapshots, dict) else None
             quote, why = clean_quote(snap.get("latestQuote") if isinstance(snap, dict) else None, feed.upper(), now)
-            if quote is not None or feed == "sip":
+            if quote is not None or symbol not in answered:
                 out[symbol] = (quote, why)
+            answered.add(symbol)
     return out
 
 

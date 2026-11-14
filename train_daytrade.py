@@ -96,6 +96,9 @@ def fetch(symbol: str, timeframe: str = "5Min", keep: Optional[Callable[[pd.Data
             if res.status_code == 429:  # rate limited: wait and ask again
                 time.sleep(20)
                 continue
+            if res.status_code >= 500:  # Alpaca's own hiccup (502, 503, 504): wait and ask again
+                time.sleep(5 + 5 * attempt)
+                continue
             break
         if res is None or res.status_code != 200:
             print(symbol, timeframe, "download failed", getattr(res, "status_code", "no answer"))
