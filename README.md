@@ -431,6 +431,32 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.75: a memecoin bot, tested honestly (paper only)
+
+**What it does.** The new **Memecoins** tab under AI trading follows DOGE, SHIB, PEPE, BONK, WIF and TRUMP (the memecoins Alpaca trades) on Binance's public 4-hour prices. It buys a coin after it breaks above its 10-day high and sells after it falls below its 5-day low. Wilder coins get smaller stakes, so each stays near an 80%-a-year volatility, and the rest of the money stays in cash. It shows what it holds now, its tested record, every rule tried, and its record since it was frozen.
+
+**How it was tested** (`train_memecoin.py`, `loki_v8/memecoin.py`, `loki_v8/memecoin_record.json`, all fixed before any result was seen):
+- **Coins:** the six above plus FLOKI, from each coin's listing (DOGE since 2019) to 14 November 2026.
+- **Rules:** 15 plain rules from three families (breakout, moving-average trend, momentum) on 4-hour and daily bars.
+- **Trading:** long or cash only, since Alpaca does not short crypto, and 0.35% cost per trade side (Alpaca's 0.25% fee plus spread).
+- **Choice and judgement:** the rule with the best Sharpe up to 30 June 2024 was chosen, then judged once on July 2024 to now.
+- **Bar to pass:** Sharpe above 0.5, a positive return and a smaller worst drop than holding.
+
+**Result: it did not pass.**
+
+| July 2024 → now (unseen) | Chosen rule | Holding the coins |
+|---|---|---|
+| Total | +13.5% | -81.6% |
+| Return a year | +5.5% | -51% |
+| Worst drop | -43.5% | -92.7% |
+| Sharpe | 0.33 | -0.30 |
+
+- **Protection, not profit:** it mostly protected money by stepping out of the 2025 memecoin crash; it did not make much. 11 of the 15 rules lost money over the same dates.
+- **By coin:** DOGE, PEPE and BONK made +40% to +54% under the rule; SHIB, WIF and TRUMP lost 38% to 51%, though far less than holding them.
+- **Hindsight:** the coins are famous today, and memecoins that collapsed to nothing are not in the test, which flatters every result.
+
+**So it is paper only.** It never sends an order and is not connected to Alpaca auto trading. If its record since 14 November holds up over months, it can be tested again. It was not retuned after the result: picking a better-looking rule now would only fit the past.
+
 ### 2.74: Day Trader retrained on fresh data; fixes from the first real Alpaca run
 
 **Retrained.** The Day Trader's record was rebuilt from 10 years of Alpaca 5-minute bars through 13 November 2026, for all 28 candidate markets, using a paper account's market-data access.

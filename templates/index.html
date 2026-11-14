@@ -407,7 +407,7 @@
       <div class="page-heading"><p class="eyebrow">YOUR TRADING WORKSPACE</p><h1>AI trading</h1><p class="muted">Practise with paper money, or connect an Alpaca or Tradovate account.</p></div>
       <nav class="button-row trading-tabs" aria-label="Account workspace"><button type="button" data-trading-lane="paper" aria-pressed="true" class="button primary">Practise</button><button type="button" data-trading-lane="live" aria-pressed="false" class="button secondary">Alpaca account</button><button type="button" data-trading-lane="funded" aria-pressed="false" class="button secondary">Funded / Tradovate</button></nav>
       <p id="trading-lane-note" class="caption" role="status">Practice uses simulated money. Choose a different tab to connect an account.</p>
-      <nav class="tool-tabs" id="tool-tabs" aria-label="Practice tools"><button type="button" data-tool-tab="day" aria-pressed="true">Day Trader</button><button type="button" data-tool-tab="portfolio" aria-pressed="false">Portfolio AI</button><button type="button" data-tool-tab="single" aria-pressed="false">Single market</button><button type="button" data-tool-tab="review" aria-pressed="false">Weekly self-review</button></nav>
+      <nav class="tool-tabs" id="tool-tabs" aria-label="Practice tools"><button type="button" data-tool-tab="day" aria-pressed="true">Day Trader</button><button type="button" data-tool-tab="portfolio" aria-pressed="false">Portfolio AI</button><button type="button" data-tool-tab="single" aria-pressed="false">Single market</button><button type="button" data-tool-tab="meme" aria-pressed="false">Memecoins</button><button type="button" data-tool-tab="review" aria-pressed="false">Weekly self-review</button></nav>
       <section data-tool="day" class="panel day-trader" id="day-trader" aria-label="Day Trader AI">
         <div class="section-title"><div><p class="eyebrow">DAY TRADER AI <span class="sim-tag" title="Simulated with paper money — not a real account">SIMULATED</span></p><h2>Trades the day. Flat every night.</h2></div><span class="tag" id="dt-status">Idle</span></div>
         <div class="button-row dt-mode" id="dt-mode" role="group" aria-label="What the Day Trader trades"><button type="button" class="button primary" data-dt-mode="stocks" aria-pressed="true">Stocks &amp; funds</button><button type="button" class="button secondary" data-dt-mode="futures" aria-pressed="false">Futures (MNQ · MES)</button></div>
@@ -446,6 +446,15 @@
         </div>
         <details class="pf-log-box"><summary>Rebalance log</summary><ul id="pf-log" class="pf-log"></ul></details>
         <p class="caption" id="pf-note">Rebalances when a market's target moves by more than 2% of equity, with 10 bps fees and 5 bps slippage on paper fills. Hypothetical performance: simulated on historical data with assumed fees and slippage — not actual trading. Simulated results have inherent limits (no real orders or liquidity, rules designed with knowledge of the past) and do not predict future results. Not financial advice.</p>
+      </section>
+      <section data-tool="meme" class="panel memecoin" id="memecoin" aria-label="Memecoin paper bot">
+        <div class="section-title"><div><p class="eyebrow">MEMECOIN BOT <span class="sim-tag" title="Paper only: it never sends an order">PAPER ONLY</span></p><h2>Memecoins, with the brakes on.</h2></div><span class="tag" id="mc-status">Loading…</span></div>
+        <p class="muted">Follows DOGE, SHIB, PEPE, BONK, WIF and TRUMP on 4-hour bars. It buys a coin after it breaks above its 10-day high and sells after it falls below its 5-day low, with smaller stakes in wilder coins. The rest of the money waits in cash.</p>
+        <div id="mc-verdict"></div>
+        <div id="mc-holdings" class="table-scroll"></div>
+        <div id="mc-record" class="table-scroll"></div>
+        <details class="pf-log-box"><summary>Every rule tested, and what failed</summary><div id="mc-rules" class="table-scroll"></div></details>
+        <p class="caption" id="mc-caveats"></p>
       </section>
       <section data-tool="review" class="panel ai-evolution" id="ai-evolution" aria-label="How the AI evolves">
         <div class="section-title"><div><p class="eyebrow">SELF-EVOLVING</p><h2>The AI re-tests itself every week.</h2></div><span class="tag" id="evo-status">Loading…</span></div>
@@ -636,6 +645,7 @@
   <script src="/static/js/live_trading.js?v={{ version }}" defer></script>
   <script src="/static/js/funded_accounts.js?v={{ version }}" defer></script>
   <script src="/static/js/trading_tools.js?v={{ version }}" defer></script>
+  <script src="/static/js/memecoin.js?v={{ version }}" defer></script>
   <script src="/static/js/analogue_workspace.js?v={{ version }}" defer></script>
 </body>
 </html>
