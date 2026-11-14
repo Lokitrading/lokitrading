@@ -88,3 +88,24 @@ def test_the_endpoint_answers_paper_only_and_is_rate_limited(monkeypatch):
     res = TestClient(app).get("/api/fusion/ai/memecoin")
     assert res.status_code == 200 and res.json()["paper_only"] is True and res.headers["cache-control"] == "private, no-store"
     assert rule_for("GET", "/api/fusion/ai/memecoin")
+
+
+def test_launch_radar_screens_new_tokens_and_explains_each_verdict(monkeypatch):
+    from loki.api import memecoin_api
+
+    good = {"mint": "GOOD", "mintAuthority": None, "freezeAuthority": None, "risks": [], "graphInsidersDetected": 0,
+            "markets": [{"pubkey": "CURVE", "marketType": "pump_fun", "lp": {}}], "knownAccounts": {"CURVE": {"type": "AMM"}},
+            "topHolders": [{"owner": "CURVE", "pct": 80}] + [{"owner": f"W{i}", "pct": 1} for i in range(10)], "totalMarketLiquidity": 9000,
+            "launchpad": {"name": "Pump.Fun"}}
+    feeds = {
+        "https://api.rugcheck.xyz/v1/stats/new_tokens": [{"mint": "GOOD", "symbol": "GD"}, {"mint": "BAD", "symbol": "BD"}, {"mint": "NEW", "symbol": "NW"}],
+        "https://api.rugcheck.xyz/v1/tokens/GOOD/report": good,
+        "https://api.rugcheck.xyz/v1/tokens/BAD/report": {**good, "mint": "BAD", "mintAuthority": "X"},
+        "https://api.dexscreener.com/tokens/v1/solana/GOOD,BAD,NEW": [
+            {"baseToken": {"address": "GOOD"}, "volume": {"m5": 30000}, "txns": {"m5": {"buys": 60, "sells": 20}}, "liquidity": None}],
+    }
+    monkeypatch.setattr(memecoin_api, "_get", lambda url: feeds.get(url))
+    rows = {r["symbol"]: r for r in memecoin_api.radar()["tokens"]}
+    assert rows["GD"]["verdict"].startswith("would enter") and rows["GD"]["vol_to_liq"] == 3.33
+    assert rows["BD"]["verdict"] == "rejected" and "mint authority" in rows["BD"]["reasons"][0]
+    assert rows["NW"]["verdict"] == "no report yet"

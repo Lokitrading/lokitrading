@@ -78,11 +78,26 @@
     }
   }
 
+  // --- Launch radar: the newest Solana launches with their safety verdicts (every 60 s) ---
+  async function radar() {
+    try {
+      const d = await request('/api/fusion/ai/memecoin/launches');
+      const label = (v) => (v === 'rejected' ? 'Rejected' : v === 'watching' ? 'Watching' : v.startsWith('would') ? 'Would enter' : v);
+      $('#mc-radar').replaceChildren(table(['Token', 'Launchpad', 'Liquidity', '5-min volume', 'Verdict', 'Why'],
+        d.tokens.map((t) => [t.symbol || `${t.mint.slice(0, 6)}…`, t.launchpad || '—', t.liquidity_usd == null ? '—' : usd(t.liquidity_usd),
+          t.volume_m5_usd == null ? '—' : usd(t.volume_m5_usd), label(t.verdict), (t.reasons || []).slice(0, 2).join(' · ') || '—'])));
+      const rejected = d.tokens.filter((t) => t.verdict === 'rejected').length;
+      $('#mc-radar-time').textContent = `Updated ${new Date(d.generated_at).toLocaleTimeString()} · ${rejected} of ${d.tokens.length} rejected on safety`;
+    } catch (error) {
+      $('#mc-radar').replaceChildren(element('p', error.message || 'The launch feed could not be read; it tries again shortly.', 'form-message error'));
+    }
+  }
+
   // --- Paper trading on the visitor's Alpaca account (server: /api/broker/alpaca/memecoin) ---
   const KEYS = 'loki_alpaca_keys_v1', STATE = 'loki_alpaca_memecoin_v1', CONFIRM = 'trade memecoins with paper money';
   const keys = () => { try { const v = JSON.parse(localStorage.getItem(KEYS) || 'null'); return v && v.key_id && v.secret_key ? { key_id: v.key_id, secret_key: v.secret_key } : null; } catch { return null; } };
   let state = (() => { try { return { running: false, log: [], ...(JSON.parse(localStorage.getItem(STATE) || 'null') || {}) }; } catch { return { running: false, log: [] }; } })();
-  let busy = false, last = null, checkTimer = null;
+  let busy = false, last = null, checkTimer = null, radarTimer = null;
   const save = () => { try { localStorage.setItem(STATE, JSON.stringify(state)); } catch { /* storage full */ } };
   const log = (text, kind = 'info') => { state.log.unshift({ t: new Date().toISOString(), text, kind }); state.log.length = Math.min(state.log.length, 150); save(); };
   const allocation = () => Math.min(25, Math.max(1, Number($('#mca-allocation').value) || 10));
@@ -144,14 +159,15 @@
 
   function onShow() {
     const visible = !root.classList.contains('tool-off') && !document.getElementById('ai-trading').hidden;
-    if (visible && !loaded) { loaded = true; load(); scan(); renderPaper(); }
+    if (visible && !loaded) { loaded = true; load(); scan(); radar(); renderPaper(); }
     if (visible && !timer) {
       timer = setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
       scanTimer = setInterval(() => { if (!document.hidden) scan(); }, 20 * 1000);
+      radarTimer = setInterval(() => { if (!document.hidden) radar(); }, 60 * 1000);
       checkTimer = setInterval(() => { if (state.running) check(); }, 5 * 60 * 1000);
       if (state.running) check();
     }
-    if (!visible && timer) { [timer, scanTimer, checkTimer].forEach(clearInterval); timer = scanTimer = checkTimer = null; }
+    if (!visible && timer) { [timer, scanTimer, checkTimer, radarTimer].forEach(clearInterval); timer = scanTimer = checkTimer = radarTimer = null; }
   }
   new MutationObserver(onShow).observe(root, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('hashchange', () => setTimeout(onShow, 50));

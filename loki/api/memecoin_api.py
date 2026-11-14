@@ -172,6 +172,66 @@ def ai_memecoin_scan(response: Response) -> Dict[str, Any]:
     return cached[1]
 
 
+RADAR_SECONDS = 60.0
+RADAR_SIZE = 12
+
+
+def _get(url: str) -> Any:
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "LokiLaunchRadar/1.0", "Accept": "application/json"}), timeout=8) as res:  # noqa: S310
+            return json.loads(res.read().decode())
+    except (OSError, ValueError):
+        return None
+
+
+def radar() -> Dict[str, Any]:
+    """The newest Solana launches, each screened with the shadow runner's safety and velocity filters."""
+    from loki_v8 import launch_filters as lf
+
+    feed = _get("https://api.rugcheck.xyz/v1/stats/new_tokens")
+    if not isinstance(feed, list):
+        raise HTTPException(503, "RugCheck's new-token feed could not be read right now; try again shortly.")
+    newest = [t for t in feed if isinstance(t, dict) and t.get("mint")][:RADAR_SIZE]
+    mints = [t["mint"] for t in newest]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        reports = dict(zip(mints, pool.map(lambda m: _get(f"https://api.rugcheck.xyz/v1/tokens/{m}/report"), mints)))
+    pairs = _get("https://api.dexscreener.com/tokens/v1/solana/" + ",".join(mints)) or []
+    best: Dict[str, Dict[str, Any]] = {}
+    for p in pairs if isinstance(pairs, list) else []:
+        mint = ((p or {}).get("baseToken") or {}).get("address")
+        if mint and (lf._num((p.get("volume") or {}).get("m5")) or 0) >= (lf._num(((best.get(mint) or {}).get("volume") or {}).get("m5")) or -1):
+            best[mint] = p
+    rows = []
+    for item in newest:
+        mint, rep = item["mint"], reports.get(item["mint"])
+        if not isinstance(rep, dict):
+            rows.append({"mint": mint, "symbol": item.get("symbol"), "verdict": "no report yet", "reasons": []})
+            continue
+        unsafe = lf.safety(rep)
+        waits, figures = lf.velocity(best.get(mint), lf._num(rep.get("totalMarketLiquidity")))
+        verdict = "rejected" if unsafe else "watching" if waits else "would enter (after the launch-slot check)"
+        rows.append({"mint": mint, "symbol": item.get("symbol"), "created": item.get("createAt"), "verdict": verdict,
+                     "reasons": unsafe or waits, "launchpad": (rep.get("launchpad") or {}).get("name"), **figures})
+    return {"tokens": rows, "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "note": "Screening only. The launch-slot bundle check and simulated trades run in the shadow runner (memecoin_shadow.py)."}
+
+
+@router.get("/memecoin/launches")
+def ai_memecoin_launches(response: Response) -> Dict[str, Any]:
+    """New Solana launches with their safety and momentum verdicts. Read-only; nothing is traded."""
+    _private_response(response)
+    now = time.monotonic()
+    with _lock:
+        cached = _cache.get("radar")
+    if not cached or now - cached[0] > RADAR_SECONDS:
+        cached = (now, radar())
+        with _lock:
+            _cache["radar"] = cached
+    return cached[1]
+
+
 @router.get("/memecoin")
 def ai_memecoin(response: Response) -> Dict[str, Any]:
     """The memecoin paper bot: current holdings, tested record and record since it was frozen. Paper only."""
