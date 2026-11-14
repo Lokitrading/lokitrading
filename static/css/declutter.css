@@ -1,0 +1,92 @@
+/* Declutter layer (2.72). Loaded last: one-row top bar, grouped compact sidebar, calmer panels,
+   and one tool at a time on the AI trading page. Only layout and spacing; no content is hidden
+   except labels that repeat what a control already shows. */
+
+/* --- Sidebar: grouped, compact enough to fit a laptop screen without scrolling ---------------- */
+.loki-workspace .sidebar { padding: 22px 14px 14px; }
+.loki-workspace .sidebar .brand { margin: 0 6px 16px; }
+.loki-workspace .brand-caption { white-space: nowrap; }
+.loki-workspace .sidebar nav { display: flex; flex-direction: column; gap: 1px; margin: 0; }
+.loki-workspace .sidebar nav a, .loki-workspace .sidebar nav .nav-more { min-height: 36px; padding: 7px 12px; gap: 11px; font-size: 13px; border-radius: 7px; }
+.loki-workspace .sidebar nav a .ui-icon, .loki-workspace .sidebar nav .nav-more .ui-icon { width: 16px; height: 16px; opacity: .8; }
+.loki-workspace .sidebar nav a:hover { transform: none; }
+.loki-workspace .sidebar nav a.active { box-shadow: none; }
+.loki-workspace .sidebar nav a[data-view="game"] { padding-left: 39px; }
+.loki-workspace .nav-group { margin: 16px 12px 5px; font-size: 10px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--subtle, #6f8493); }
+.loki-workspace .sidebar-bottom { margin-top: auto; padding: 12px; font-size: 12px; }
+.loki-workspace .sidebar-bottom p { margin: 2px 0 0; font-size: 11px; }
+
+/* --- Top bar: one row --------------------------------------------------------------------------- */
+.loki-workspace .topbar { min-height: 56px; padding: 10px 0; gap: 12px; flex-wrap: nowrap; }
+.loki-workspace .topbar .breadcrumb { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0; }  /* only the page name shows */
+.loki-workspace .topbar .breadcrumb .slash { display: none; }
+.loki-workspace .topbar .breadcrumb strong { font-size: 14px; font-weight: 600; }
+.loki-workspace .topbar-status { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; }
+.loki-workspace .topbar-status > * { flex: none; }
+.loki-workspace .cur-rate-inline { display: none; }               /* the rate is in the switcher's tooltip and on every converted figure */
+.loki-workspace .palette-chip .search-label { display: none; }    /* icon + shortcut says it */
+.loki-workspace .palette-chip { min-height: 32px; padding: 5px 9px; gap: 7px; }
+.loki-workspace .feed-lights-label { font-size: 11px; }
+.loki-workspace .topbar .loki-user-pill { order: 9; white-space: nowrap; }
+.loki-workspace #mode-pill { font-size: 9.5px; letter-spacing: .6px; padding: 4px 8px; white-space: nowrap; }
+.loki-workspace .mode-switch button { padding: 5px 11px; }
+
+/* --- Page headings and panels: more air, fewer competing labels --------------------------------- */
+.loki-workspace .page-heading { padding: 30px 0 18px; margin-bottom: 0; }
+.loki-workspace .page-heading h1 { font-size: clamp(26px, 2.4vw, 36px); letter-spacing: -1px; margin: 6px 0 10px; }
+.loki-workspace .page-heading > .muted { max-width: 72ch; margin: 0; }
+.loki-workspace #ai-trading { padding-top: 0; gap: 0 20px; }
+.loki-workspace #ai-trading > .page-heading { margin: 0; padding: 26px 0 14px; border: 0; background: none; }
+.loki-workspace #ai-trading > .panel { margin-top: 20px; }
+.loki-workspace #ai-trading > section[data-tool="single"]:nth-of-type(4), .loki-workspace #ai-trading > section[data-tool="single"]:nth-of-type(5) { grid-column: auto; }
+.loki-workspace .eyebrow { letter-spacing: 1.2px; }
+.loki-workspace .panel { margin-top: 20px; }
+.loki-workspace .panel .section-title { margin-bottom: 14px; }
+.loki-workspace .panel .section-title h2 { margin-top: 4px; }
+.loki-workspace .caption { line-height: 1.55; max-width: 110ch; }
+.loki-workspace .panel > .muted { max-width: 90ch; }
+.loki-workspace #overview > .hero { margin-top: 22px; }
+
+/* Long explanatory notes: readable line length, quieter frame */
+.loki-workspace .pf-hindsight { max-width: 110ch; font-size: 12.5px; line-height: 1.6; }
+
+/* Market tiles on the overview: the change is a small figure, not a wide pill */
+.loki-workspace .floor-grid .chip { padding: 2px 7px; font-size: 11px; white-space: nowrap; }
+
+/* --- AI trading: account lane as a small switch, then one tool at a time ------------------------- */
+.loki-workspace #ai-trading .trading-tabs { display: inline-flex; justify-self: start; width: auto; flex-wrap: nowrap; gap: 3px; padding: 3px; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+.loki-workspace #ai-trading .trading-tabs .button { flex: none; min-height: 32px; white-space: nowrap; padding: 6px 14px; font-size: 12.5px; border: 0; border-radius: 6px; box-shadow: none; }
+.loki-workspace #ai-trading .trading-tabs .button.secondary { background: transparent; color: var(--muted); }
+.loki-workspace #ai-trading .trading-tabs .button.primary { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.loki-workspace #ai-trading .trading-tabs .button.secondary:hover { color: var(--text); }
+.loki-workspace #trading-lane-note { margin: 10px 0 0; }
+.loki-workspace #ai-trading .tool-tabs { display: flex; gap: 4px; margin: 18px 0 0; padding: 0; background: none; border: 0; border-radius: 0; border-bottom: 1px solid var(--line-soft, #1b2b38); overflow-x: auto; scrollbar-width: none; }
+.loki-workspace .tool-tabs::-webkit-scrollbar { display: none; }
+.loki-workspace .tool-tabs[hidden] { display: none; }
+.loki-workspace #ai-trading .tool-tabs button { flex: none; min-height: 0; padding: 10px 14px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.loki-workspace #ai-trading .tool-tabs button:hover { color: var(--text); }
+.loki-workspace #ai-trading .tool-tabs button[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--green); font-weight: 600; }
+.loki-workspace #ai-trading .tool-tabs button:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; border-radius: 4px; }
+.loki-workspace #ai-trading > section.tool-off { display: none; }
+
+/* --- Narrow screens ------------------------------------------------------------------------------ */
+@media (max-width: 1180px) {
+  .loki-workspace #mode-pill { display: none; }                    /* the Paper/Real switch beside it already says the mode */
+  body.trade-live-active.loki-workspace #mode-pill { display: inline-flex; }  /* a real account is always labelled */
+}
+@media (max-width: 900px) {
+  .loki-workspace .sidebar { padding: 14px 16px 0; }
+  .loki-workspace .sidebar .brand { margin: 0 0 4px; }
+  .loki-workspace .sidebar nav { flex-direction: row; gap: 2px; }
+  .loki-workspace .nav-group { display: none; }
+  .loki-workspace .sidebar nav a, .loki-workspace .sidebar nav .nav-more { min-height: 38px; white-space: nowrap; }
+  .loki-workspace .topbar { flex-wrap: nowrap; min-height: 50px; padding: 8px 0; gap: 8px; }
+  .loki-workspace .topbar .breadcrumb { display: none; }           /* the highlighted tab above already names the page */
+  .loki-workspace .topbar-status { width: auto; margin-left: 0; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+  .loki-workspace .topbar-status::-webkit-scrollbar { display: none; }
+  .loki-workspace .page-heading { padding: 20px 0 12px; }
+  .loki-workspace #ai-trading .trading-tabs { display: flex; justify-self: stretch; }
+  .loki-workspace #ai-trading .trading-tabs .button { flex: 1 1 0; padding: 6px 4px; font-size: 12px; }
+  .loki-workspace #ai-trading > section[data-tool="single"] { grid-column: 1 / -1 !important; }
+}
+@media print { .loki-workspace .tool-tabs { display: none; } .loki-workspace #ai-trading > section.tool-off { display: block; } }

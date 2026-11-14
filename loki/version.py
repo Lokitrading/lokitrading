@@ -1,4 +1,4 @@
 """Version information for Loki Trading Platform."""
 
-__version__ = "2.71.0"
+__version__ = "2.72.0"
 __version_info__ = tuple(int(i) for i in __version__.split("."))

@@ -155,12 +155,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .page-heading h1 { font-size: clamp(30px, 3vw, 44px); letter-spacing: -1.5px; margin: 9px 0 14px; }
 .loki-workspace .page-heading > .muted { max-width: 88ch; }
 .loki-workspace #ai-trading { padding-top: 0; }
-.loki-workspace #ai-trading > .page-heading { margin: 28px 0 22px; padding: 30px; border: 1px solid var(--line-strong); border-radius: 14px; background: radial-gradient(ellipse at 95% 0, #a8f0c60b, transparent 65%), linear-gradient(115deg, #132730, #101c2b); box-shadow: var(--shadow-panel); }
-.loki-workspace #ai-trading > .page-heading .eyebrow { color: var(--green); }
-.loki-workspace #ai-trading > nav { background: var(--surface-inset); border-color: var(--line); padding: 6px; border-radius: 10px; gap: 5px; }
-.loki-workspace #ai-trading > nav .button { color: var(--muted); }
-.loki-workspace #ai-trading > nav .button:hover { background: var(--surface-hover); }
-.loki-workspace #ai-trading > nav .button:first-child { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .loki-workspace .button { border-radius: 8px; padding: 11px 16px; min-height: 42px; gap: 12px; font-size: 12px; font-weight: 600; transition: background 160ms, border-color 160ms, box-shadow 160ms, transform 160ms; }
 .loki-workspace .button .ui-icon { width: 16px; height: 16px; }
 .loki-workspace .primary { background: linear-gradient(135deg, var(--accent), #acefcd); color: var(--accent-ink); border: 1px solid var(--accent); box-shadow: 0 1px 0 #ffffff40 inset, 0 4px 14px #a8f0c609; }
@@ -405,7 +399,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .floor-tile:nth-child(2) { border-top: 0; padding-top: 0; }
   .loki-workspace .page-heading { padding: 28px 0 24px; }
   .loki-workspace .page-heading h1 { font-size: 33px; }
-  .loki-workspace #ai-trading > .page-heading { padding: 24px; }
   .loki-workspace #ai-candles { min-height: 240px !important; }
   .loki-workspace .button { white-space: normal; text-align: center; }
   .loki-workspace input, .loki-workspace select, .loki-workspace textarea { font-size: 16px; }

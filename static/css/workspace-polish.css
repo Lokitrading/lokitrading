@@ -57,12 +57,6 @@
 .launcher-icon { flex: 0 0 37px; height: 37px; display: grid; place-items: center; border-radius: 10px; background: #1d3435; color: #9debd0; font-size: 22px; }
 .launcher-arrow { margin-left: auto; color: #7c9eaa; }
 .loki-workspace #ai-trading { padding-top: 24px; }
-.loki-workspace #ai-trading > .page-heading { border-radius: 18px; background: #122129; border-color: #2c4948; padding: 30px; }
-.loki-workspace #ai-trading h1 { font-size: clamp(30px, 3vw, 44px); }
-.loki-workspace #ai-trading > nav { padding: 7px; background: #101a27; border: 1px solid #29394b; border-radius: 12px; justify-content: flex-start; }
-.loki-workspace #ai-trading > nav .button { background: transparent; border-color: transparent; color: #bbcadb; }
-.loki-workspace #ai-trading > nav .button:hover { background: #203447; color: #fff; }
-.loki-workspace #ai-trading > nav .button:first-child { color: #afeed8; background: #1d3733; }
 .loki-workspace #ai-trading > .panel { background: #101a27; border-radius: 15px; }
 .loki-workspace #ai-candles { min-height: 320px !important; border: 1px solid #233449; background: #0b1420; }
 .loki-workspace #ai-heartbeat { padding: 12px 14px; border: 1px solid #2d414b; background: #15262e; border-radius: 9px; }
@@ -97,7 +91,6 @@
   .loki-workspace .hero h1 { font-size: 40px; letter-spacing: -1.7px; }
   .hero-actions { align-items: flex-start; flex-direction: column; gap: 16px; }
   .loki-workspace .panel { padding: 20px; }
-  .loki-workspace #ai-trading > .page-heading { padding: 22px; }
   .loki-workspace #ai-candles { min-height: 240px !important; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -139,7 +132,6 @@
 .loki-workspace input[type=checkbox] { min-height: 0; width: 18px; height: 18px; accent-color: #9debd0; }
 .loki-workspace :focus-visible { outline: 2px solid #b2ecd7; outline-offset: 4px; }
 .loki-workspace #alpaca-account, .loki-workspace #broker-paper-account, .loki-workspace #broker-live-account { overflow-x: auto; }
-.loki-workspace #ai-trading > .page-heading { background: #101a23; border-radius: 10px; }
 .loki-workspace #ai-candles { border-radius: 6px; }
 @keyframes workspace-arrive { from { opacity: .5; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: no-preference) {
