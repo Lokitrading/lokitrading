@@ -431,6 +431,26 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.74: Day Trader retrained on fresh data; fixes from the first real Alpaca run
+
+**Retrained.** The Day Trader's record was rebuilt from 10 years of Alpaca 5-minute bars through 13 November 2026, for all 28 candidate markets, using a paper account's market-data access.
+- **Result:** the same six markets were chosen (QQQ, NVDA, TSLA, AMZN, AMD, ARKK), with the same settings, and the learn-from-mistakes filter was kept. It beat the plain rules on 2018–21 and beat 28 of 30 filters trained on scrambled outcomes.
+- **Unseen 2022–now:** +7.37% a year, Sharpe 0.99, worst drop -9.0% with instant fills; +4.13% a year (Sharpe 0.61) filled 5 minutes late.
+- **Without the filter:** +3.24% a year with a -16.2% worst drop, so the filter is doing real work.
+- **Futures book (MES, MNQ):** +8.06% a year, Sharpe 1.09.
+
+**Self-review, generation 2:** current rules kept. Picking each month's best setting beat them on unseen months overall (Sharpe 1.03 against 0.90) but was slightly worse over the last 24 months (-0.613 against -0.603), so it did not pass. Over the last 24 months every setting of the plain rules lost money, which is why the filter stays on. The full table is in `loki_v8/daytrade_evolution.json`.
+
+**Recent check on another feed.** On the latest 46 trading days of Yahoo 5-minute prices (11 Sep – 13 Nov), the stock book made +2.55% (worst drop -1.2%) while buying and holding the same six stocks lost 3.1%. Most of those days are inside the training data, so this checks that the live engine matches the record; it is not new proof of an edge.
+
+**Fixes found by running against a real Alpaca account:**
+- **Bar downloads now retry Alpaca's temporary server errors (502, 503, 504)**, not only rate limits. One 504 used to abort a whole training run.
+- **A blocked entry on a free data plan now says why.** Alpaca refuses SIP quotes (403) on the free plan, and the IEX quote's own reason (for example a one-sided quote after hours) was being replaced by a generic "no quote".
+- **Confirmed against real answers:**
+  - Alpaca's nanosecond clock is parsed correctly.
+  - The asset flags and the snapshot format match the code.
+  - Real past splits (NVDA 10-for-1 on 10 June 2024, AVGO on 15 July 2024) are recognised by the corporate-actions guard.
+
 ### 2.73: a cleaner look, second pass
 
 - **Flatter surfaces.** Panels keep one soft outline; the cards inside them are lightly tinted instead of outlined again, and the gradients and shadows on panels are gone.
