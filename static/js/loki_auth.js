@@ -84,6 +84,7 @@
     pill.className = 'loki-user-pill';
     pill.style.cssText = pillStyle;
     const label = document.createElement('span');
+    label.className = 'guest-label';
     label.innerHTML = '<span style="color:#7f93a8" aria-hidden="true">◇</span> Browsing as <strong>Guest</strong>';
     const button = document.createElement('a');
     button.href = '/login';

@@ -90,3 +90,41 @@
   .loki-workspace #ai-trading > section[data-tool="single"] { grid-column: 1 / -1 !important; }
 }
 @media print { .loki-workspace .tool-tabs { display: none; } .loki-workspace #ai-trading > section.tool-off { display: block; } }
+
+/* === Second pass (2.73): flatter surfaces, quieter labels, fewer outlines ======================== */
+body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3d4d; --surface-sheen: none; --shadow-panel: none; }
+
+/* Small labels above headings: plain, short and quiet instead of wide mono capitals */
+.loki-workspace .eyebrow:not(.hero-greeting) { font-family: var(--sans, inherit); font-size: 10.5px; font-weight: 600; letter-spacing: .9px; color: var(--subtle); }
+.loki-workspace .page-heading .eyebrow, .loki-workspace #ai-trading > .page-heading .eyebrow { display: none; }  /* the page title says it */
+.loki-workspace .panel .section-title h2 { font-size: 19px; font-weight: 550; letter-spacing: -.3px; }
+
+/* Panels: one soft outline; cards inside a panel are tinted, not outlined again */
+.loki-workspace .panel, .loki-workspace #ai-trading > .panel { border-radius: 12px; padding: 24px; background: var(--panel); }
+.loki-workspace .panel :is(.metric, .floor-cat, .watch-card, .brief-col, .pf-stat, .pf-metric, .pf-level, .pf-years, .pf-forward, .dt-market, .decision-step, .cc-stat),
+.loki-workspace .metric { border-color: transparent; background: rgba(148, 190, 220, .045); box-shadow: none; }
+.loki-workspace .panel .panel { border-color: var(--line-soft); }
+.loki-workspace .caption { font-size: 11.5px; color: var(--subtle); }
+.loki-workspace #ai-trading .caption { color: var(--subtle); }
+.loki-workspace .button.secondary { border-color: var(--line-strong); background: transparent; }
+.loki-workspace .button.secondary:hover { background: rgba(148, 190, 220, .07); }
+.loki-workspace .tag, .loki-workspace .pill { border-color: var(--line); }
+
+/* Top bar: controls lose their individual frames; the bar itself is the frame */
+.loki-workspace .topbar { border-bottom-color: var(--line-soft); }
+.loki-workspace .topbar .palette-chip, .loki-workspace .topbar .feed-lights-button, .loki-workspace .topbar .loki-user-pill { border-color: transparent !important; background: transparent !important; }
+.loki-workspace .topbar .palette-chip:hover, .loki-workspace .topbar .feed-lights-button:hover { background: rgba(148, 190, 220, .07) !important; }
+.loki-workspace .topbar .palette-chip kbd { border: 0; background: none; color: var(--subtle); padding: 0; }
+.loki-workspace .topbar .loki-user-pill .guest-label { display: none; }   /* "Browsing as Guest": the Sign in link is enough */
+.loki-workspace .loki-ticker { opacity: .72; border-bottom-color: var(--line-soft); }
+.loki-workspace .loki-ticker:hover { opacity: 1; }
+
+/* Sidebar: no outline on the active row, just a tint and the accent colour */
+.loki-workspace .sidebar { border-right-color: var(--line-soft); background: #0b131c; }
+.loki-workspace .sidebar nav a.active { border-color: transparent; background: rgba(168, 240, 198, .08); }
+.loki-workspace .sidebar-bottom { border-top-color: var(--line-soft); }
+
+/* Overview hero: shorter, and nothing competing with the headline */
+.loki-workspace #overview > .hero { min-height: 0; padding-block: 44px; }
+.loki-workspace .hero h2 { margin-top: 14px; }
+.loki-workspace .metrics-heading { margin-top: 34px; }

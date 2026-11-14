@@ -431,6 +431,14 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.73: a cleaner look, second pass
+
+- **Flatter surfaces.** Panels keep one soft outline; the cards inside them are lightly tinted instead of outlined again, and the gradients and shadows on panels are gone.
+- **Shorter labels.** 43 of the small capital-letter labels above headings were cut to a few words (for example "DAY TRADER AI · MAIN MODE · IN AND OUT THE SAME DAY · PAPER MONEY" is now "DAY TRADER AI" beside its SIMULATED tag). Any part saying paper, real or read-only was kept where no tag already says it. The labels now use the normal typeface, and page titles no longer carry one.
+- **Top bar.** Search, feed status and sign-in lost their frames; a guest sees just "Sign in".
+- **Overview.** The slogan line, the "01 Observe · 02 Test · 03 Decide" row and the three shortcut cards that repeated the sidebar were removed, and the hero is shorter.
+- **Sidebar.** The active page is a tint, not an outlined box.
+
 ### 2.72: a calmer interface
 
 - **Top bar on one row.** The controls no longer wrap onto two or three rows. The page name replaces the "Workspace / …" trail, the search button is an icon with its shortcut, and the exchange-rate text moved out of the bar. On phones the bar scrolls sideways instead of stacking.
