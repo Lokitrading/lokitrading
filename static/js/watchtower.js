@@ -78,7 +78,9 @@
     const direction = changePct >= 0 ? '▲' : '▼';
     const kind = changePct > 0.0001 ? 'up-chip' : changePct < -0.0001 ? 'down-chip' : 'flat-chip';
     const label = changePct >= 0 ? '+' + changePct.toFixed(2) + '%' : changePct.toFixed(2) + '%';
-    return element('span', direction + ' ' + label + ' vs previous close', 'chip ' + kind);
+    const chip = element('span', direction + ' ' + label, 'chip ' + kind);
+    chip.title = 'Change since the previous close';
+    return chip;
   }
 
   function sparkline(points) {

@@ -431,6 +431,15 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.72: a calmer interface
+
+- **Top bar on one row.** The controls no longer wrap onto two or three rows. The page name replaces the "Workspace / …" trail, the search button is an icon with its shortcut, and the exchange-rate text moved out of the bar. On phones the bar scrolls sideways instead of stacking.
+- **Grouped sidebar.** Pages are grouped under Trade, Research and Markets with tighter rows, so the whole menu fits a laptop screen without scrolling. The "NEW" badges are gone.
+- **AI trading shows one tool at a time.** Day Trader, Portfolio AI, Single market and Weekly self-review are now tabs (`static/js/trading_tools.js`) instead of one page about 6,500 pixels long. A hidden tool keeps running, the choice is remembered, and the account switch (Practise, Alpaca, Funded) is a small control above the tabs.
+- **Overview.** One heading instead of two, and each market tile shows the day's change as a short figure (the "vs previous close" wording is in its tooltip).
+- **Styles.** The new rules are in `static/css/declutter.css`. Old rules for the AI trading header and tabs, spread over three stylesheets, were removed.
+- No text about risk, testing or simulated results was removed or hidden.
+
 ### 2.71: execution guards, capped entries and day-end records for auto trading
 
 **New guards on each new position** (`loki/api/alpaca_daytrade.py`, risk policy v3). Closing is never held back by them.
