@@ -124,6 +124,27 @@ def live_state(closes: Dict[str, pd.Series], rule: Dict[str, Any]) -> List[Dict[
     return out
 
 
+def levels(close: pd.Series, rule: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """For a breakout rule: the close that would buy (above the entry high) and sell (below the exit low)."""
+    if rule.get("family") != "breakout" or len(close) < rule["entry"]:
+        return {"enter_above": None, "exit_below": None}
+    return {"enter_above": float(close.iloc[-rule["entry"]:].max()), "exit_below": float(close.iloc[-rule["exit"]:].min())}
+
+
+def read(spread_bps: Optional[float], depth_usd: Optional[float], imbalance: Optional[float], change_pct: Optional[float]) -> List[str]:
+    """A plain checklist of what the order book and the last 24 hours show. Descriptions, not forecasts."""
+    notes = []
+    if depth_usd is not None:
+        notes.append("deep book" if depth_usd >= 250_000 else "thin book: large orders move the price")
+    if spread_bps is not None and spread_bps > 15:
+        notes.append("wide spread")
+    if imbalance is not None and abs(imbalance) >= 0.25:
+        notes.append("more resting bids than asks" if imbalance > 0 else "more resting asks than bids")
+    if change_pct is not None and abs(change_pct) >= 10:
+        notes.append(f"big 24h move ({change_pct:+.1f}%)")
+    return notes
+
+
 def pick(scores: Dict[str, Optional[float]]) -> Optional[str]:
     """The rule with the best Sharpe on the choosing window (None when nothing scored)."""
     scored = {k: v for k, v in scores.items() if v is not None}

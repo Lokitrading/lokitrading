@@ -132,3 +132,6 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 /* Memecoin paper bot */
 .loki-workspace #memecoin .eyebrow { margin: 22px 0 8px; }
 .loki-workspace #memecoin .pf-hindsight { margin-top: 14px; }
+.loki-workspace .mc-scan-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.loki-workspace .mc-alpaca { margin-top: 22px; }
+.loki-workspace #mc-scan td:last-child { color: var(--subtle); font-size: 12px; }
