@@ -109,6 +109,11 @@
     try {
       const d = await request('/api/broker/alpaca/memecoin', { ...saved, confirm: CONFIRM, allocation_pct: allocation(), start, stop });
       last = d;
+      state.failures = 0;
+      if (d.stopped_for_loss && state.running) {
+        state.running = false;
+        log(`Daily loss stop: the paper account is ${d.day_change_pct.toFixed(2)}% down today. The bot's coins were sold and it is off until you start it again.`, 'bad');
+      }
       for (const a of d.actions || []) {
         const what = a.did === 'sell' ? `SELL all ${a.coin}` : `BUY ${a.coin}${a.usd ? ` for US$${a.usd.toFixed(2)}` : ''}`;
         const key = `${new Date().toISOString().slice(0, 13)}:${a.coin}:${a.status}:${a.detail || ''}`;
@@ -120,6 +125,8 @@
       return d;
     } catch (error) {
       message('#mca-message', error.message || 'Alpaca could not be reached; it tries again.', true);
+      state.failures = (state.failures || 0) + 1;
+      if (state.running && state.failures === 5) log(`Five checks in a row failed (${error.message || 'no answer'}). It keeps trying; check the Alpaca dashboard if this goes on.`, 'bad');
       if (/rejected those keys|blocked trading|already holds/.test(error.message || '')) { state.running = false; log(error.message, 'bad'); }
       return null;
     } finally { busy = false; save(); renderPaper(); }

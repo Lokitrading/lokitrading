@@ -135,3 +135,9 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 .loki-workspace .mc-scan-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .loki-workspace .mc-alpaca { margin-top: 22px; }
 .loki-workspace #mc-scan td:last-child { color: var(--subtle); font-size: 12px; }
+/* Memecoins tab: figures stay on one line; only the reasons wrap */
+.loki-workspace #memecoin table td, .loki-workspace #memecoin table th { white-space: nowrap; }
+.loki-workspace #memecoin table td:last-child { white-space: normal; min-width: 220px; }
+.loki-workspace #memecoin .mc-sub { margin: 30px 0 4px; font-size: 16px; font-weight: 600; }
+.loki-workspace #memecoin .mc-launches { margin-top: 26px; padding-top: 4px; border-top: 1px solid var(--line-soft); }
+.loki-workspace #memecoin #mc-verdict { margin-top: 18px; }

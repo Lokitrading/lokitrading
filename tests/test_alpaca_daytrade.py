@@ -23,7 +23,7 @@ class FakeAlpaca:
     def __init__(self, equity=100_000.0, last_equity=100_000.0, is_open=True, held=None, open_orders=(), easy=True,
                  bid=99.99, ask=100.01, account=None, buying_power=None, minutes_left=300, sip=True, quote_age=2,
                  fills=(), closed_orders=(), refuse=None, corp=None, fill=True, orders_visible=True,
-                 asset_status="active", tradable=True, now=None):
+                 asset_status="active", tradable=True, now=None, lose_answer=False):
         self.equity, self.last_equity, self.is_open = equity, last_equity, is_open
         self.held = dict(held or {})
         self.open_orders, self.easy, self.sent = list(open_orders), easy, []
@@ -34,7 +34,7 @@ class FakeAlpaca:
         self.corp, self.fill, self.orders_visible = corp, fill, orders_visible
         self.asset_status, self.tradable, self.now = asset_status, tradable, now or NOW
         self.orders = [{"symbol": s, "status": "new", "client_order_id": f"manual-{s}", "filled_qty": "0"} for s in open_orders]
-        self.bodies, self.snapshot_calls = [], 0
+        self.bodies, self.snapshot_calls, self.lose_answer = [], 0, lose_answer
 
     def data(self, method, path, keys, body=None, base=None):
         assert "data.alpaca.markets" in base and method == "GET"
@@ -67,6 +67,12 @@ class FakeAlpaca:
             return self.closed_orders
         if path == "/v2/positions":
             return [{"symbol": s, "qty": str(abs(q)), "side": "short" if q < 0 else "long"} for s, q in self.held.items() if q]
+        if path.startswith("/v2/orders:by_client_order_id?client_order_id="):
+            cid = path.split("=", 1)[1]
+            found = [o for o in self.orders if o["client_order_id"] == cid]
+            if not found:
+                raise HTTPException(502, "Alpaca's paper endpoint answered 404; its API may have moved.")
+            return {"id": "00000000-0000-0000-0000-000000000007", **found[0]}
         if path.startswith("/v2/orders?status=all"):
             return list(self.orders) if self.orders_visible else []
         if path.startswith("/v2/assets/"):
@@ -90,6 +96,8 @@ class FakeAlpaca:
                 return {"id": "00000000-0000-0000-0000-000000000003", "symbol": body["symbol"], "status": "canceled"}
             self.sent.append(("order", body["symbol"], shares))
             self.held[body["symbol"]] = self.held.get(body["symbol"], 0) + shares
+            if self.lose_answer:
+                raise HTTPException(503, "Alpaca is unreachable right now; try again shortly.")  # it landed, but the answer was lost
             return {"id": "00000000-0000-0000-0000-000000000002", "symbol": body["symbol"], "qty": body["qty"], "side": body["side"]}
         raise AssertionError(f"unexpected {method} {path}")
 
@@ -440,3 +448,10 @@ def test_a_refused_sip_feed_still_reports_why_the_iex_quote_was_not_used(run):
     alpaca = FakeAlpaca(sip=False, ask=0.0)
     out = run(alpaca, [market("QQQ", pending=1)])
     assert alpaca.sent == [] and "no two-sided quote on IEX" in out["actions"][0]["detail"]
+
+
+def test_a_lost_order_answer_is_confirmed_by_id_before_it_is_reported(run):
+    alpaca = FakeAlpaca(lose_answer=True)
+    out = run(alpaca, [market("QQQ", pending=1)])
+    sent = out["actions"][0]
+    assert sent["status"] == "sent" and "landed" in sent["order"]["verified"] and len(alpaca.bodies) == 1

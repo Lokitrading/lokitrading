@@ -87,6 +87,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from loki.api.order_safety import submit_once
 from loki.api.broker_alpaca import (
     _DATA_BASE,
     RATE_BUDGET,
@@ -629,13 +630,7 @@ def _order(keys: AlpacaPaperKeys, symbol: str, shares: int, order_id: str, limit
     body = {"symbol": symbol, "qty": str(abs(shares)), "side": "buy" if shares > 0 else "sell",
             "type": "limit", "limit_price": str(limit), "time_in_force": "ioc", "extended_hours": False,
             "client_order_id": order_id}
-    try:
-        payload = _paper_exchange("POST", "/v2/orders", keys, body)
-    except HTTPException as error:
-        if error.status_code == 422 and "client_order_id" in str(error.detail):
-            return {"client_order_id": order_id, "status": "already sent"}  # a retry: Alpaca has this order
-        raise
-    return {**(_order_view(payload) if isinstance(payload, dict) else {}), "client_order_id": order_id}
+    return submit_once(_paper_exchange, keys, body)  # a lost answer is looked up by id before it is reported
 
 
 def _check(body: AlpacaDayTradeCheck) -> Dict[str, Any]:

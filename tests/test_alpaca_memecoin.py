@@ -16,13 +16,19 @@ def holdings(**on):
 
 
 class FakeAlpaca:
-    def __init__(self, held=None, cash=20_000.0, spread=0.3, quote_age=10, open_orders=(), refuse=None):
+    def __init__(self, held=None, cash=20_000.0, spread=0.3, quote_age=10, open_orders=(), refuse=None, lose_answer=False, last_equity=25_000.0):
         self.held, self.cash, self.spread, self.quote_age = dict(held or {}), cash, spread, quote_age
         self.open_orders, self.refuse, self.sent, self.ids = list(open_orders), refuse, [], set()
+        self.lose_answer, self.last_equity, self.orders = lose_answer, last_equity, {}
 
     def __call__(self, method, path, keys, body=None):
         if path == "/v2/account":
-            return {"equity": "25000", "last_equity": "25000", "buying_power": "80000", "non_marginable_buying_power": str(self.cash)}
+            return {"equity": "25000", "last_equity": str(self.last_equity), "buying_power": "80000", "non_marginable_buying_power": str(self.cash)}
+        if path.startswith("/v2/orders:by_client_order_id?client_order_id="):
+            cid = path.split("=", 1)[1]
+            if cid not in self.orders:
+                raise HTTPException(502, "Alpaca's paper endpoint answered 404; its API may have moved.")
+            return self.orders[cid]
         if path == "/v2/clock":
             return {"is_open": False, "timestamp": NOW.isoformat()}
         if path == "/v2/positions":
@@ -41,6 +47,9 @@ class FakeAlpaca:
             assert body["type"] == "market" and body["time_in_force"] == "ioc" and body["side"] == "buy" and "/" in body["symbol"]
             self.ids.add(body["client_order_id"])
             self.sent.append(("buy", body["symbol"].split("/")[0], body["notional"]))
+            self.orders[body["client_order_id"]] = {"id": "00000000-0000-0000-0000-000000000009", "symbol": body["symbol"], "status": "filled"}
+            if self.lose_answer:
+                raise HTTPException(503, "Alpaca is unreachable right now; try again shortly.")  # it landed, but the answer was lost
             return {"id": "00000000-0000-0000-0000-000000000002", "symbol": body["symbol"], "status": "accepted"}
         raise AssertionError(f"unexpected {method} {path}")
 
@@ -128,3 +137,19 @@ def test_only_the_paper_host_is_used_and_the_route_is_rate_limited():
     from loki.api.rate_limit import rule_for
     assert am._paper_exchange.__module__ == "loki.api.broker_alpaca"
     assert rule_for("POST", "/api/broker/alpaca/memecoin")
+
+
+def test_a_lost_order_answer_is_confirmed_by_id_and_never_doubled(run):
+    alpaca = FakeAlpaca(lose_answer=True)
+    out = run(alpaca, holdings(DOGE=0.1))
+    assert out["actions"][0]["status"] == "sent" and "landed" in out["actions"][0]["order"]["verified"]
+    alpaca.held.clear()  # the fill is not in the positions yet
+    again = run(alpaca, holdings(DOGE=0.1))
+    assert len(alpaca.sent) == 1 and again["actions"][0]["order"]["status"] == "already sent"
+
+
+def test_daily_loss_stop_sells_the_bot_coins_and_buys_nothing(run):
+    alpaca = FakeAlpaca(held={"PEPE": 1e6}, last_equity=26_000.0)  # 25,000 vs 26,000: down 3.8% today
+    out = run(alpaca, holdings(PEPE=0.1, DOGE=0.1))
+    assert out["stopped_for_loss"] and alpaca.sent == [("sell", "PEPE", 1e6)]
+    assert out["actions"][0]["receipt"]["snapshot"]["why"] == "daily loss stop"
