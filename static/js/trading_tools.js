@@ -13,7 +13,7 @@
   const buttons = [...tabs.querySelectorAll('[data-tool-tab]')];
   const panels = [...view.querySelectorAll(':scope > section[data-tool]')];
   const names = buttons.map((b) => b.dataset.toolTab);
-  const ANCHORS = { 'day-trader': 'day', 'portfolio-ai': 'portfolio', 'ai-evolution': 'review' };
+  const ANCHORS = { 'day-trader': 'day', 'portfolio-ai': 'portfolio', 'ai-evolution': 'review', memecoin: 'meme' };
 
   function show(tool, remember = true) {
     if (!names.includes(tool)) tool = names[0];

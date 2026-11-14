@@ -128,3 +128,7 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 .loki-workspace #overview > .hero { min-height: 0; padding-block: 44px; }
 .loki-workspace .hero h2 { margin-top: 14px; }
 .loki-workspace .metrics-heading { margin-top: 34px; }
+
+/* Memecoin paper bot */
+.loki-workspace #memecoin .eyebrow { margin: 22px 0 8px; }
+.loki-workspace #memecoin .pf-hindsight { margin-top: 14px; }

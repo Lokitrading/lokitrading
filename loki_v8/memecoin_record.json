@@ -1,0 +1,689 @@
+{
+ "generated_at": "2026-11-14T13:15:42+00:00",
+ "data": "Binance public 4-hour and daily bars (USDT pairs), from each coin's listing",
+ "coins": [
+  "DOGE",
+  "SHIB",
+  "PEPE",
+  "BONK",
+  "WIF",
+  "TRUMP"
+ ],
+ "research_only": [
+  "FLOKI"
+ ],
+ "first_bar": {
+  "DOGE": "2019-07-05",
+  "SHIB": "2021-05-10",
+  "PEPE": "2023-05-05",
+  "BONK": "2023-12-15",
+  "WIF": "2024-03-05",
+  "TRUMP": "2025-01-19",
+  "FLOKI": "2023-05-05"
+ },
+ "cost_per_side_pct": 0.35000000000000003,
+ "vol_target_pct": 80.0,
+ "choose_until": "2024-06-30",
+ "test_from": "2024-07-01",
+ "chosen": {
+  "rule": {
+   "family": "breakout",
+   "bars": "4h",
+   "entry": 60,
+   "exit": 30
+  },
+  "label": "breakout 4h entry 60 exit 30",
+  "choose": {
+   "cagr_pct": 128.49,
+   "sharpe": 1.828,
+   "max_dd_pct": -49.64,
+   "total_pct": 6089.92,
+   "from": "2019-07-05",
+   "to": "2024-07-01"
+  },
+  "test": {
+   "cagr_pct": 5.46,
+   "sharpe": 0.327,
+   "max_dd_pct": -43.55,
+   "total_pct": 13.46,
+   "from": "2024-07-01",
+   "to": "2026-11-14"
+  },
+  "tradable_test": {
+   "cagr_pct": 3.17,
+   "sharpe": 0.267,
+   "max_dd_pct": -46.58,
+   "total_pct": 7.68,
+   "from": "2024-07-01",
+   "to": "2026-11-14"
+  }
+ },
+ "hold": {
+  "choose": {
+   "cagr_pct": 166.39,
+   "sharpe": 1.326,
+   "max_dd_pct": -90.01,
+   "total_pct": 13219.43,
+   "from": "2019-07-05",
+   "to": "2024-07-01"
+  },
+  "test": {
+   "cagr_pct": -50.96,
+   "sharpe": -0.296,
+   "max_dd_pct": -92.65,
+   "total_pct": -81.57,
+   "from": "2024-07-01",
+   "to": "2026-11-14"
+  }
+ },
+ "chosen_test_rank": "2 of 15",
+ "per_coin_test": {
+  "DOGE": {
+   "rule": {
+    "cagr_pct": 15.36,
+    "sharpe": 0.547,
+    "max_dd_pct": -43.8,
+    "total_pct": 40.39,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "hold": {
+    "cagr_pct": -24.91,
+    "sharpe": 0.099,
+    "max_dd_pct": -86.66,
+    "total_pct": -49.35,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  "SHIB": {
+   "rule": {
+    "cagr_pct": -18.59,
+    "sharpe": -0.27,
+    "max_dd_pct": -57.74,
+    "total_pct": -38.63,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "hold": {
+    "cagr_pct": -45.08,
+    "sharpe": -0.344,
+    "max_dd_pct": -87.49,
+    "total_pct": -75.9,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  "PEPE": {
+   "rule": {
+    "cagr_pct": 19.64,
+    "sharpe": 0.592,
+    "max_dd_pct": -44.2,
+    "total_pct": 53.06,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "hold": {
+    "cagr_pct": -34.88,
+    "sharpe": 0.184,
+    "max_dd_pct": -91.6,
+    "total_pct": -63.87,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  "BONK": {
+   "rule": {
+    "cagr_pct": 20.02,
+    "sharpe": 0.607,
+    "max_dd_pct": -49.67,
+    "total_pct": 54.21,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "hold": {
+    "cagr_pct": -59.89,
+    "sharpe": -0.174,
+    "max_dd_pct": -96.21,
+    "total_pct": -88.57,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  "WIF": {
+   "rule": {
+    "cagr_pct": -25.69,
+    "sharpe": -0.368,
+    "max_dd_pct": -68.6,
+    "total_pct": -50.59,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "hold": {
+    "cagr_pct": -68.24,
+    "sharpe": -0.293,
+    "max_dd_pct": -96.81,
+    "total_pct": -93.43,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  "TRUMP": {
+   "rule": {
+    "cagr_pct": -23.09,
+    "sharpe": -0.296,
+    "max_dd_pct": -66.62,
+    "total_pct": -37.98,
+    "from": "2025-01-19",
+    "to": "2026-11-14"
+   },
+   "hold": {
+    "cagr_pct": -90.4,
+    "sharpe": -1.485,
+    "max_dd_pct": -98.59,
+    "total_pct": -98.59,
+    "from": "2025-01-19",
+    "to": "2026-11-14"
+   }
+  }
+ },
+ "all_rules": [
+  {
+   "rule": {
+    "family": "breakout",
+    "bars": "4h",
+    "entry": 60,
+    "exit": 30
+   },
+   "label": "breakout 4h entry 60 exit 30",
+   "choose": {
+    "cagr_pct": 128.49,
+    "sharpe": 1.828,
+    "max_dd_pct": -49.64,
+    "total_pct": 6089.92,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": 5.46,
+    "sharpe": 0.327,
+    "max_dd_pct": -43.55,
+    "total_pct": 13.46,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": 3.17,
+    "sharpe": 0.267,
+    "max_dd_pct": -46.58,
+    "total_pct": 7.68,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "breakout",
+    "bars": "4h",
+    "entry": 120,
+    "exit": 60
+   },
+   "label": "breakout 4h entry 120 exit 60",
+   "choose": {
+    "cagr_pct": 114.65,
+    "sharpe": 1.702,
+    "max_dd_pct": -39.89,
+    "total_pct": 4431.75,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": 13.18,
+    "sharpe": 0.525,
+    "max_dd_pct": -39.95,
+    "total_pct": 34.18,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": 17.89,
+    "sharpe": 0.638,
+    "max_dd_pct": -38.3,
+    "total_pct": 47.8,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "breakout",
+    "bars": "4h",
+    "entry": 240,
+    "exit": 120
+   },
+   "label": "breakout 4h entry 240 exit 120",
+   "choose": {
+    "cagr_pct": 99.27,
+    "sharpe": 1.584,
+    "max_dd_pct": -32.41,
+    "total_pct": 3026.07,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -7.21,
+    "sharpe": -0.058,
+    "max_dd_pct": -50.56,
+    "total_pct": -16.27,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": -4.01,
+    "sharpe": 0.036,
+    "max_dd_pct": -48.41,
+    "total_pct": -9.25,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "breakout",
+    "bars": "1d",
+    "entry": 20,
+    "exit": 10
+   },
+   "label": "breakout 1d entry 20 exit 10",
+   "choose": {
+    "cagr_pct": 97.89,
+    "sharpe": 1.424,
+    "max_dd_pct": -30.91,
+    "total_pct": 2929.01,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": 5.16,
+    "sharpe": 0.314,
+    "max_dd_pct": -41.97,
+    "total_pct": 12.69,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": 7.12,
+    "sharpe": 0.371,
+    "max_dd_pct": -39.67,
+    "total_pct": 17.73,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  },
+  {
+   "rule": {
+    "family": "breakout",
+    "bars": "1d",
+    "entry": 55,
+    "exit": 27
+   },
+   "label": "breakout 1d entry 55 exit 27",
+   "choose": {
+    "cagr_pct": 93.1,
+    "sharpe": 1.215,
+    "max_dd_pct": -30.17,
+    "total_pct": 2579.69,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -1.5,
+    "sharpe": 0.103,
+    "max_dd_pct": -38.86,
+    "total_pct": -3.52,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": 3.98,
+    "sharpe": 0.279,
+    "max_dd_pct": -37.13,
+    "total_pct": 9.71,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  },
+  {
+   "rule": {
+    "family": "trend",
+    "bars": "4h",
+    "fast": 30,
+    "slow": 180
+   },
+   "label": "trend 4h fast 30 slow 180",
+   "choose": {
+    "cagr_pct": 85.72,
+    "sharpe": 1.419,
+    "max_dd_pct": -48.2,
+    "total_pct": 2099.52,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": 2.32,
+    "sharpe": 0.244,
+    "max_dd_pct": -48.93,
+    "total_pct": 5.6,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": 4.77,
+    "sharpe": 0.309,
+    "max_dd_pct": -49.2,
+    "total_pct": 11.7,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "trend",
+    "bars": "4h",
+    "fast": 60,
+    "slow": 360
+   },
+   "label": "trend 4h fast 60 slow 360",
+   "choose": {
+    "cagr_pct": 83.25,
+    "sharpe": 1.427,
+    "max_dd_pct": -48.91,
+    "total_pct": 1957.23,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -13.67,
+    "sharpe": -0.304,
+    "max_dd_pct": -51.49,
+    "total_pct": -29.46,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": -11.11,
+    "sharpe": -0.212,
+    "max_dd_pct": -52.68,
+    "total_pct": -24.39,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "trend",
+    "bars": "1d",
+    "fast": 10,
+    "slow": 50
+   },
+   "label": "trend 1d fast 10 slow 50",
+   "choose": {
+    "cagr_pct": 97.89,
+    "sharpe": 1.232,
+    "max_dd_pct": -40.72,
+    "total_pct": 2929.4,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -10.26,
+    "sharpe": -0.187,
+    "max_dd_pct": -50.88,
+    "total_pct": -22.66,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": -6.46,
+    "sharpe": -0.051,
+    "max_dd_pct": -51.2,
+    "total_pct": -14.66,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  },
+  {
+   "rule": {
+    "family": "trend",
+    "bars": "1d",
+    "fast": 20,
+    "slow": 100
+   },
+   "label": "trend 1d fast 20 slow 100",
+   "choose": {
+    "cagr_pct": 77.66,
+    "sharpe": 1.102,
+    "max_dd_pct": -54.72,
+    "total_pct": 1667.08,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -16.26,
+    "sharpe": -0.537,
+    "max_dd_pct": -53.86,
+    "total_pct": -34.36,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": -14.62,
+    "sharpe": -0.437,
+    "max_dd_pct": -54.09,
+    "total_pct": -31.26,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  },
+  {
+   "rule": {
+    "family": "momentum",
+    "bars": "4h",
+    "lookback": 42
+   },
+   "label": "momentum 4h lookback 42",
+   "choose": {
+    "cagr_pct": 50.83,
+    "sharpe": 0.992,
+    "max_dd_pct": -68.3,
+    "total_pct": 678.15,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -24.55,
+    "sharpe": -0.44,
+    "max_dd_pct": -64.17,
+    "total_pct": -48.77,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": -25.38,
+    "sharpe": -0.468,
+    "max_dd_pct": -66.3,
+    "total_pct": -50.09,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "momentum",
+    "bars": "4h",
+    "lookback": 126
+   },
+   "label": "momentum 4h lookback 126",
+   "choose": {
+    "cagr_pct": 89.21,
+    "sharpe": 1.411,
+    "max_dd_pct": -61.34,
+    "total_pct": 2313.92,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -19.17,
+    "sharpe": -0.325,
+    "max_dd_pct": -68.48,
+    "total_pct": -39.66,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": -16.37,
+    "sharpe": -0.242,
+    "max_dd_pct": -67.74,
+    "total_pct": -34.58,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "momentum",
+    "bars": "4h",
+    "lookback": 252
+   },
+   "label": "momentum 4h lookback 252",
+   "choose": {
+    "cagr_pct": 78.7,
+    "sharpe": 1.308,
+    "max_dd_pct": -64.27,
+    "total_pct": 1714.62,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -12.58,
+    "sharpe": -0.13,
+    "max_dd_pct": -61.6,
+    "total_pct": -27.33,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   },
+   "tradable_test": {
+    "cagr_pct": -10.45,
+    "sharpe": -0.072,
+    "max_dd_pct": -60.67,
+    "total_pct": -23.05,
+    "from": "2024-07-01",
+    "to": "2026-11-14"
+   }
+  },
+  {
+   "rule": {
+    "family": "momentum",
+    "bars": "1d",
+    "lookback": 7
+   },
+   "label": "momentum 1d lookback 7",
+   "choose": {
+    "cagr_pct": 99.69,
+    "sharpe": 1.384,
+    "max_dd_pct": -50.02,
+    "total_pct": 3069.54,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -16.3,
+    "sharpe": -0.197,
+    "max_dd_pct": -61.28,
+    "total_pct": -34.43,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": -15.29,
+    "sharpe": -0.177,
+    "max_dd_pct": -61.04,
+    "total_pct": -32.54,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  },
+  {
+   "rule": {
+    "family": "momentum",
+    "bars": "1d",
+    "lookback": 21
+   },
+   "label": "momentum 1d lookback 21",
+   "choose": {
+    "cagr_pct": 78.57,
+    "sharpe": 1.22,
+    "max_dd_pct": -57.98,
+    "total_pct": 1712.99,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -10.32,
+    "sharpe": -0.09,
+    "max_dd_pct": -58.47,
+    "total_pct": -22.78,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": -6.51,
+    "sharpe": 0.017,
+    "max_dd_pct": -59.13,
+    "total_pct": -14.75,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  },
+  {
+   "rule": {
+    "family": "momentum",
+    "bars": "1d",
+    "lookback": 60
+   },
+   "label": "momentum 1d lookback 60",
+   "choose": {
+    "cagr_pct": 64.18,
+    "sharpe": 0.971,
+    "max_dd_pct": -45.66,
+    "total_pct": 1091.15,
+    "from": "2019-07-05",
+    "to": "2024-07-01"
+   },
+   "test": {
+    "cagr_pct": -10.83,
+    "sharpe": -0.114,
+    "max_dd_pct": -55.4,
+    "total_pct": -23.81,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   },
+   "tradable_test": {
+    "cagr_pct": -6.58,
+    "sharpe": 0.007,
+    "max_dd_pct": -53.78,
+    "total_pct": -14.92,
+    "from": "2024-07-01",
+    "to": "2026-11-13"
+   }
+  }
+ ],
+ "passed": false,
+ "pass_rule": "Sharpe above 0.5 and a positive return on 2024-07 onward, with a smaller worst drop than holding the coins",
+ "caveats": [
+  "Simulated on past prices with assumed costs, not real trading.",
+  "These coins are famous today; memecoins that collapsed to nothing are not in the test, which flatters every result.",
+  "Memecoins can fall 50-90% in weeks; the rule can only step aside after a move has started.",
+  "Long or cash only: Alpaca does not short crypto."
+ ]
+}
