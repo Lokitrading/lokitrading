@@ -37,6 +37,13 @@
 
   // --- the tested record --------------------------------------------------------------------------
   function ruleText(r) {
+    if (r.swarm && r.swarm.length) {
+      const ages = r.swarm.map((a) => a.age_max); const bands = r.swarm.map((a) => `${Math.round(a.prog_lo * 100)}–${Math.round(a.prog_hi * 100)}%`);
+      return `A swarm of ${r.swarm.length} rule agents watches every new pump.fun launch priced in SOL. Each agent has its own idea of a good entry (launches up to ${Math.round(Math.max(...ages))} seconds old, `
+        + `curve bands from ${[...new Set(bands)].slice(0, 3).join(', ')}, different buyer, flow and holder limits). The bot buys only when at least ${r.quorum} of them agree. `
+        + `It sells ${r.take_profit >= 1e8 ? 'with no profit cap,' : `at ${pct(r.take_profit, 0)},`} at ${pct(r.stop_loss, 0)}${r.trail != null ? `, on a ${Math.round(r.trail * 100)}-point drop from its best once up ${Math.round((r.trail_arm ?? 0.2) * 100)}%` : ''}, `
+        + `when the creator sells, or after ${r.max_hold_s >= 60 ? `${Math.round(r.max_hold_s / 60)} minute${r.max_hold_s >= 120 ? 's' : ''}` : `${Math.round(r.max_hold_s)} seconds`}.`;
+    }
     const m = r.mayhem === 'exclude' ? ' It skips Mayhem-mode launches (an automated agent trades those).' : r.mayhem === 'only' ? ' It only trades Mayhem-mode launches.' : '';
     return `It watches every new pump.fun launch priced in SOL and buys when the launch is at most ${Math.round(r.age_max)} seconds old, `
       + `${Math.round(r.prog_lo * 100)}–${Math.round(r.prog_hi * 100)}% of the way up its bonding curve, with at least ${r.buyers_min} different buyers `
@@ -164,7 +171,7 @@
     const la = bot && selected ? bot.launches.get(selected) : null;
     if (!la || !la.f) { el.innerHTML = running && bot && bot.launches.size ? '<p class="caption">Tap a launch to see its X-ray: every signal the bot reads and each check of the rule.</p>' : ''; return; }
     const f = la.f; const r = rule;
-    const checks = [
+    const checks = r.swarm && r.swarm.length ? r.swarm.map((agent, i) => [`Agent ${i + 1}: ${P.why(f, agent)}`, P.decide(f, agent), '']).concat([[`Swarm: at least ${r.quorum} of ${r.swarm.length} agree`, P.decide(f, r), `${P.votes(f, r)} agree`]]) : [
       [`At most ${Math.round(r.age_max)} s old`, f.age <= r.age_max, `${Math.round(f.age)} s`],
       [`${Math.round(r.prog_lo * 100)}–${Math.round(r.prog_hi * 100)}% of the curve sold`, f.prog >= r.prog_lo && f.prog <= r.prog_hi, `${(f.prog * 100).toFixed(1)}%`],
       [`At least ${r.buyers_min} buyers in 30 s`, f.buyers30 >= r.buyers_min, String(f.buyers30)],
@@ -172,8 +179,8 @@
       [`At most ${Math.round(r.bundle_max * 100)}% bought in the launch block`, f.bundle <= r.bundle_max, `${(f.bundle * 100).toFixed(1)}%`],
       [`No wallet over ${Math.round(r.top_max * 100)}% of buyers' holdings`, f.top_share <= r.top_max, `${(f.top_share * 100).toFixed(0)}%`],
     ];
-    if (r.dev_must_hold) checks.push(['Creator has not sold', f.dev_sold < 0.5, f.dev_sold > 0.5 ? 'sold' : 'holding']);
-    if ((r.mayhem || 'any') !== 'any') checks.push([r.mayhem === 'exclude' ? 'Not a Mayhem-mode launch' : 'A Mayhem-mode launch', (f.mayhem > 0.5) === (r.mayhem === 'only'), f.mayhem > 0.5 ? 'Mayhem' : 'standard']);
+    if (!r.swarm && r.dev_must_hold) checks.push(['Creator has not sold', f.dev_sold < 0.5, f.dev_sold > 0.5 ? 'sold' : 'holding']);
+    if (!r.swarm && (r.mayhem || 'any') !== 'any') checks.push([r.mayhem === 'exclude' ? 'Not a Mayhem-mode launch' : 'A Mayhem-mode launch', (f.mayhem > 0.5) === (r.mayhem === 'only'), f.mayhem > 0.5 ? 'Mayhem' : 'standard']);
     if (r.model) { const sc = P.score(r.model, f); checks.push([`Model expects at least ${pct(r.model.threshold)}`, sc >= r.model.threshold, pct(sc)]); }
     const signals = [['Market cap', `${f.mcap.toFixed(1)} SOL`], ['Distinct buyers so far', String(f.buyers_total)], ['Sells in 30 s', String(f.sells30)],
       ['Trades in 10 s', String(f.trades10)], ['Price, 30 s change', pct(f.chg30)], ['Below its peak', pct(f.peak_dd)], ['Biggest buy, share of 30 s buying', `${Math.round(f.whale30 * 100)}%`]];

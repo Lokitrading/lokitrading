@@ -93,3 +93,10 @@ test('every feature the tracker computes matches the Python tracker, trade by tr
     for (const [k, v] of Object.entries(features[i])) assert.ok(Math.abs(f[k] - v) < 1e-9, `trade ${i} ${k}: ${f[k]} vs ${v}`);
   });
 });
+
+test('the swarm counts agent votes and enters at its quorum, as in Python', () => {
+  const { rule, features, votes, expected } = FX.swarm_case;
+  assert.deepEqual(plain(features.map((f) => P.votes(f, rule))), votes);
+  assert.deepEqual(plain(features.map((f) => P.decide(f, rule))), expected);
+  assert.match(P.why(features[0], rule), /of 3 agents agree/);
+});

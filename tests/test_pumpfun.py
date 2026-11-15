@@ -333,3 +333,13 @@ def test_learned_model_scores_and_gates_like_the_fixture():
     rule = {"age_max": 1e9, "prog_lo": 0, "prog_hi": 1, "buyers_min": 0, "flow_min": -1e9, "bundle_max": 1, "top_max": 1,
             "dev_must_hold": False, "mayhem": "any", "model": mc["model"]}
     assert [pb.decide(f, rule) for f in mc["features"]] == [s >= mc["model"]["threshold"] for s in mc["scores"]]
+
+
+def test_swarm_votes_match_the_fixture_and_the_backtest_mask():
+    sc = FIXTURE["swarm_case"]
+    assert [pb.votes(f, sc["rule"]) for f in sc["features"]] == sc["votes"]
+    assert [pb.decide(f, sc["rule"]) for f in sc["features"]] == sc["expected"]
+    agents = [pb.Entry(**a) for a in sc["rule"]["swarm"]]
+    feats = np.array([[f.get(n, 0.0) for n in pb.FEATURES] for f in sc["features"]], dtype=float)
+    mask = np.sum([pb.entry_mask(feats, a) for a in agents], axis=0) >= sc["rule"]["quorum"]
+    assert list(mask) == sc["expected"]

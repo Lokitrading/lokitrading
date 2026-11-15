@@ -311,8 +311,18 @@ def entry_mask(feats: np.ndarray, e: Entry) -> np.ndarray:
     return m
 
 
+def votes(features: Dict[str, float], rule: Dict[str, Any]) -> int:
+    """How many of a swarm's agents would enter now."""
+    return sum(1 for agent in rule.get("swarm") or [] if decide(features, agent))
+
+
 def decide(features: Dict[str, float], rule: Dict[str, Any]) -> bool:
-    """The live entry test, the same as ``entry_mask`` (plus the learned score, if the rule has one)."""
+    """The live entry test, the same as ``entry_mask`` (plus the learned score, if the rule has one).
+
+    A swarm rule enters when at least ``quorum`` of its agents would.
+    """
+    if rule.get("swarm"):
+        return votes(features, rule) >= int(rule["quorum"])
     ok = (features["age"] <= rule["age_max"] and rule["prog_lo"] <= features["prog"] <= rule["prog_hi"]
           and features["buyers30"] >= rule["buyers_min"] and features["flow30"] >= rule["flow_min"]
           and features["bundle"] <= rule["bundle_max"] and features["top_share"] <= rule["top_max"]
@@ -393,9 +403,14 @@ class Book:
         self.owner = np.repeat(np.arange(len(prepared)), [len(p.at) for p in prepared])
         self.cache: Dict[int, np.ndarray] = {}
 
-    def first_entries(self, e: Entry, model: Optional[Dict[str, Any]] = None) -> np.ndarray:
+    def first_entries(self, e: Entry, model: Optional[Dict[str, Any]] = None,
+                      swarm: Optional[Tuple[List[Entry], int]] = None) -> np.ndarray:
         """Global index of the first qualifying trade in each launch (launches with none are skipped)."""
-        mask = entry_mask(self.feats, e)
+        if swarm is not None:
+            agents, quorum = swarm
+            mask = np.sum([entry_mask(self.feats, a) for a in agents], axis=0) >= quorum
+        else:
+            mask = entry_mask(self.feats, e)
         if model is not None and mask.any():
             mask[mask] = score(model, self.feats[mask]) >= model["threshold"]
         idx = np.flatnonzero(mask)
@@ -410,8 +425,9 @@ class Book:
             self.cache[g] = exit_returns(self.prepared[li], g - int(self.offsets[li]), self.exits, self.costs)
         return self.cache[g]
 
-    def matrix(self, e: Entry, model: Optional[Dict[str, Any]] = None) -> np.ndarray:
-        firsts = self.first_entries(e, model)
+    def matrix(self, e: Entry, model: Optional[Dict[str, Any]] = None,
+               swarm: Optional[Tuple[List[Entry], int]] = None) -> np.ndarray:
+        firsts = self.first_entries(e, model, swarm)
         if not len(firsts):
             return np.zeros((0, len(self.exits)))
         return np.vstack([self.returns(int(g)) for g in firsts])
@@ -447,9 +463,10 @@ def _score(col: np.ndarray, min_trades: int) -> float:
     return float(c.mean() - c.std(ddof=1) / math.sqrt(len(c)))
 
 
-def portfolio(book: Book, e: Entry, exit_idx: int, max_open: int = 5, model: Optional[Dict[str, Any]] = None) -> List[float]:
+def portfolio(book: Book, e: Entry, exit_idx: int, max_open: int = 5, model: Optional[Dict[str, Any]] = None,
+              swarm: Optional[Tuple[List[Entry], int]] = None) -> List[float]:
     """Returns in time order when at most ``max_open`` positions can be held at once."""
-    firsts = book.first_entries(e, model)
+    firsts = book.first_entries(e, model, swarm)
     trades = []
     for g in firsts:
         li = int(book.owner[g])
@@ -484,6 +501,48 @@ def usable(launches: List[Launch], gaps: List[Tuple[float, float]], end: float, 
             continue
         out.append(la)
     return out
+
+
+def entry_dict(e: Entry) -> Dict[str, Any]:
+    return {"age_max": e.age_max, "prog_lo": e.prog_lo, "prog_hi": e.prog_hi, "buyers_min": e.buyers_min,
+            "flow_min": e.flow_min, "bundle_max": e.bundle_max, "top_max": e.top_max, "dev_must_hold": e.dev_must_hold,
+            "mayhem": e.mayhem}
+
+
+SWARM_SIZE = 15
+QUORUMS = (1, 2, 3, 5, 8)
+
+
+def build_swarm(books: Dict[str, "Book"], entries: List[Entry], ranked: List[Tuple[float, int, int]], costs: Costs,
+                fit_min: int, check_min: int) -> Optional[Dict[str, Any]]:
+    """A swarm of the best distinct entry rules on the fit launches that buys when enough of them agree.
+
+    The agents are the ``SWARM_SIZE`` best entry rules by fit score (each counted once, whatever its
+    exit). For each quorum, the exit is picked on the fit launches; the quorum is picked on the check
+    launches. Returns None if no quorum makes money on the check launches.
+    """
+    agents: List[Entry] = []
+    for sc, ei, _ in ranked:
+        if sc <= 0 or len(agents) >= SWARM_SIZE:
+            break
+        if entries[ei] not in agents:
+            agents.append(entries[ei])
+    if len(agents) < 3:
+        return None
+    best: Optional[Dict[str, Any]] = None
+    for q in QUORUMS:
+        if q > len(agents):
+            continue
+        fit_m = books["fit"].matrix(agents[0], swarm=(agents, q))
+        if len(fit_m) < fit_min:
+            continue
+        xi = int(np.argmax([_score(fit_m[:, k], fit_min) for k in range(fit_m.shape[1])]))
+        chk = books["check"].matrix(agents[0], swarm=(agents, q))
+        col = chk[:, xi] if len(chk) else np.zeros(0)
+        if len(col) >= check_min and col.mean() > 0 and (best is None or col.mean() > best["check_mean"]):
+            best = {"agents": agents, "quorum": q, "exit_idx": xi, "check_mean": float(col.mean()),
+                    "check": summarize(col, costs.size_sol), "size": len(agents), "exit": rule_dict(agents[0], EXIT_GRID[xi])}
+    return best
 
 
 def rule_dict(e: Entry, ex: Exit) -> Dict[str, Any]:
@@ -554,41 +613,54 @@ def train(data_dir: Path, costs: Costs = Costs(), seed: int = 7) -> Dict[str, An
     }
     learned = learn(books, costs, fit_min, check_min)
     result["learned"] = {k: v for k, v in learned.items() if k not in ("entry", "exit_idx", "model")} if learned else None
-    choice = "rule"
-    if learned and (best is None or learned["check_mean"] > best[0]):
-        choice = "learned"
-    result["chosen"] = choice
-    if best is None and choice != "learned":
+    swarm_found = build_swarm(books, entries, ranked, costs, fit_min, check_min)
+    result["swarm"] = {k: v for k, v in swarm_found.items() if k not in ("agents", "exit_idx")} if swarm_found else None
+    contenders = {"rule": best[0] if best else None, "learned": learned["check_mean"] if learned else None,
+                  "swarm": swarm_found["check_mean"] if swarm_found else None}
+    alive = {k: v for k, v in contenders.items() if v is not None}
+    result["check_means"] = {k: (round(v * 100, 2) if v is not None else None) for k, v in contenders.items()}
+    if not alive:
+        result["chosen"] = None
         result["verdict"] = "no rule passed"
         result["summary"] = {"passed": False, "why": "nothing that made money on the fit launches also made money on the check launches"}
         return result
+    choice = max(alive, key=lambda k: alive[k])
+    result["chosen"] = choice
     model: Optional[Dict[str, Any]] = None
+    swarm: Optional[Tuple[List[Entry], int]] = None
     if choice == "learned" and learned:
         e, xi, model = learned["entry"], learned["exit_idx"], learned["model"]
+    elif choice == "swarm" and swarm_found:
+        swarm = (swarm_found["agents"], swarm_found["quorum"])
+        e, xi = swarm_found["agents"][0], swarm_found["exit_idx"]
     else:
         assert best is not None
         _, ei, xi = best
         e = entries[ei]
     ex = EXIT_GRID[xi]
-    test_col = books["test"].matrix(e, model)
+    test_col = books["test"].matrix(e, model, swarm)
     test_r = test_col[:, xi] if len(test_col) else np.zeros(0)
     test = summarize(test_r, costs.size_sol)
-    port = summarize(portfolio(books["test"], e, xi, model=model), costs.size_sol)
+    port = summarize(portfolio(books["test"], e, xi, model=model, swarm=swarm), costs.size_sol)
     stress = {}
     for label, c in (("latency_3s", Costs(costs.size_sol, costs.tx_cost_sol, 3.0, costs.max_slip)),
                      ("tx_cost_0.002", Costs(costs.size_sol, 0.002, costs.latency_s, costs.max_slip)),
                      ("stake_1_sol", Costs(1.0, costs.tx_cost_sol, costs.latency_s, costs.max_slip))):
         bk = Book(parts["test"], [ex], c)
-        m = bk.matrix(e, model)
+        m = bk.matrix(e, model, swarm)
         stress[label] = summarize(m[:, 0] if len(m) else [], c.size_sol)
     passed = bool(test["trades"] >= 20 and test["mean_return_pct"] > 0 and test["mean_ci90_pct"][0] > 0)
     rule = rule_dict(e, ex)
     if model is not None:
         rule["model"] = model
+    if swarm is not None:
+        rule["swarm"] = [entry_dict(a) for a in swarm[0]]
+        rule["quorum"] = swarm[1]
+    fit_m, check_m = books["fit"].matrix(e, model, swarm), books["check"].matrix(e, model, swarm)
     result.update({
         "rule": rule,
-        "fit": summarize(books["fit"].matrix(e, model)[:, xi] if len(books["fit"].matrix(e, model)) else [], costs.size_sol),
-        "check": summarize(books["check"].matrix(e, model)[:, xi] if len(books["check"].matrix(e, model)) else [], costs.size_sol),
+        "fit": summarize(fit_m[:, xi] if len(fit_m) else [], costs.size_sol),
+        "check": summarize(check_m[:, xi] if len(check_m) else [], costs.size_sol),
         "test": test,
         "test_max_5_open": port,
         "test_stress": stress,

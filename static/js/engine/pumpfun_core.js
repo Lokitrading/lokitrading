@@ -85,8 +85,12 @@
     for (let i = 0; i < x.length; i++) s += ((x[i] - model.mean[i]) / model.std[i]) * model.weights[i];
     return s;
   }
-  /** The live entry test, the same as decide() in loki_v8/pumpfun_bot.py (with the learned score, if any). */
+  /** How many of a swarm's agents would enter now (votes() in loki_v8/pumpfun_bot.py). */
+  const votes = (f, r) => (r.swarm || []).reduce((n, agent) => n + (decide(f, agent) ? 1 : 0), 0);
+  /** The live entry test, the same as decide() in loki_v8/pumpfun_bot.py (with the learned score, if any).
+   * A swarm rule enters when at least ``quorum`` of its agents would. */
   function decide(f, r) {
+    if (r.swarm && r.swarm.length) return votes(f, r) >= r.quorum;
     const ok = f.age <= r.age_max && f.prog >= r.prog_lo && f.prog <= r.prog_hi && f.buyers30 >= r.buyers_min
       && f.flow30 >= r.flow_min && f.bundle <= r.bundle_max && f.top_share <= r.top_max
       && (!r.dev_must_hold || f.dev_sold < 0.5)
@@ -95,6 +99,7 @@
   }
   /** The first condition a launch fails right now, or that it meets the rule (for the live table). */
   function why(f, r) {
+    if (r.swarm && r.swarm.length) { const v = votes(f, r); return v >= r.quorum ? `${v} of ${r.swarm.length} agents agree` : `${v} of ${r.swarm.length} agents agree (needs ${r.quorum})`; }
     if (f.age > r.age_max) return 'too old';
     if ((r.mayhem || 'any') === 'exclude' && f.mayhem > 0.5) return 'Mayhem mode';
     if (r.mayhem === 'only' && f.mayhem < 0.5) return 'not Mayhem mode';
@@ -199,5 +204,5 @@
     }
   }
 
-  window.LokiPump = { LAMPORTS, START_RTOKENS, FEE_BPS, GRAD_HAIRCUT, price, progress, marketCap, buyTokens, sellSol, Tracker, decide, why, score, saleReturn, PaperBot };
+  window.LokiPump = { LAMPORTS, START_RTOKENS, FEE_BPS, GRAD_HAIRCUT, price, progress, marketCap, buyTokens, sellSol, Tracker, decide, votes, why, score, saleReturn, PaperBot };
 })();
