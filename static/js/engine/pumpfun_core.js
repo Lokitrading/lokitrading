@@ -43,11 +43,13 @@
     constructor(dev, createdAt, createdSlot, mayhem) {
       Object.assign(this, { dev, createdAt, createdSlot, mayhem: !!mayhem });
       this.recent = []; this.holdings = new Map(); this.bundleTokens = 0; this.devSold = false;
+      this.buyersAll = new Set(); this.peakPx = 0;
     }
     update(at, slot, buy, sol, user, tokens, vsol, vtok, rtok) {
       const px = price(vsol, vtok);
       if (buy) {
         this.holdings.set(user, (this.holdings.get(user) || 0) + tokens);
+        if (user !== this.dev) this.buyersAll.add(user);
         if (slot <= this.createdSlot + 1) this.bundleTokens += tokens;
       } else {
         this.holdings.set(user, Math.max(0, (this.holdings.get(user) || 0) - tokens));
@@ -60,10 +62,14 @@
       let held = 0; let top = 0;
       for (const [u, v] of this.holdings) { if (u === this.dev) continue; held += v; if (v > top) top = v; }
       const oldPx = this.recent[0][4];
+      this.peakPx = Math.max(this.peakPx, px);
+      let buySum = 0; let buyMax = 0; let trades10 = 0;
+      for (const [t, b, s] of this.recent) { if (b) { buySum += s; if (s > buyMax) buyMax = s; } if (t >= at - 10) trades10++; }
       return {
         age: at - this.createdAt, prog: progress(rtok), buyers30: buyers.size, flow30: flow / LAMPORTS,
         dev_sold: this.devSold ? 1 : 0, bundle: this.bundleTokens / SUPPLY, top_share: held ? top / held : 1,
         chg30: oldPx ? px / oldPx - 1 : 0, sells30: sells, mcap: marketCap(vsol, vtok), mayhem: this.mayhem ? 1 : 0,
+        buyers_total: this.buyersAll.size, peak_dd: this.peakPx ? px / this.peakPx - 1 : 0, trades10, whale30: buySum > 0 ? buyMax / buySum : 0,
       };
     }
   }
@@ -71,7 +77,8 @@
   /** The learned filter's inputs and predicted return (model_inputs / score in loki_v8/pumpfun_bot.py). */
   function modelInputs(f) {
     return [Math.min(f.age, 600) / 600, f.prog, Math.log1p(f.buyers30), Math.sign(f.flow30) * Math.log1p(Math.abs(f.flow30)),
-      f.dev_sold, f.bundle, f.top_share, Math.min(5, Math.max(-1, f.chg30)), Math.log1p(f.sells30), Math.log(Math.max(f.mcap, 1e-3)), f.mayhem];
+      f.dev_sold, f.bundle, f.top_share, Math.min(5, Math.max(-1, f.chg30)), Math.log1p(f.sells30), Math.log(Math.max(f.mcap, 1e-3)), f.mayhem,
+      Math.log1p(f.buyers_total), f.peak_dd, Math.log1p(f.trades10), f.whale30];
   }
   function score(model, f) {
     const x = modelInputs(f); let s = model.bias;

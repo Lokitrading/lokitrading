@@ -39,7 +39,8 @@ GRAD_HAIRCUT = 0.01         # selling right after graduation, on pump.fun's AMM
 TRAIL_ARM = 0.20            # the trailing stop arms once the position is up this much
 WINDOW_S = 30.0             # the "recent" window for flow and buyer counts
 SILENCE_S = 3.0             # a silence this long in the recording counts as a dropped connection
-FEATURES = ("age", "prog", "buyers30", "flow30", "dev_sold", "bundle", "top_share", "chg30", "sells30", "mcap", "mayhem")
+FEATURES = ("age", "prog", "buyers30", "flow30", "dev_sold", "bundle", "top_share", "chg30", "sells30", "mcap", "mayhem",
+            "buyers_total", "peak_dd", "trades10", "whale30")
 
 
 @dataclass
@@ -107,12 +108,16 @@ class Tracker:
         self.bundle_tokens = 0
         self.dev_sold = False
         self.n_buys = self.n_sells = 0
+        self.buyers_all: set = set()
+        self.peak_px = 0.0
 
     def update(self, at: float, slot: int, buy: int, sol: int, user: str, tokens: int, vsol: int, vtok: int, rtok: int) -> Dict[str, float]:
         px = pf.price(vsol, vtok)
         if buy:
             self.n_buys += 1
             self.holdings[user] += tokens
+            if user != self.dev:
+                self.buyers_all.add(user)
             self.bought_total += tokens
             if slot <= self.created_slot + 1:
                 self.bundle_tokens += tokens
@@ -128,6 +133,9 @@ class Tracker:
         flow = sum((s if b else -s) for (_, b, s, _, _) in self.recent) / pf.LAMPORTS
         sells = sum(1 for (_, b, _, _, _) in self.recent if not b)
         old_px = self.recent[0][4]
+        self.peak_px = max(self.peak_px, px)
+        buys = [s for (_, b, s, _, _) in self.recent if b]
+        trades10 = sum(1 for r in self.recent if r[0] >= at - 10)
         held = sum(v for u, v in self.holdings.items() if u != self.dev)
         top = max((v for u, v in self.holdings.items() if u != self.dev), default=0)
         return {
@@ -142,6 +150,10 @@ class Tracker:
             "sells30": float(sells),
             "mcap": pf.market_cap_sol(vsol, vtok),
             "mayhem": 1.0 if self.mayhem else 0.0,
+            "buyers_total": float(len(self.buyers_all)),
+            "peak_dd": px / self.peak_px - 1 if self.peak_px else 0.0,
+            "trades10": float(trades10),
+            "whale30": max(buys) / sum(buys) if buys and sum(buys) > 0 else 0.0,
         }
 
 
@@ -321,11 +333,12 @@ def model_inputs(feats: np.ndarray) -> np.ndarray:
         np.minimum(f["age"], 600) / 600, f["prog"], np.log1p(f["buyers30"]),
         np.sign(f["flow30"]) * np.log1p(np.abs(f["flow30"])), f["dev_sold"], f["bundle"], f["top_share"],
         np.clip(f["chg30"], -1, 5), np.log1p(f["sells30"]), np.log(np.maximum(f["mcap"], 1e-3)), f["mayhem"],
+        np.log1p(f["buyers_total"]), f["peak_dd"], np.log1p(f["trades10"]), f["whale30"],
     ])
 
 
 MODEL_INPUTS = ("age", "prog", "log_buyers30", "log_flow30", "dev_sold", "bundle", "top_share", "chg30",
-                "log_sells30", "log_mcap", "mayhem")
+                "log_sells30", "log_mcap", "mayhem", "log_buyers_total", "peak_dd", "log_trades10", "whale30")
 
 
 def fit_model(feats: np.ndarray, returns: np.ndarray, ridge: float = 5.0) -> Dict[str, Any]:

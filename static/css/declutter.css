@@ -170,3 +170,13 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 .loki-workspace .pump-bot #pump-check-form { margin-top: 14px; }
 .loki-workspace .pump-bot .pf-controls { margin-top: 16px; }
 @media (max-width: 560px) { .loki-workspace .pump-bot { padding: 14px; } .loki-workspace .pump-bot .pf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.loki-workspace .pump-bot #pump-launches tbody tr { cursor: pointer; }
+.loki-workspace .pump-bot #pump-launches tbody tr.is-selected td { background: rgba(168, 240, 198, .07); }
+.loki-workspace .pump-bot .pump-xray:not(:empty) { margin: 10px 0 14px; padding: 12px 14px; border-radius: 10px; background: rgba(148, 190, 220, .045); }
+.loki-workspace .pump-bot .xray-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.loki-workspace .pump-bot .xray-head .button { margin-left: auto; padding: 4px 10px; min-height: 30px; }
+.loki-workspace .pump-bot .xray-checks { list-style: none; padding: 0; margin: 10px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 16px; }
+.loki-workspace .pump-bot .xray-checks li { margin: 0; font-size: 12.5px; color: var(--text); }
+.loki-workspace .pump-bot .xray-checks li em { font-style: normal; color: var(--subtle); margin-left: 4px; }
+.loki-workspace .pump-bot .xray-checks li.ok span { color: #8fe3b0; }
+.loki-workspace .pump-bot .xray-checks li.no span { color: #ff9b8a; }

@@ -21,7 +21,7 @@
 
   let cfg = null; let rule = null; let costs = null;
   let bot = null; let running = false; let abort = null; let startedAt = 0; let bytes = 0; let lastAt = 0;
-  let hiddenTimer = null; let tick = null; let dirty = true; let synced = 0; let failedSynced = 0;
+  let hiddenTimer = null; let tick = null; let dirty = true; let synced = 0; let failedSynced = 0; let selected = null;
   let book = load();
 
   function load() {
@@ -146,8 +146,9 @@
     const live = bot ? [...bot.launches.values()].sort((a, b) => b.created - a.created).slice(0, 12) : [];
     $('pump-launches').innerHTML = live.length ? `<table><thead><tr><th>Launch</th><th>Age</th><th>Curve sold</th><th>Mkt cap</th><th>Buyers 30 s</th><th>Net buying 30 s</th><th>Bot</th></tr></thead><tbody>${live.map((la) => {
       const f = la.f;
-      return `<tr><td><a href="https://pump.fun/coin/${esc(la.mint)}" target="_blank" rel="noopener noreferrer">${esc(la.symbol)}</a>${la.mayhem ? ' <span class="tag">Mayhem</span>' : ''}</td><td>${Math.max(0, Math.round(now - la.created))} s</td><td>${f ? Math.round(f.prog * 100) + '%' : '–'}</td><td>${f ? f.mcap.toFixed(1) + ' SOL' : '–'}</td><td>${f ? f.buyers30 : '–'}</td><td>${f ? f.flow30.toFixed(2) + ' SOL' : '–'}</td><td>${esc(la.verdict)}</td></tr>`;
+      return `<tr data-mint="${esc(la.mint)}" class="${la.mint === selected ? 'is-selected' : ''}" tabindex="0" title="Show this launch's X-ray"><td><a href="https://pump.fun/coin/${esc(la.mint)}" target="_blank" rel="noopener noreferrer">${esc(la.symbol)}</a>${la.mayhem ? ' <span class="tag">Mayhem</span>' : ''}</td><td>${Math.max(0, Math.round(now - la.created))} s</td><td>${f ? Math.round(f.prog * 100) + '%' : '–'}</td><td>${f ? f.mcap.toFixed(1) + ' SOL' : '–'}</td><td>${f ? f.buyers30 : '–'}</td><td>${f ? f.flow30.toFixed(2) + ' SOL' : '–'}</td><td>${esc(la.verdict)}</td></tr>`;
     }).join('')}</tbody></table>` : `<p class="muted">${running ? 'Waiting for the next launch; pump.fun sees one every few seconds…' : 'Start the bot to watch new launches as they are created.'}</p>`;
+    renderXray(now);
     const open = bot ? [...bot.positions.values()] : [];
     $('pump-positions').innerHTML = open.length ? `<table><thead><tr><th>Holding</th><th>Status</th><th>Now</th><th>Best</th><th>Held</th></tr></thead><tbody>${open.map((p) => `<tr><td>${esc(p.symbol)}</td><td>${p.status === 'open' ? (p.exitAt != null ? 'selling: ' + esc(p.reason) : 'open') : 'order landing'}</td><td>${p.status === 'open' ? pct(p.r) : '–'}</td><td>${p.status === 'open' && p.peak > -1 ? pct(p.peak) : '–'}</td><td>${p.landed ? Math.round(now - p.landed) + ' s' : '–'}</td></tr>`).join('')}</tbody></table>` : '';
     const c = book.closed; const n = c.length; const total = c.reduce((s, t) => s + t.pnl, 0) - book.fees; const wins = c.filter((t) => t.ret > 0).length;
@@ -156,6 +157,40 @@
     const events = bot ? bot.events.slice(-40).reverse() : [];
     $('pump-log').innerHTML = events.map((e) => `<li><time>${esc(new Date(e.at * 1000).toLocaleTimeString())}</time> ${esc(e.text)}</li>`).join('') || '<li>No paper trades yet.</li>';
   }
+
+  /** Launch X-ray: every signal the bot reads for the selected launch, and each rule check it passes or fails. */
+  function renderXray(now) {
+    const el = $('pump-xray');
+    const la = bot && selected ? bot.launches.get(selected) : null;
+    if (!la || !la.f) { el.innerHTML = running && bot && bot.launches.size ? '<p class="caption">Tap a launch to see its X-ray: every signal the bot reads and each check of the rule.</p>' : ''; return; }
+    const f = la.f; const r = rule;
+    const checks = [
+      [`At most ${Math.round(r.age_max)} s old`, f.age <= r.age_max, `${Math.round(f.age)} s`],
+      [`${Math.round(r.prog_lo * 100)}–${Math.round(r.prog_hi * 100)}% of the curve sold`, f.prog >= r.prog_lo && f.prog <= r.prog_hi, `${(f.prog * 100).toFixed(1)}%`],
+      [`At least ${r.buyers_min} buyers in 30 s`, f.buyers30 >= r.buyers_min, String(f.buyers30)],
+      [`At least ${r.flow_min} SOL net buying in 30 s`, f.flow30 >= r.flow_min, `${f.flow30.toFixed(2)} SOL`],
+      [`At most ${Math.round(r.bundle_max * 100)}% bought in the launch block`, f.bundle <= r.bundle_max, `${(f.bundle * 100).toFixed(1)}%`],
+      [`No wallet over ${Math.round(r.top_max * 100)}% of buyers' holdings`, f.top_share <= r.top_max, `${(f.top_share * 100).toFixed(0)}%`],
+    ];
+    if (r.dev_must_hold) checks.push(['Creator has not sold', f.dev_sold < 0.5, f.dev_sold > 0.5 ? 'sold' : 'holding']);
+    if ((r.mayhem || 'any') !== 'any') checks.push([r.mayhem === 'exclude' ? 'Not a Mayhem-mode launch' : 'A Mayhem-mode launch', (f.mayhem > 0.5) === (r.mayhem === 'only'), f.mayhem > 0.5 ? 'Mayhem' : 'standard']);
+    if (r.model) { const sc = P.score(r.model, f); checks.push([`Model expects at least ${pct(r.model.threshold)}`, sc >= r.model.threshold, pct(sc)]); }
+    const signals = [['Market cap', `${f.mcap.toFixed(1)} SOL`], ['Distinct buyers so far', String(f.buyers_total)], ['Sells in 30 s', String(f.sells30)],
+      ['Trades in 10 s', String(f.trades10)], ['Price, 30 s change', pct(f.chg30)], ['Below its peak', pct(f.peak_dd)], ['Biggest buy, share of 30 s buying', `${Math.round(f.whale30 * 100)}%`]];
+    el.innerHTML = `<div class="xray-head"><strong>${esc(la.symbol)}</strong><span class="caption">${Math.round(now - la.created)} s old · ${esc(la.verdict)}</span><button type="button" class="button secondary" data-xray-close>Close</button></div>`
+      + `<ul class="xray-checks">${checks.map(([label, ok, val]) => `<li class="${ok ? 'ok' : 'no'}"><span aria-hidden="true">${ok ? '✓' : '✕'}</span> ${esc(label)} <em>${esc(val)}</em></li>`).join('')}</ul>`
+      + `<div class="pf-metrics">${signals.map(([k, v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div>`;
+  }
+  $('pump-launches').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-mint]'); if (!tr || e.target.closest('a')) return;
+    selected = tr.dataset.mint === selected ? null : tr.dataset.mint; dirty = true; render();
+  });
+  $('pump-launches').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const tr = e.target.closest('tr[data-mint]'); if (!tr) return;
+    e.preventDefault(); selected = tr.dataset.mint === selected ? null : tr.dataset.mint; dirty = true; render();
+  });
+  $('pump-xray').addEventListener('click', (e) => { if (e.target.closest('[data-xray-close]')) { selected = null; dirty = true; render(); } });
 
   // --- check one token -----------------------------------------------------------------------------
   $('pump-check-form').addEventListener('submit', async (e) => {

@@ -84,3 +84,12 @@ test('the learned filter scores exactly as the Python model, and gates entries',
   const open = { age_max: 1e9, prog_lo: 0, prog_hi: 1, buyers_min: 0, flow_min: -1e9, bundle_max: 1, top_max: 1, dev_must_hold: false, mayhem: 'any', model };
   features.forEach((f, i) => assert.equal(P.decide(f, open), scores[i] >= model.threshold));
 });
+
+test('every feature the tracker computes matches the Python tracker, trade by trade', () => {
+  const { create, trades, features } = FX.tracker_case;
+  const t = new P.Tracker(create.dev, create.at, create.slot, !!create.may);
+  trades.forEach((r, i) => {
+    const f = t.update(r.at, r.slot, !!r.b, r.sol, r.u, r.tok, r.vs, r.vt, r.rt);
+    for (const [k, v] of Object.entries(features[i])) assert.ok(Math.abs(f[k] - v) < 1e-9, `trade ${i} ${k}: ${f[k]} vs ${v}`);
+  });
+});
