@@ -8,7 +8,9 @@ live read of any launch's bonding curve.
   refuses connections from web pages, and the raw stream is about 0.6 MB a second; the relay sends
   roughly 10 KB a second. The browser bot runs on these rows' timestamps, so a late batch never
   changes a paper fill.
-* ``/pumpfun/curve``: one launch's bonding-curve account.
+* ``/pumpfun/curve``: one token's bonding-curve account and Jupiter's live market for it.
+* ``/pumpfun/quote``: Jupiter's executable quote for a buy or sell, the second connector. The browser
+  bot checks every paper fill against it.
 
 Paper only; nothing here signs or sends a transaction.
 """
@@ -24,7 +26,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Tuple
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -71,28 +73,87 @@ def _rpc(method: str, params: List[Any]) -> Any:
     raise HTTPException(503, f"Solana could not be read right now ({last}); try again shortly.")
 
 
-def curve(mint: str) -> Dict[str, Any]:
-    if not pf.is_mint(mint):
-        raise HTTPException(422, "That is not a Solana token address.")
+def bonding_curve(mint: str) -> Optional[Dict[str, Any]]:
+    """The pump.fun bonding-curve account of a mint, or None if pump.fun has no curve for it."""
     address = pf.bonding_curve_address(mint)
     result = _rpc("getAccountInfo", [address, {"encoding": "base64", "commitment": "confirmed"}])
     value = (result or {}).get("value")
-    if not value:
-        raise HTTPException(404, "No pump.fun bonding curve exists for that token.")
-    if value.get("owner") != pf.PROGRAM:
-        raise HTTPException(404, "That account does not belong to pump.fun.")
-    data = base64.b64decode(value["data"][0])
-    state = pf.parse_curve_account(data)
-    standard = state["supply"] == 1_000_000_000 * pf.TOKEN_UNIT and not state["mayhem"]
+    if not value or value.get("owner") != pf.PROGRAM:
+        return None
+    state = pf.parse_curve_account(base64.b64decode(value["data"][0]))
     return {
-        "mint": mint, "bonding_curve": address, "graduated": state["complete"],
+        "bonding_curve": address, "graduated": state["complete"],
         "progress_pct": round(state["progress"] * 100, 2), "price_sol": state["price_sol"],
         "market_cap_sol": round(state["market_cap_sol"], 3), "raised_sol": round(state["raised_sol"], 4),
-        "creator": state["creator"], "mayhem": state["mayhem"], "standard_curve": standard,
-        "links": {"pump_fun": f"https://pump.fun/coin/{mint}", "solscan": f"https://solscan.io/account/{address}"},
+        "creator": state["creator"], "mayhem": state["mayhem"],
+        "standard_curve": state["supply"] == 1_000_000_000 * pf.TOKEN_UNIT and not state["mayhem"],
+        "solscan": f"https://solscan.io/account/{address}",
+    }
+
+
+# --- Jupiter: Solana's main trade router, the second connector ---------------------------------------
+# It routes pump.fun's bonding curves ("Pump.fun") and its AMM after graduation ("Pump.fun Amm"), so it
+# gives a real executable price for any pump.fun token, at any stage. Free public tier, no key.
+JUPITER = "https://lite-api.jup.ag"
+SOL_MINT = "So11111111111111111111111111111111111111112"
+QUOTE_SECONDS = 3.0
+
+
+def _jupiter(path: str) -> Any:
+    """GET a Jupiter endpoint; None when Jupiter has no answer for it (no route, unknown token)."""
+    req = urllib.request.Request(JUPITER + path, headers={"Accept": "application/json", "User-Agent": "LokiPumpConnector/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=6) as res:  # noqa: S310 - fixed https endpoint
+            return json.loads(res.read().decode())
+    except urllib.error.HTTPError as error:
+        if error.code in (400, 404):
+            return None
+        raise HTTPException(503, f"Jupiter answered {error.code}; try again shortly.") from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(503, f"Jupiter could not be reached ({type(error).__name__}); try again shortly.") from error
+
+
+def jupiter_quote(mint: str, side: str, amount: int) -> Optional[Dict[str, Any]]:
+    """Jupiter's executable quote: buy ``amount`` lamports of the token, or sell ``amount`` raw token units."""
+    src, dst = (SOL_MINT, mint) if side == "buy" else (mint, SOL_MINT)
+    q = _jupiter(f"/swap/v1/quote?inputMint={src}&outputMint={dst}&amount={int(amount)}&slippageBps=1500")
+    if not isinstance(q, dict) or "outAmount" not in q:
+        return None
+    return {"side": side, "in_amount": int(q.get("inAmount", amount)), "out_amount": int(q["outAmount"]),
+            "price_impact_pct": round(float(q.get("priceImpactPct") or 0) * 100, 3),
+            "route": [str((leg.get("swapInfo") or {}).get("label", "?")) for leg in q.get("routePlan") or []],
+            "quoted_at": round(time.time(), 3)}
+
+
+def jupiter_price(mint: str) -> Optional[Dict[str, Any]]:
+    data = _jupiter(f"/price/v3?ids={mint}")
+    row = (data or {}).get(mint) if isinstance(data, dict) else None
+    if not isinstance(row, dict) or row.get("usdPrice") is None:
+        return None
+    return {"price_usd": row.get("usdPrice"), "liquidity_usd": row.get("liquidity"),
+            "change_24h_pct": row.get("priceChange24h"), "launchpad": row.get("launchpad")}
+
+
+def token(mint: str) -> Dict[str, Any]:
+    """pump.fun's curve (if any) and Jupiter's live market for a token, side by side."""
+    if not pf.is_mint(mint):
+        raise HTTPException(422, "That is not a Solana token address.")
+    curve_state = bonding_curve(mint)
+    market: Optional[Dict[str, Any]] = None
+    try:
+        market = jupiter_price(mint)
+        if market is not None:
+            market["buy_0_1_sol"] = jupiter_quote(mint, "buy", 100_000_000)
+    except HTTPException:
+        market = None  # the curve alone still answers
+    if curve_state is None and market is None:
+        raise HTTPException(404, "Neither pump.fun nor Jupiter knows that token.")
+    return {
+        "mint": mint, "curve": curve_state, "jupiter": market,
+        "links": {"pump_fun": f"https://pump.fun/coin/{mint}", "solscan": f"https://solscan.io/token/{mint}"},
         "read_at": int(time.time()),
-        "note": "Read straight from the pump.fun program's account on Solana. A graduated token now trades on "
-                "pump.fun's AMM, not on this curve.",
+        "note": "The curve is read from the pump.fun program's account on Solana; the market from Jupiter, which "
+                "routes pump.fun's curve before graduation and its AMM after.",
     }
 
 
@@ -167,16 +228,42 @@ def ai_pumpfun(response: Response) -> Dict[str, Any]:
     }
 
 
+@router.get("/pumpfun/quote")
+def ai_pumpfun_quote(response: Response, mint: str = Query(..., min_length=32, max_length=44),
+                     side: str = Query(..., pattern="^(buy|sell)$"),
+                     amount: int = Query(..., gt=0, le=10 ** 18)) -> Dict[str, Any]:
+    """Jupiter's executable quote for buying (lamports in) or selling (raw token units in) a token. Read-only."""
+    _private_response(response)
+    if not pf.is_mint(mint):
+        raise HTTPException(422, "That is not a Solana token address.")
+    key = f"q:{mint}:{side}:{amount}"
+    now = time.monotonic()
+    with _lock:
+        cached = _cache.get(key)
+    if cached and now - cached[0] < QUOTE_SECONDS:
+        return cached[1]
+    quote = jupiter_quote(mint, side, amount)
+    if quote is None:  # an ordinary answer for a token too new or too thin to route, not a failure
+        quote = {"side": side, "available": False, "reason": "Jupiter has no route for that trade right now."}
+    else:
+        quote["available"] = True
+    with _lock:
+        if len(_cache) > 500:
+            _cache.clear()
+        _cache[key] = (now, quote)
+    return quote
+
+
 @router.get("/pumpfun/curve")
 def ai_pumpfun_curve(response: Response, mint: str = Query(..., min_length=32, max_length=44)) -> Dict[str, Any]:
-    """Live state of one pump.fun launch's bonding curve, read from Solana."""
+    """One token: its pump.fun bonding curve (if any), read from Solana, and Jupiter's live market for it."""
     _private_response(response)
     now = time.monotonic()
     with _lock:
         cached = _cache.get(mint)
     if cached and now - cached[0] < CURVE_SECONDS:
         return cached[1]
-    out = curve(mint)
+    out = token(mint)
     with _lock:
         if len(_cache) > 500:
             _cache.clear()

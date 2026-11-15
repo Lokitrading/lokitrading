@@ -22,6 +22,7 @@
   let cfg = null; let rule = null; let costs = null;
   let bot = null; let running = false; let abort = null; let startedAt = 0; let bytes = 0; let lastAt = 0;
   let hiddenTimer = null; let tick = null; let dirty = true; let synced = 0; let failedSynced = 0; let selected = null;
+  const LAG_OK_S = 5; // Jupiter checks are only fair while the feed is close to real time
   let book = load();
 
   function load() {
@@ -98,6 +99,7 @@
             dirty = true;
           }
           sync();
+          checkEntries();
         }
       } catch (error) {
         if (!running) return;
@@ -108,10 +110,40 @@
       }
     }
   }
-  /** Copy newly closed paper trades into the saved book. */
+  /** Jupiter, the second connector: the real executable quote for the same trade, right now. */
+  async function jupiterQuote(mint, side, amount) {
+    const res = await fetch(`/api/fusion/ai/pumpfun/quote?mint=${encodeURIComponent(mint)}&side=${side}&amount=${Math.round(amount)}`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const q = await res.json();
+    return q.available === false ? null : q;
+  }
+  const feedIsCurrent = () => Date.now() / 1000 - lastAt < LAG_OK_S;
+  const gapText = (g) => (g == null ? '–' : Math.abs(g) < 0.0005 ? 'same price' : `${Math.abs(g * 100).toFixed(1)}% ${g > 0 ? 'better' : 'worse'}`);
+  /** Each paper buy, once landed, is priced again by Jupiter for the same SOL: the gap shows how real the fill was. */
+  function checkEntries() {
+    if (!feedIsCurrent()) return;
+    for (const pos of bot.positions.values()) {
+      if (pos.status !== 'open' || pos.jupAsked) continue;
+      pos.jupAsked = true;
+      jupiterQuote(pos.mint, 'buy', bot.costs.stake_sol * P.LAMPORTS).then((q) => {
+        if (!q || !pos.tokens) return;
+        pos.jupEntry = q.out_amount / pos.tokens - 1;
+        bot.note(`${pos.symbol}: Jupiter's quote for the same buy: ${gapText(pos.jupEntry)} (via ${q.route.join(' → ') || '?'})`); dirty = true;
+      }).catch(() => {});
+    }
+  }
+  /** Copy newly closed paper trades into the saved book; ask Jupiter what the same sale would have paid. */
   function sync() {
     const fresh = bot.closed.slice(synced); synced = bot.closed.length;
-    if (fresh.length) book.closed.push(...fresh.map((t) => ({ symbol: t.symbol, mint: t.mint, reason: t.reason, ret: t.ret, pnl: t.pnl, at: Date.now() })));
+    if (fresh.length) {
+      const rows = fresh.map((t) => ({ symbol: t.symbol, mint: t.mint, reason: t.reason, ret: t.ret, pnl: t.pnl, at: Date.now(), jupEntry: t.jupEntry, jupExit: null }));
+      book.closed.push(...rows);
+      rows.forEach((row, i) => {
+        const t = fresh[i];
+        if (!t.tokens || !t.saleLamports || !feedIsCurrent()) return;
+        jupiterQuote(t.mint, 'sell', t.tokens).then((q) => { if (q) { row.jupExit = q.out_amount / t.saleLamports - 1; save(); dirty = true; } }).catch(() => {});
+      });
+    }
     if (bot.failed > failedSynced) { book.fees += (bot.failed - failedSynced) * bot.costs.tx_cost_sol; failedSynced = bot.failed; }
     if (fresh.length) save();
   }
@@ -160,8 +192,10 @@
     const open = bot ? [...bot.positions.values()] : [];
     $('pump-positions').innerHTML = open.length ? `<table><thead><tr><th>Holding</th><th>Status</th><th>Now</th><th>Best</th><th>Held</th></tr></thead><tbody>${open.map((p) => `<tr><td>${esc(p.symbol)}</td><td>${p.status === 'open' ? (p.exitAt != null ? 'selling: ' + esc(p.reason) : 'open') : 'order landing'}</td><td>${p.status === 'open' ? pct(p.r) : '–'}</td><td>${p.status === 'open' && p.peak > -1 ? pct(p.peak) : '–'}</td><td>${p.landed ? Math.round(now - p.landed) + ' s' : '–'}</td></tr>`).join('')}</tbody></table>` : '';
     const c = book.closed; const n = c.length; const total = c.reduce((s, t) => s + t.pnl, 0) - book.fees; const wins = c.filter((t) => t.ret > 0).length;
-    $('pump-book').innerHTML = `<div class="pf-metrics">${[['Paper balance', sol(START_BALANCE + total)], ['Closed trades', String(n)], ['Won', n ? Math.round(wins / n * 100) + '%' : '–'], ['Total P&amp;L', n ? sol(total) : '–']].map(([k, v]) => `<div><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>`
-      + (n ? `<details class="pf-log-box"><summary>Closed paper trades</summary><div class="table-scroll"><table><thead><tr><th>Launch</th><th>Why it sold</th><th>Return</th><th>P&amp;L</th></tr></thead><tbody>${c.slice(-30).reverse().map((t) => `<tr><td>${esc(t.symbol)}</td><td>${esc(t.reason)}</td><td>${pct(t.ret)}</td><td>${sol(t.pnl)}</td></tr>`).join('')}</tbody></table></div></details>` : '');
+    const gaps = c.flatMap((t) => [t.jupEntry, t.jupExit]).filter((g) => g != null).map((g) => Math.abs(g)).sort((x, y) => x - y);
+    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null;
+    $('pump-book').innerHTML = `<div class="pf-metrics">${[['Paper balance', sol(START_BALANCE + total)], ['Closed trades', String(n)], ['Won', n ? Math.round(wins / n * 100) + '%' : '–'], ['Total P&amp;L', n ? sol(total) : '–'], ['Typical gap vs Jupiter', medianGap == null ? '–' : `${(medianGap * 100).toFixed(1)}%`]].map(([k, v]) => `<div><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>`
+      + (n ? `<details class="pf-log-box"><summary>Closed paper trades</summary><div class="table-scroll"><table><thead><tr><th>Launch</th><th>Why it sold</th><th>Return</th><th>P&amp;L</th><th>Jupiter, buy</th><th>Jupiter, sell</th></tr></thead><tbody>${c.slice(-30).reverse().map((t) => `<tr><td>${esc(t.symbol)}</td><td>${esc(t.reason)}</td><td>${pct(t.ret)}</td><td>${sol(t.pnl)}</td><td>${gapText(t.jupEntry)}</td><td>${gapText(t.jupExit)}</td></tr>`).join('')}</tbody></table></div><p class="caption">Jupiter columns: what Jupiter, Solana's main trade router, quoted for the same trade when it landed, against the bot's own fill on the curve. "Worse" means a real order would have done worse than the paper fill.</p></details>` : '');
     const events = bot ? bot.events.slice(-40).reverse() : [];
     $('pump-log').innerHTML = events.map((e) => `<li><time>${esc(new Date(e.at * 1000).toLocaleTimeString())}</time> ${esc(e.text)}</li>`).join('') || '<li>No paper trades yet.</li>';
   }
@@ -210,8 +244,17 @@
       const res = await fetch(`/api/fusion/ai/pumpfun/curve?mint=${encodeURIComponent(mint)}`, { headers: { Accept: 'application/json' } });
       const d = await res.json();
       if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`);
-      out.innerHTML = `<div class="pf-metrics">${[['Curve sold', d.graduated ? 'Graduated' : d.progress_pct + '%'], ['Market cap', d.market_cap_sol.toFixed(1) + ' SOL'], ['SOL raised', d.raised_sol.toFixed(2)], ['Type', d.mayhem ? 'Mayhem mode' : d.standard_curve ? 'Standard' : 'Non-standard']].map(([k, v]) => `<div><span>${k}</span><strong>${esc(v)}</strong></div>`).join('')}</div>`
-        + `<p class="caption">${esc(d.note)} <a href="${esc(d.links.pump_fun)}" target="_blank" rel="noopener noreferrer">Open on pump.fun ↗</a> · <a href="${esc(d.links.solscan)}" target="_blank" rel="noopener noreferrer">Curve account on Solscan ↗</a></p>`;
+      const cv = d.curve; const jm = d.jupiter;
+      const tiles = [];
+      if (cv) tiles.push(['pump.fun curve', cv.graduated ? 'Graduated' : `${cv.progress_pct}% sold`], ['Market cap', `${cv.market_cap_sol.toFixed(1)} SOL`], ['Type', cv.mayhem ? 'Mayhem mode' : cv.standard_curve ? 'Standard' : 'Non-standard']);
+      else tiles.push(['pump.fun curve', 'None']);
+      if (jm) {
+        const usd = (x) => (x == null ? '–' : x >= 1 ? `$${Number(x).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(x).toPrecision(3)}`);
+        tiles.push(['Price (Jupiter)', usd(jm.price_usd)], ['Liquidity', jm.liquidity_usd == null ? '–' : `$${Math.round(jm.liquidity_usd).toLocaleString()}`], ['24 h change', jm.change_24h_pct == null ? '–' : pct(jm.change_24h_pct / 100)]);
+        if (jm.buy_0_1_sol) tiles.push(['Buying 0.1 SOL now', `${jm.buy_0_1_sol.price_impact_pct.toFixed(1)}% impact`]);
+      }
+      out.innerHTML = `<div class="pf-metrics">${tiles.map(([k, v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div>`
+        + `<p class="caption">${jm && jm.buy_0_1_sol ? `Jupiter routes it through ${esc(jm.buy_0_1_sol.route.join(' → '))}. ` : 'Jupiter has no market for it right now. '}${esc(d.note)} <a href="${esc(d.links.pump_fun)}" target="_blank" rel="noopener noreferrer">pump.fun ↗</a> · <a href="${esc(d.links.solscan)}" target="_blank" rel="noopener noreferrer">Solscan ↗</a></p>`;
     } catch (error) { out.innerHTML = `<p class="form-message error">${esc(error.message)}</p>`; }
   });
 

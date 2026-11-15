@@ -188,11 +188,16 @@ def test_3d_map_has_glow_pipeline_a_safe_fallback_and_the_day_trader_node():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
     js = (root / "static" / "js" / "engine" / "execmap.js").read_text(encoding="utf-8")
-    for needle in ("WebGLRenderTarget", "tBloom", "post = null", "id: 'daytrader'", "daytrader:trade", "prefers-reduced-motion", "are decoration"):
+    for needle in ("WebGLRenderTarget", "tBloom", "post = null", "id: 'daytrader'", "daytrader:trade", "prefers-reduced-motion"):
         assert needle in js
     assert "quality governor" in js and "43758.5453" not in js  # slow devices step down; the flickering grain is gone
     assert "fit = Math.max(1" in js  # narrow stages pull the camera back
+    # 2.81: calm map, only active venues and agents lit and labelled; the decoration is gone
+    for gone in ("aurora", "spawnStar", "accretion", "shield", "nebA", "hudRing"):
+        assert gone not in js, gone
+    assert "isActiveVenue" in js and "isActiveAgent" in js and "Show all" in js
     css = (root / "static" / "css" / "engine.css").read_text(encoding="utf-8")
-    assert "align-self: start; height: min(74vh, 720px)" in css  # the stage no longer stretches to the tables' height
+    assert ".xm-main { display: grid; gap: 8px; align-self: start" in css  # the stage no longer stretches to the tables' height
+    assert ".xm-kpis > div" not in css  # the stat boxes no longer sit over the scene
     trader = (root / "static" / "js" / "day_trader.js").read_text(encoding="utf-8")
     assert "emit('daytrader:trade'" in trader and "emit('daytrader:plan'" in trader

@@ -34,6 +34,7 @@ RULES: Tuple[Tuple[str, str, int, float], ...] = (
     ("GET", "/api/fusion/ai/daytrade", 30, 60.0),
     ("GET", "/api/fusion/ai/pumpfun/stream", 8, 60.0),
     ("GET", "/api/fusion/ai/pumpfun/curve", 30, 60.0),
+    ("GET", "/api/fusion/ai/pumpfun/quote", 90, 60.0),
     ("GET", "/api/fusion/ai/pumpfun", 30, 60.0),
     ("GET", "/api/fusion/ai/memecoin/scan", 60, 60.0),
     ("GET", "/api/fusion/ai/memecoin/launches", 20, 60.0),
