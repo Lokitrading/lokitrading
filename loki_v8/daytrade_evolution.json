@@ -107,6 +107,12 @@
     },
     "passed": false
    }
+  },
+  {
+   "generation": 3,
+   "run_at": "2026-11-15T07:48:05+00:00",
+   "champion": "lookback 14, band 1",
+   "outcome": "no 5-minute history available this week (no cache and no Alpaca keys): nothing tested"
   }
  ],
  "champion": {
