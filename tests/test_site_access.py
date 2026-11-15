@@ -43,7 +43,7 @@ class TestAccessCode:
 class TestGateFlow:
     def test_locked_pages_redirect_without_cookie(self, monkeypatch):
         monkeypatch.setenv("VERCEL", "1")
-        expected = {"/": "/gate", "/ai-chat": "/gate?next=/ai-chat", "/login": "/gate"}
+        expected = {"/": "/gate", "/account": "/gate?next=/account", "/login": "/gate"}
         for path, location in expected.items():
             response = client_nofollow.get(path)
             assert response.status_code == 303, path
@@ -53,12 +53,12 @@ class TestGateFlow:
         assert response.status_code == 404
 
     def test_gate_remembers_where_the_visitor_was_going(self, monkeypatch):
-        """Talk to Loki must not dump a signed-out visitor on the front page."""
+        """A signed-out visitor heading for My account must land there after the gate, not on the front page."""
         monkeypatch.setenv("VERCEL", "1")
         fresh = TestClient(app, follow_redirects=False)
-        response = fresh.get("/ai-chat")
+        response = fresh.get("/account")
         assert response.status_code == 303
-        assert response.headers["location"] == "/gate?next=/ai-chat"
+        assert response.headers["location"] == "/gate?next=/account"
         assert fresh.get("/indicator").headers["location"] == "/gate?next=/indicator"
 
         accepted = fresh.post(
@@ -68,10 +68,11 @@ class TestGateFlow:
         for name in (site_access.GATE_COOKIE, site_access.TERMS_COOKIE):
             fresh.cookies.set(name, accepted.cookies.get(name))
         # Already signed in: the gate forwards to the requested page.
-        back = fresh.get("/gate?next=/ai-chat")
+        back = fresh.get("/gate?next=/indicator")
         assert back.status_code == 303
-        assert back.headers["location"] == "/ai-chat"
-        assert fresh.get("/ai-chat").status_code == 200
+        assert back.headers["location"] == "/indicator"
+        assert fresh.get("/indicator").status_code == 200
+        assert fresh.get("/ai-chat").status_code == 404  # the private chat room was removed in 2.82
 
     def test_gate_never_forwards_off_site(self, monkeypatch):
         monkeypatch.setenv("VERCEL", "1")

@@ -13,7 +13,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from loki.api import ai_chat, member_data, rate_limit, site_access
+from loki.api import member_data, rate_limit, site_access
 from loki.api.server import app
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,16 +78,6 @@ class TestUserIsolation:
                          json={"items": {"alpaca_keys": "secret"}})
         assert bad.status_code == 400 and calls == []
 
-    def test_chat_history_is_per_browser_session(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(ai_chat, "_DB_DIR", tmp_path)
-        monkeypatch.setattr(ai_chat, "_DB_PATH", tmp_path / "memory.sqlite3")
-        a, b = TestClient(app), TestClient(app)
-        a.post("/api/ai/chat/access", json={"name": "Alice", "code": ""})
-        b.post("/api/ai/chat/access", json={"name": "Bob", "code": ""})
-        a.post("/api/ai/chat/message", json={"text": "my private note about AAPL"})
-        turns = b.get("/api/ai/chat/memory").json()["turns"]
-        assert all("private note" not in t["text"] for t in turns)
-
 
 class TestUnforgeableCookies:
     def test_public_deployment_without_secrets_fails_closed(self, monkeypatch):
@@ -100,17 +90,6 @@ class TestUnforgeableCookies:
         payload = str(int(time.time()) + 3600)
         forged = payload + "." + hmac.new(dev_constant, payload.encode(), hashlib.sha256).hexdigest()
         assert site_access.verify_gate_cookie_value(forged) is False
-
-    def test_chat_admin_cannot_be_forged_without_a_configured_secret(self, monkeypatch):
-        for name in ("LOKI_GATE_SECRET", "LOKI_CHAT_SESSION_SECRET", "VERCEL", *site_access.SUPABASE_KEY_ENV_NAMES):
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.delenv("LOKI_SITE_GATE", raising=False)
-        payload = json.dumps({"name": "joshua mathew", "admin": True, "sid": "x" * 48, "iat": int(time.time())},
-                             separators=(",", ":"))
-        dev_key = hmac.new(hashlib.sha256(site_access._COOKIE_SALT + b"loki-local-dev-gate").digest(),
-                           b"loki-chat-session", hashlib.sha256).digest()
-        forged = payload + "." + hmac.new(ai_chat._COOKIE_SALT + dev_key, payload.encode(), hashlib.sha256).hexdigest()
-        assert ai_chat.decode_chat_cookie(forged) is None
 
     def test_cookies_are_secure_behind_https(self, monkeypatch):
         monkeypatch.delenv("VERCEL", raising=False)

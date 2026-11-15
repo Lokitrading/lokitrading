@@ -5,8 +5,6 @@ stuck states, failing RPC endpoints and tampered logs. Property tests (Hypothesi
 inputs at the filters and arbitrary price paths at the exit engine.
 """
 import io
-import json
-import sqlite3
 import time
 import urllib.error
 

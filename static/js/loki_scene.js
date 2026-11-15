@@ -313,7 +313,7 @@
       });
       fillTicker(ticker); setInterval(() => { if (!document.hidden) fillTicker(ticker); }, 60000);
     }
-    document.querySelectorAll('.workspace-launchers > a, .metric, .workflow-card, .peek-card').forEach((el) => el.classList.add('loki-glow'));
+    document.querySelectorAll('.workspace-launchers > a, .metric, .peek-card').forEach((el) => el.classList.add('loki-glow'));
     wireGlow();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
@@ -335,7 +335,7 @@
   });
 
   /* 3D tilt on cards (delegated, so re-rendered tiles keep it) */
-  const TILT = '.workspace-launchers > a, .metric, .pf-stat, .lm-tile, .workflow-card, .peek-card, .pf-metric';
+  const TILT = '.workspace-launchers > a, .metric, .pf-stat, .lm-tile, .peek-card, .pf-metric';
   let tilted = null;
   document.addEventListener('pointermove', (e) => {
     const card = e.target.closest && e.target.closest(TILT);

@@ -1,13 +1,12 @@
 """Privacy, cookies, age confirmation and data minimisation."""
 
 import re
-import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from loki.api import ai_chat, member_data, site_access
+from loki.api import member_data, site_access
 from loki.api.server import app
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +47,7 @@ class TestAge:
 class TestPolicies:
     @pytest.mark.parametrize("path,needles", [
         ("/privacy", ["Privacy Policy", "30 days", "18 or older", "Supabase", "Vercel", "Download my account data", "Delete my account"]),
-        ("/cookies", ["Cookie Policy", "loki_gate", "loki_terms", "loki_session", "loki_chat", "loki_tradovate", "no analytics"]),
+        ("/cookies", ["Cookie Policy", "loki_gate", "loki_terms", "loki_session", "loki_tradovate", "no analytics"]),
         ("/terms", ["18 years old", "Hypothetical performance", "/privacy", "/cookies"]),
     ])
     def test_policy_pages_are_public_and_specific(self, gated, path, needles):
@@ -89,16 +88,6 @@ class TestMinimisation:
         for host in hosts:
             root_name = host.split(".")[-2]
             assert root_name in policy, f"{host} is reachable from the browser but not disclosed in the privacy policy"
-
-    def test_chat_turns_expire_after_30_days(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(ai_chat, "_DB_DIR", tmp_path)
-        monkeypatch.setattr(ai_chat, "_DB_PATH", tmp_path / "memory.sqlite3")
-        ai_chat.record_turn("user", "old", "ancient message", session="s")
-        with ai_chat._connect() as conn:
-            conn.execute("UPDATE turns SET created_at = ?", (time.time() - 31 * 24 * 3600,))
-        ai_chat.record_turn("user", "new", "fresh message", session="s")
-        texts = [t["text"] for t in ai_chat.recall_turns(10, "s")]
-        assert "fresh message" in texts and "ancient message" not in texts
 
 
 class TestDataRights:

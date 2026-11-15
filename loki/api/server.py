@@ -39,7 +39,6 @@ from core.copilot import LokiCopilot
 from core.risk_preview import preview_position
 from core.strategy_lab import evaluate_strategy
 from loki.api import rate_limit, site_access
-from loki.api.ai_chat import router as ai_chat_router
 from loki.api.ai_paper import router as ai_paper_router
 from loki.api.memecoin_api import router as memecoin_router
 from loki.api.pumpfun_api import router as pumpfun_router
@@ -86,7 +85,6 @@ for _router in (
     ai_paper_router,
     memecoin_router,
     pumpfun_router,
-    ai_chat_router,
     watchtower_router,
     live_markets_router,
     polymarket_bot_router,
@@ -141,7 +139,7 @@ CONTENT_SECURITY_POLICY = "; ".join(
 
 @app.middleware("http")
 async def member_privacy_boundary(request: Request, call_next):
-    private = request.url.path.startswith(("/api/auth/", "/api/account/", "/api/ai/chat/"))
+    private = request.url.path.startswith(("/api/auth/", "/api/account/"))
     # Every state-changing API call must come from this site (or from a
     # non-browser client, which sends no Origin and carries no visitor's
     # cookies). Browsers always label cross-site requests, so a page on
@@ -238,7 +236,7 @@ async def root(request: Request):
 # The gate engages only on remote deployments (VERCEL) or when the launcher
 # asks for it (LOKI_SITE_GATE=1); the local desktop experience stays open.
 # ---------------------------------------------------------------------------
-_GATED_PAGES = {"/", "/account", "/indicator", "/ai-chat"}
+_GATED_PAGES = {"/", "/account", "/indicator"}
 
 
 def _safe_next(value: Optional[str]) -> str:
@@ -633,14 +631,6 @@ async def fx_rate():
 async def login_page(request: Request):
     return templates.TemplateResponse(
         request=request, name="login.html", context={"version": __version__}
-    )
-
-
-@app.get("/ai-chat", response_class=HTMLResponse, include_in_schema=False)
-async def ai_chat_page(request: Request):
-    """Loki's private room: its own passcode area, separate from the workspace gate."""
-    return templates.TemplateResponse(
-        request=request, name="ai_chat.html", context={"version": __version__}
     )
 
 

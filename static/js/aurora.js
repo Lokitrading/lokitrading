@@ -6,7 +6,7 @@
 'use strict';
 (() => {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const panelSelector = '.panel, .metric, .workflow-card, .workspace-launchers > a, .news-item, .analyst-card, .factor-card, .sim-quote, .integration-card';
+  const panelSelector = '.panel, .metric, .workspace-launchers > a, .news-item, .analyst-card, .factor-card, .sim-quote, .integration-card';
 
   /* ---------- 1. staggered reveal ---------- */
   function wireReveal() {

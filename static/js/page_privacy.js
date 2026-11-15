@@ -39,7 +39,6 @@
     if (!window.confirm('Remove all Loki data stored in this browser (paper journals, watchlists, chat history, saved broker keys, settings)? This cannot be undone.')) return;
     try { localStorage.clear(); } catch { /* storage blocked */ }
     try { sessionStorage.clear(); } catch { /* storage blocked */ }
-    try { await fetch('/api/ai/chat/logout', { method: 'POST' }); } catch { /* offline */ }
     say('This browser no longer holds any Loki data. Your access to the site and any account stay as they are.');
   });
 })();

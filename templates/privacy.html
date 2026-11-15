@@ -75,7 +75,6 @@
         <li><strong>Account (optional).</strong> Email address, a password (sent to our account provider, which stores only a secure hash — we never store it), and a nickname. Purpose: sign you in and keep saves private to you. Basis: contract.</li>
         <li><strong>Workspace saves (optional).</strong> Only if you choose to save to your account: your paper journals, watchlists and game progress. Broker keys, passwords and session cookies are never included. Basis: contract / your request.</li>
         <li><strong>Published game scores (optional).</strong> If you publish a Loki Dive score: your nickname, best score, number of publications and time — these are shown publicly on the leaderboard.</li>
-        <li><strong>Chat room.</strong> The name you type and your messages and Loki's replies are stored on the server for up to <strong>30 days</strong> (and at most the latest 400 turns across the room) so Loki can use recent context. Your own copy stays in your browser until you clear it. Do not type personal or sensitive information into chats.</li>
         <li><strong>Broker connections (optional).</strong> Alpaca keys stay in your browser and are sent by your browser directly to Alpaca (paper keys are saved in this browser; live keys only for the open tab); Loki's server never receives them. Tradovate credentials pass once through our relay to obtain an access token and are not stored; the token is kept only in your browser tab.</li>
         <li><strong>On-device engine.</strong> The AI council, sentiment swarm, risk matrix, Monte Carlo simulations, replays and the signed trade log run in your browser and are stored only in your browser. The signing key is generated on your device and cannot be exported.</li>
         <li><strong>Security records.</strong> To stop password guessing and abuse we briefly keep counters keyed by your IP address in server memory (cleared within about an hour or on restart). Our hosting provider keeps standard request logs (IP address, time, page) under its own retention. Basis: legitimate interest in keeping the service secure.</li>
@@ -96,8 +95,7 @@
     <div class="card">
       <h2>4. How long we keep it</h2>
       <ul>
-        <li>Access/agreement cookies: 30 days. Sign-in cookie: 14 days. Chat cookie: 14 days. Tradovate cookie: 1 hour.</li>
-        <li>Chat turns on the server: 30 days at most.</li>
+        <li>Access/agreement cookies: 30 days. Sign-in cookie: 14 days. Tradovate cookie: 1 hour.</li>
         <li>Account, saves and published scores: until you delete them or your account.</li>
         <li>Security counters: about an hour. Hosting logs: per the hosting provider's retention.</li>
       </ul>
