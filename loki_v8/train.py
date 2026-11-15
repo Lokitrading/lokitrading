@@ -844,7 +844,7 @@ def train_symbol(
             # Best score wins; ties resolve to the higher in-sample rank,
             # which is `scored` order (finalists are already sorted best-first).
             scored.sort(key=lambda t: (t[0], -t[1]))
-            chosen_wf, _, chosen = scored[-1]
+            _, _, chosen = scored[-1]
             rest = [e for e in leaderboard if e is not chosen]
             leaderboard = [chosen] + rest
             report.leaderboard = leaderboard

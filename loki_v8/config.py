@@ -114,9 +114,3 @@ class LokiConfig:
     @classmethod
     def from_dict(cls, d: dict) -> "LokiConfig":
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
-
-
-def default_config() -> LokiConfig:
-    """Return the recommended default configuration."""
-    return LokiConfig()
-

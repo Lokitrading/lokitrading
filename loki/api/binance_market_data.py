@@ -21,7 +21,6 @@ import re
 # /api/v3 paths). api.binance.com answers HTTP 451 to many US-hosted servers
 # (Vercel included), so the mirror goes first and the main host is fallback.
 BINANCE_SPOT_HOSTS = ("https://data-api.binance.vision", "https://api.binance.com")
-BINANCE_SPOT_URL = BINANCE_SPOT_HOSTS[0]
 _preferred_host = 0
 ALLOWED_INTERVALS = frozenset(
     {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d"}

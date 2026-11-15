@@ -81,10 +81,6 @@ def rate_limited(key: str, now: float | None = None) -> bool:
     return rate_store.hit(key, now)
 
 
-def reset_rate_limiter() -> None:
-    rate_store.reset()
-
-
 _FAMILY_WORDS = {
     "trend_following": (
         "momentum",

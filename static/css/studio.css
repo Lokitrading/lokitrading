@@ -46,7 +46,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .caption { color: var(--muted); font-size: 11px; line-height: 1.75; }
 .loki-workspace .positive { color: var(--green); }
 .loki-workspace .negative { color: var(--red); }
-.loki-workspace .heading-period { color: var(--accent); }
 
 /* Navigation is deliberately quieter than the work surface. */
 .loki-workspace .sidebar { width: 242px; padding: 32px 18px 20px; background: linear-gradient(180deg, #101b26, #0a121b 60%); border-right: 1px solid var(--line-soft); }
@@ -55,7 +54,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .brand-mark svg { width: 28px; height: 28px; }
 .loki-workspace .brand-name { font-size: 31px; font-weight: 650; letter-spacing: -1.8px; line-height: 1; }
 .loki-workspace .brand-caption { display: block; margin-top: 8px; font: 8px/1 var(--mono); letter-spacing: 1.5px; color: var(--muted); }
-.loki-workspace .nav-label { margin: 40px 14px 14px; font-size: 10px; letter-spacing: 1.6px; color: var(--subtle); }
 .loki-workspace .sidebar nav { gap: 5px; }
 .loki-workspace .sidebar nav a, .loki-workspace .sidebar nav .nav-more { min-height: 46px; padding: 11px 14px; gap: 13px; font-size: 13px; font-weight: 450; border: 1px solid transparent; border-radius: 8px; color: var(--muted); background: transparent; transition: background 160ms, color 160ms, border-color 160ms; }
 .loki-workspace .sidebar nav a:hover, .loki-workspace .sidebar nav .nav-more:hover { background: var(--panel-raised); color: var(--text); }
@@ -103,20 +101,14 @@ html { scroll-padding-top: 100px; }
 /* Overview: a strong entry point with useful evidence directly underneath. */
 .loki-workspace #overview:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr); gap: 22px; padding-top: 30px; align-items: stretch; }
 .loki-workspace #overview > * { min-width: 0; margin: 0; grid-column: 1 / -1; }
-.loki-workspace .overview-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; order: 0; padding-bottom: 4px; }
-.loki-workspace .overview-heading h1 { margin: 5px 0 0; font-size: clamp(25px, 2.4vw, 35px); letter-spacing: -1.1px; line-height: 1.25; }
-.loki-workspace .overview-heading .eyebrow { font-size: 9px; letter-spacing: 1.8px; }
 .loki-workspace #overview > .hero { order: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 40px; align-items: center; padding: 36px 38px; min-height: 390px; isolation: isolate; border: 1px solid #304a55; border-radius: 18px; background: radial-gradient(ellipse at 82% 15%, #a8f0c60b, transparent 55%), linear-gradient(125deg, #12232c, #0e1925 60%, #10232b); box-shadow: 0 1px 0 #e1fff512 inset, 0 20px 50px -35px #000; overflow: hidden; }
 .loki-workspace .hero::before { content: ""; display: block; position: absolute; inset: 0; width: auto; height: auto; border-radius: 0; background: linear-gradient(90deg, transparent, #c9ffe24d, transparent) top / 80% 1px no-repeat; pointer-events: none; }
 .loki-workspace .hero-copy { min-width: 0; }
-.loki-workspace .hero-kicker { color: var(--green); font-size: 10px; letter-spacing: 1.35px; }
 .loki-workspace .hero h2 { font-size: clamp(38px, 3.8vw, 60px); font-weight: 500; letter-spacing: -2.4px; line-height: 1.08; margin: 22px 0 18px; text-wrap: nowrap; }
 .loki-workspace .hero h2 em { font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-style: italic; color: var(--accent); letter-spacing: -2.5px; }
 .loki-workspace .hero .muted { max-width: 38ch; font-size: 14px; line-height: 1.8; color: #b6cbd6; }
 .loki-workspace .hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; margin-top: 26px; }
 .loki-workspace .hero-actions .text-link { font-size: 12px; color: #c4d9e1; }
-.loki-workspace .arrival-principles { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 26px; font: 10px/1.6 var(--mono); color: var(--muted); }
-.loki-workspace .arrival-principles b { font-weight: 400; color: var(--green); margin-right: 6px; }
 .loki-workspace .signal-instrument { position: relative; width: 100%; max-width: none; align-self: center; min-width: 0; border: 1px solid #35525b; border-radius: 13px; background: linear-gradient(160deg, #12263055, transparent 65%), #0a151e; box-shadow: 0 1px 0 #c9ffe20a inset, 0 20px 40px -22px #0009; }
 .loki-workspace .instrument-heading { color: #afc6d0; font: 9px/1.6 var(--mono); letter-spacing: .6px; padding: 12px 18px; border-color: var(--line); align-items: center; }
 .loki-workspace .instrument-heading button { color: var(--muted); font-size: 9px; min-height: 28px; padding: 4px 7px; border: 1px solid var(--line-strong); border-radius: 5px; letter-spacing: 0; }
@@ -126,13 +118,8 @@ html { scroll-padding-top: 100px; }
 .loki-workspace #overview > .workspace-launchers { order: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .loki-workspace .workspace-launchers > a { background: var(--surface-sheen), var(--panel); padding: 22px 20px; border: 1px solid var(--line); border-radius: 12px; gap: 14px; box-shadow: var(--shadow-panel); transition: background 180ms, border-color 180ms, transform 180ms; }
 .loki-workspace .workspace-launchers > a:hover { background: var(--surface-hover); border-color: var(--accent-line); transform: translateY(-2px); }
-.loki-workspace .launcher-icon { flex: 0 0 42px; height: 42px; background: var(--accent-surface); color: var(--green); border: 1px solid var(--accent-line); border-radius: 12px; }
-.loki-workspace .workspace-launchers > a:nth-child(2) .launcher-icon { background: #192b40; border-color: #34506b; color: var(--blue); }
-.loki-workspace .workspace-launchers > a:nth-child(3) .launcher-icon { background: #24283d; border-color: #454760; color: #c0c0ea; }
 .loki-workspace .workspace-launchers strong { font-size: 14px; font-weight: 550; }
 .loki-workspace .workspace-launchers div > span { font-size: 11px; margin-top: 5px; color: var(--muted); line-height: 1.5; }
-.loki-workspace .launcher-arrow { display: grid; place-items: center; flex: 0 0 24px; height: 24px; color: var(--subtle); border-radius: 50%; transition: color 180ms, transform 180ms; }
-.loki-workspace .workspace-launchers > a:hover .launcher-arrow { color: var(--accent); transform: translate(2px, -2px); }
 .loki-workspace #overview > .metrics-heading { order: 5; margin: 10px 0 -7px; }
 .loki-workspace .metrics-heading .caption { font-size: 10px; }
 .loki-workspace #overview > .metrics { order: 6; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
@@ -141,9 +128,6 @@ html { scroll-padding-top: 100px; }
 /* Live context first: real markets and the AI's track record sit right under the hero. */
 .loki-workspace #overview > #market-floor { order: 3; }
 .loki-workspace #overview > #trained-book-panel { order: 4; }
-.loki-workspace #overview > .workflow-heading { order: 9; margin-top: 10px; }
-.loki-workspace #overview > .workflow-grid { order: 10; }
-.loki-workspace #overview > .goal-note { order: 11; }
 
 /* Shared panels, inputs and buttons carry the same hierarchy across views. */
 .loki-workspace .panel, .loki-workspace #ai-trading > .panel { background: var(--surface-sheen), var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px; box-shadow: var(--shadow-panel); }
@@ -244,16 +228,6 @@ html { scroll-padding-top: 100px; }
 .loki-workspace .watch-sub { color: var(--muted); }
 .loki-workspace .up-chip { color: var(--accent); background: var(--accent-surface); }
 .loki-workspace .down-chip { color: #f5b2a2; background: #402a22; }
-.loki-workspace .workflow-grid { gap: 14px; }
-.loki-workspace .workflow-card { padding: 24px; background: var(--surface-sheen), var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-panel); transition: border-color 180ms, background 180ms; }
-.loki-workspace .workflow-card:hover { border-color: var(--accent-line); background: var(--surface-hover); }
-.loki-workspace .workflow-card h3 { margin-top: 14px; font-size: 17px; }
-.loki-workspace .workflow-card p { font-size: 12px; min-height: 64px; color: var(--muted); }
-.loki-workspace .workflow-icon { color: var(--green); display: inline-flex; align-items: center; }
-.loki-workspace .workflow-icon .ui-icon { width: 23px; height: 23px; }
-.loki-workspace .step-number { color: var(--subtle); font-family: var(--mono); }
-.loki-workspace .goal-note { background: linear-gradient(120deg, #122b2b, #111e2a); border: 1px solid var(--accent-line); border-radius: 12px; }
-.loki-workspace .goal-note p { color: var(--muted); }
 
 /* Dense data keeps its contrast without competing with headings. */
 .loki-workspace table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -310,7 +284,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .hero h2 { font-size: 44px; }
   .loki-workspace .hero-actions { gap: 14px; }
   .loki-workspace .workspace-launchers > a { padding: 16px; gap: 10px; }
-  .loki-workspace .launcher-icon { flex-basis: 34px; height: 36px; }
   .loki-workspace .workspace-launchers strong { font-size: 12px; }
   .loki-workspace .workspace-launchers div > span { font-size: 10px; }
   .loki-workspace .metric { padding: 18px; }
@@ -324,7 +297,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .hero h2 em { letter-spacing: -1.6px; }
   .loki-workspace .hero .muted { font-size: 12px; }
   .loki-workspace .hero-actions { align-items: flex-start; flex-direction: column; }
-  .loki-workspace .arrival-principles { gap: 14px; font-size: 9px; }
   .loki-workspace .instrument-heading { padding: 12px; flex-wrap: wrap; gap: 6px; }
   .loki-workspace #overview > .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .loki-workspace .metric .small-value { font-size: 18px; }
@@ -337,7 +309,7 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .brand-mark { width: 34px; height: 34px; border-radius: 8px; }
   .loki-workspace .brand-name { font-size: 27px; }
   .loki-workspace .brand-caption { display: none; }
-  .loki-workspace .nav-label, .loki-workspace .sidebar-bottom { display: none; }
+  .loki-workspace .sidebar-bottom { display: none; }
   .loki-workspace .sidebar nav { display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 20px; padding-bottom: 13px; overflow-x: auto; }
   .loki-workspace .sidebar nav > a, .loki-workspace .sidebar nav > button { flex-shrink: 0; min-height: 40px; padding: 9px 13px; font-size: 12px; gap: 9px; white-space: nowrap; }
   .loki-workspace .sidebar nav:has(.nav-more[aria-expanded="true"]) { flex-wrap: wrap; }
@@ -362,23 +334,17 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .pill { font-size: 8px; padding: 5px 7px; }
   .loki-workspace .pill .status-dot { display: inline-block; }
   .loki-workspace #overview:not([hidden]) { gap: 16px; padding-top: 24px; }
-  .loki-workspace .overview-heading { align-items: flex-start; flex-direction: column; gap: 16px; }
-  .loki-workspace .overview-heading h1 { font-size: 29px; }
-  .loki-workspace .overview-heading .button { min-height: 38px; padding: 8px 12px; font-size: 11px; }
   .loki-workspace #overview > .hero { grid-template-columns: 1fr; padding: 28px 23px 23px; gap: 28px; border-radius: 13px; }
   .loki-workspace .hero h2 { font-size: clamp(38px, 9.5vw, 52px); margin-top: 21px; letter-spacing: -1.8px; }
   .loki-workspace .hero h2 em { letter-spacing: -1.8px; }
   .loki-workspace .hero .muted { font-size: 13px; }
-  .loki-workspace .hero-kicker { font-size: 8px; letter-spacing: 1px; }
   .loki-workspace .hero-actions { margin-top: 24px; flex-direction: row; flex-wrap: wrap; align-items: center; }
   .loki-workspace .hero-actions .button { white-space: normal; text-align: left; }
-  .loki-workspace .arrival-principles { font-size: 9px; gap: 24px; margin-top: 23px; }
   .loki-workspace .instrument-heading { flex-wrap: nowrap; padding: 12px; }
   .loki-workspace #overview > .workspace-launchers { grid-template-columns: 1fr; gap: 9px; }
   .loki-workspace .workspace-launchers > a { padding: 16px; }
   .loki-workspace .workspace-launchers strong { font-size: 13px; }
   .loki-workspace .workspace-launchers div > span { font-size: 11px; }
-  .loki-workspace .launcher-icon { flex-basis: 40px; height: 40px; }
   .loki-workspace .section-title { gap: 13px; }
   .loki-workspace .section-title h2 { font-size: 19px; }
   .loki-workspace .metrics-heading > .caption { display: block; flex-basis: 100%; }
@@ -389,9 +355,6 @@ html { scroll-padding-top: 100px; }
   .loki-workspace .metric small { font-size: 10px; }
   .loki-workspace .panel, .loki-workspace #ai-trading > .panel { padding: 20px; border-radius: 10px; }
   .loki-workspace .next-steps ol.steps-list { grid-template-columns: 1fr; }
-  .loki-workspace .workflow-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .loki-workspace .workflow-card { padding: 18px; }
-  .loki-workspace .workflow-card p { min-height: 0; }
   .loki-workspace .strategy-book-details > summary .caption { display: block; margin: 6px 0 0; }
   .loki-workspace .floor-grid { grid-template-columns: 1fr; }
   .loki-workspace .floor-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }

@@ -159,7 +159,7 @@ def ttm_squeeze(high: pd.Series, low: pd.Series, close: pd.Series,
     explodes in the direction of the momentum histogram.
     """
     bb_up, bb_mid, bb_low = bollinger_bands(close, length, bb_mult)
-    kc_up, kc_mid, kc_low = keltner_channels(high, low, close, length, kc_mult)
+    kc_up, _, kc_low = keltner_channels(high, low, close, length, kc_mult)
 
     squeeze_on = (bb_low > kc_low) & (bb_up < kc_up)
 

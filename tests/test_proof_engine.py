@@ -26,9 +26,9 @@ client = TestClient(server.app)
 @pytest.fixture(autouse=True)
 def _fresh_proof_limiter():
     """Route tests share one identity, so each test starts with a clean quota."""
-    proof_engine.reset_rate_limiter()
+    proof_engine.rate_store.reset()
     yield
-    proof_engine.reset_rate_limiter()
+    proof_engine.rate_store.reset()
 
 
 def breakout_candles(count=800):
@@ -476,14 +476,14 @@ def test_wording_never_promises_income():
 
 def test_rate_limiter_is_a_windowed_quota_per_identity():
     limiter = proof_engine
-    limiter.reset_rate_limiter()
+    limiter.rate_store.reset()
     base_now = 1000.0
     assert [limiter.rate_limited("key-a", now=base_now + i * 0.1) for i in range(8)] == [False] * 8
     assert limiter.rate_limited("key-a", now=base_now + 0.9) is True
     assert limiter.rate_limited("key-b", now=base_now + 0.9) is False
     assert limiter.rate_limited("key-a", now=base_now + 59.9) is True
     assert limiter.rate_limited("key-a", now=base_now + 60.1) is False
-    limiter.reset_rate_limiter()
+    limiter.rate_store.reset()
     assert limiter.rate_limited("key-a", now=base_now) is False
 
 
