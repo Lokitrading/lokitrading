@@ -451,6 +451,10 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.81.1: 3D map table toggle
+
+- "Show all" on the 3D engine map now redraws the tables at once instead of on the next one-second refresh. The live button sweep after 2.81 found the delay: the button changed its label, but the table still showed only active rows.
+
 ### 2.81: Jupiter as a second memecoin connector, a calm 3D map, clearer messages
 
 **Jupiter connector** (`loki/api/pumpfun_api.py`). Jupiter routes pump.fun tokens on the bonding curve ("Pump.fun") and after graduation ("Pump.fun Amm"), so it prices any pump.fun token at any stage, plus every other Solana token.

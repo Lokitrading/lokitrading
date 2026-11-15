@@ -138,9 +138,7 @@
   function tableLoop(root) {
     const rows = root.querySelector('#xm-rows');
     const allBtn = root.querySelector('#xm-all');
-    allBtn.addEventListener('click', () => { showAll = !showAll; allBtn.setAttribute('aria-pressed', String(showAll)); allBtn.textContent = showAll ? 'Active only' : 'Show all'; });
     const paint = () => {
-      if (!document.body.contains(rows)) return;
       const venues = VENUES.filter((v) => showAll || isActiveVenue(v.id));
       rows.innerHTML = venues.length ? venues.map((v) => { const s = stats[v.id]; const cls = !s.n ? 'idle' : s.last && s.last < 400 ? (s.ms > 1500 ? 'slow' : 'ok') : 'bad';
         return `<tr class="${cls}"><td><i style="background:${hex(v.color)}"></i>${F.esc(v.label)}</td><td>${s.n}</td><td>${s.n ? Math.round(s.ms) + ' ms' : '—'}</td><td>${s.last == null ? '—' : s.last || 'fail'}</td></tr>`; }).join('')
@@ -157,9 +155,11 @@
         const active = AGENTS.filter((a) => now - agentState[a.id].at < 10000).length;
         kp.innerHTML = `<b>${last.length}</b> requests a minute · <b>${avg == null ? '—' : avg + ' ms'}</b> average · <b class="${errs ? 'bad' : ''}">${errs}</b> failed · <b>${active}</b> of ${AGENTS.length} agents active`;
       }
-      setTimeout(paint, 1000);
     };
-    paint();
+    // the toggle redraws at once; the loop keeps the figures fresh every second while the map is on the page
+    allBtn.addEventListener('click', () => { showAll = !showAll; allBtn.setAttribute('aria-pressed', String(showAll)); allBtn.textContent = showAll ? 'Active only' : 'Show all'; paint(); });
+    const loop = () => { if (!document.body.contains(rows)) return; paint(); setTimeout(loop, 1000); };
+    loop();
   }
 
   /* A calm scene: one core, one ring of venues, one ring of agents. Only venues and agents that have
