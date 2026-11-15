@@ -157,3 +157,16 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
   .loki-workspace :is(#alpaca-cred, #tradovate-cred, #alpaca-keys-form .form-grid, #broker-connect-form .form-grid) { grid-template-columns: minmax(0, 1fr); }
 }
 .skip-link:not(:focus) { opacity: 0; pointer-events: none; }  /* stays out of sight even in full-page captures */
+
+/* pump.fun bot (2.80) */
+.loki-workspace .pump-bot { margin: 14px 0 8px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: rgba(148, 190, 220, .025); }
+.loki-workspace .pump-bot h3 { margin: 4px 0 6px; }
+.loki-workspace .pump-bot .pf-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.loki-workspace .pump-bot .pf-metrics > div { display: grid; gap: 2px; padding: 9px 11px; border-radius: 10px; background: rgba(148, 190, 220, .045); min-width: 0; }
+.loki-workspace .pump-bot .pf-metrics span { font-size: 11px; color: var(--subtle); }
+.loki-workspace .pump-bot .pf-metrics strong { font: 600 15px var(--mono, monospace); white-space: nowrap; }
+.loki-workspace .pump-bot table td, .loki-workspace .pump-bot table th { white-space: nowrap; }
+.loki-workspace .pump-bot #pump-launches td:last-child { white-space: normal; min-width: 150px; }
+.loki-workspace .pump-bot #pump-check-form { margin-top: 14px; }
+.loki-workspace .pump-bot .pf-controls { margin-top: 16px; }
+@media (max-width: 560px) { .loki-workspace .pump-bot { padding: 14px; } .loki-workspace .pump-bot .pf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

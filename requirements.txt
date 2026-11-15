@@ -21,3 +21,5 @@ cryptography==50.0.1
 # Used directly (timestamps, validation); pinned too rather than left to fastapi and yfinance.
 pandas==3.0.5
 pydantic==2.13.5
+# The pump.fun relay reads the pump.fun program's log stream from a Solana node.
+websockets==17.4

@@ -42,6 +42,7 @@ from loki.api import rate_limit, site_access
 from loki.api.ai_chat import router as ai_chat_router
 from loki.api.ai_paper import router as ai_paper_router
 from loki.api.memecoin_api import router as memecoin_router
+from loki.api.pumpfun_api import router as pumpfun_router
 from loki.api.alpaca_daytrade import router as alpaca_daytrade_router
 from loki.api.alpaca_memecoin import router as alpaca_memecoin_router
 from loki.api.analogue import router as analogue_router
@@ -84,6 +85,7 @@ for _router in (
     broker_workspace_router,
     ai_paper_router,
     memecoin_router,
+    pumpfun_router,
     ai_chat_router,
     watchtower_router,
     live_markets_router,
