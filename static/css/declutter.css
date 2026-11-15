@@ -180,3 +180,10 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 .loki-workspace .pump-bot .xray-checks li em { font-style: normal; color: var(--subtle); margin-left: 4px; }
 .loki-workspace .pump-bot .xray-checks li.ok span { color: #8fe3b0; }
 .loki-workspace .pump-bot .xray-checks li.no span { color: #ff9b8a; }
+
+/* Overview (2.82): the research tiles and chart appear once there is research to show */
+body.loki-workspace:not(.has-research) .needs-research { display: none; }
+body.loki-workspace:not(.has-research) #overview > #next-steps-panel { grid-column: 1 / -1; }
+body.loki-workspace:not(.has-research) #next-steps-panel .steps-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 18px; }
+body.loki-workspace:not(.has-research) #next-steps-panel .steps-list li { border-bottom: 0; }
+@media (max-width: 900px) { body.loki-workspace:not(.has-research) #next-steps-panel .steps-list { grid-template-columns: minmax(0, 1fr); } }

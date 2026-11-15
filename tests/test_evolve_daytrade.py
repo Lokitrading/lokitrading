@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 import evolve_daytrade as ev
 from loki_v8 import daytrade

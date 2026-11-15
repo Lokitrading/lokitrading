@@ -1,4 +1,4 @@
-"""Loki's conversational brain, shared by "Talk to Loki" and the chat room.
+"""Loki's conversational brain, behind "Talk to Loki".
 
 No external language model: every answer is assembled from real inputs —
 the live AI engine's read for a symbol (the same checklist the paper trader
@@ -703,7 +703,7 @@ def feelings_answer(name: str) -> str:
 PRIVACY_TEXT = ("Here's what Loki keeps:\n"
                 "• Your nickname, watchlist, alerts, chat history and paper trades are stored in your own browser (you can clear them any time).\n"
                 "• If you create an account, your email, nickname and saved workspace are stored so you can sign in on other devices — you can export or delete everything from My account.\n"
-                "• Messages in Loki's private room are kept for up to 30 days. Broker tokens are encrypted, and Loki never asks for your broker password.\n"
+                "• Broker tokens are encrypted, and Loki never asks for your broker password.\n"
                 "• No advertising trackers and no selling of data. The full details are on the Privacy and Cookies pages.")
 ADVICE_TEXT = ("No — Loki is an information and research tool, not a financial adviser, and nothing here is personal financial advice. "
                "The AI's reads describe what its rules see in the data; results shown are hypothetical. Decisions with real money are yours, "

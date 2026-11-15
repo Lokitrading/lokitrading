@@ -39,7 +39,7 @@ Each row is a page in the sidebar. "On device" means the work runs in the visito
 | Real account | Alpaca paper keys, the Portfolio AI on that paper account (preview first), exchange balances, and manual Kraken spot orders through the local launcher | `static/js/alpaca_keys.js`, `real_account.js`, `core/fusion/real_account.py`, `core/fusion/real_execution.py` |
 | Bored? | Games: Market Word, Beat the Bots, Loki Dive with its leaderboard | `static/js/market_word.js`, `beat_bots.js`, `game.js`, `dive_board.js` |
 
-Other pages: the access gate (`/gate`), login (`/login`), account (`/account`), private chat (`/ai-chat`), and the legal pages (`/terms`, `/privacy`, `/cookies`, `/transparency`).
+Other pages: the access gate (`/gate`), login (`/login`), account (`/account`), and the legal pages (`/terms`, `/privacy`, `/cookies`, `/transparency`).
 
 ## 2. The trading AIs and how they tested
 
@@ -149,11 +149,11 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 ### Security
 
 - **Isolation between users:** account data is keyed only by the uid inside the signed session cookie (validated as a UUID); a request naming another owner is refused before the database; credentials can never be saved to the cloud; chat history is per browser session; Tradovate tokens are encrypted and owner-bound.
-- **Cookies:** HMAC-signed, HttpOnly, SameSite, Secure on HTTPS. Public deployments without `LOKI_GATE_SECRET` (or a Supabase key) now sign with a random per-process key instead of a constant from the source, so cookies cannot be forged; chat admin claims additionally require `LOKI_CHAT_ADMIN_CODE`.
+- **Cookies:** HMAC-signed, HttpOnly, SameSite, Secure on HTTPS. Public deployments without `LOKI_GATE_SECRET` (or a Supabase key) now sign with a random per-process key instead of a constant from the source, so cookies cannot be forged.
 - **Headers:** strict Content-Security-Policy (scripts only from this site — no inline scripts exist), `frame-ancestors 'self'`, nosniff, Permissions-Policy, COOP, HSTS on HTTPS. Cross-site writes to account/chat endpoints are rejected.
 - **Rate limits** (`loki/api/rate_limit.py`): sign-in, sign-up, broker sign-in, revenue operator key, and the heavy AI/market endpoints.
 - Real orders, broker and native-engine routes only work from the local launcher with its session token and are off on Vercel. `main.py` binds to 127.0.0.1 unless `LOKI_HOST` says otherwise.
-- **Operators should set:** `LOKI_GATE_SECRET` (long random), `LOKI_CHAT_SESSION_SECRET`, `LOKI_SITE_CODE`, `LOKI_BROKER_ENCRYPTION_KEY`, and `LOKI_SECURE_COOKIES=1` behind any non-Vercel HTTPS proxy.
+- **Operators should set:** `LOKI_GATE_SECRET` (long random), `LOKI_SITE_CODE`, `LOKI_BROKER_ENCRYPTION_KEY`, and `LOKI_SECURE_COOKIES=1` behind any non-Vercel HTTPS proxy.
 
 ### Privacy, terms and age
 
@@ -273,7 +273,7 @@ tools/                   developer tools (code_health.py: the weekly code-health
 | Markets and news | `live_markets.py`, `market_feed.py`, `binance_market_data.py`, `watchtower.py`, `news_desk.py`, `replay_data.py`, `feed_status.py`, `engine_feeds.py` |
 | Prediction markets | `polymarket.py`, `polymarket_bot.py` |
 | Memecoins | `memecoin_api.py` (big-memecoin plan, scan, launch radar), `alpaca_memecoin.py`, `pumpfun_api.py` (pump.fun record, live relay, curve reads), `order_safety.py` |
-| Chat | `loki_brain.py`, `loki_wording.py`, `ai_chat.py` |
+| Talk to Loki | `loki_brain.py`, `loki_wording.py` |
 | Research | `fusion.py`, `analogue.py`, `proof_engine.py`, `proof_rate_store.py`, `strategy_backtest.py`, `indicator_page.py` |
 | Games | `dive_board.py`, `dive_sessions.py` |
 
@@ -423,7 +423,7 @@ API: `GET /api/polymarket/bot/signals?bankroll=&exposure=` and `POST /api/polyma
 
 ### Talk to Loki
 
-Both the workspace "Talk to Loki" panel and the `/ai-chat` room share `loki/api/loki_brain.py`: name any ticker or coin and it runs the live AI engine and explains every check in plain English; it also answers market checks, the AI's track record, how the AI works, and ~30 trading terms. No external language model is used; questions about your own portfolio/research go to the context-aware copilot.
+The workspace "Talk to Loki" panel runs on `loki/api/loki_brain.py`: name any ticker or coin and it runs the live AI engine and explains every check in plain English; it also answers market checks, the AI's track record, how the AI works, and ~30 trading terms. No external language model is used; questions about your own portfolio/research go to the context-aware copilot.
 
 ### AI self-check, daily briefing, price alerts
 
@@ -450,6 +450,17 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 ## 7. Release notes
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
+
+### 2.82: the private chat room is gone
+
+Loki's private chat room (`/ai-chat`) is removed, with all of its code: the server module (`loki/api/ai_chat.py`, its sign-in, passcode, cookies and 30-day message store), its page and script, the hosting guide, and its tests. **Talk to Loki** in the workspace stays and is unchanged; the home page's "Talk to Loki" link now opens it.
+- The sidebar link, the access gate's "next page" option, the privacy and cookie notices about chat messages and the `loki_chat` cookie, and the operator settings `LOKI_CHAT_*` went with it.
+- `/ai-chat` now answers 404; the server no longer stores any chat messages.
+
+**A shorter overview** (about a quarter shorter):
+- The research tiles and the performance chart stay hidden until you have actually run research in the Quant lab; before that they only showed dashes and "Awaiting evidence".
+- The four "From idea to evidence" cards (which repeated the sidebar) and the closing win-rate note are gone.
+- The "Build your process" checklist spans the page with its four steps side by side.
 
 ### 2.81.1: 3D map table toggle
 

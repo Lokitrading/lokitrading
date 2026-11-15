@@ -149,7 +149,7 @@ jobs:
                 if attempt == 29:
                     raise
                 time.sleep(1)
-        for path in ("/", "/ai-chat", "/login",
+        for path in ("/", "/login",
                      "/static/css/style.css", "/static/css/engine.css",
                      "/static/js/workspace.js", "/static/js/trade.js",
                      "/static/js/engine/core.js", "/static/js/engine/mc_worker.js",

@@ -99,14 +99,10 @@ class TestLiveReads:
         monkeypatch.setattr(loki_brain, "_quotes", lambda symbols: [])
         assert "aren't answering" in loki_brain.answer("how's the market today?")["text"]
 
-    def test_both_chats_use_the_brain(self, monkeypatch):
+    def test_talk_to_loki_uses_the_brain(self, monkeypatch):
         monkeypatch.setattr(loki_brain, "_ai_read", fake_read(allowed=False))
         copilot = client.post("/api/copilot", json={"message": "what does the AI think of NVDA?"}).json()
         assert copilot["intent"] == "brain:symbol" and "NVDA" in copilot["text"]
-        room = TestClient(app)
-        room.post("/api/ai/chat/access", json={"name": "Sam", "code": ""})
-        reply = room.post("/api/ai/chat/message", json={"text": "what is a stop loss?"}).json()
-        assert "exit price" in reply["text"]
 
 
 def test_portfolio_question_uses_the_shipped_record():
@@ -253,7 +249,7 @@ class TestEverydayBattery:
             loki_brain.answer("what about its risk?", last_symbol="<script>")["intent"] != "symbol"
 
     def test_orders_get_a_friendly_refusal_only_when_asked(self):
-        assert loki_brain.answer("buy 10 shares of apple") is None  # the private room keeps its own refusal
+        assert loki_brain.answer("buy 10 shares of apple") is None  # without order_reply the caller answers orders itself
         reply = loki_brain.answer("buy 10 shares of apple", "Josh", order_reply=True)
         assert reply["intent"] == "order" and "can't place orders" in reply["text"]
 
