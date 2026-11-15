@@ -134,7 +134,8 @@
     close(mint, reason, ret) {
       const pos = this.positions.get(mint); this.positions.delete(mint);
       const net = ret - this.costs.tx_cost_sol / this.costs.stake_sol;
-      const t = { mint, symbol: pos.symbol, reason, ret: net, pnl: net * this.costs.stake_sol, held: this.now - (pos.landed ?? this.now), at: this.now };
+      const t = { mint, symbol: pos.symbol, reason, ret: net, pnl: net * this.costs.stake_sol, held: this.now - (pos.landed ?? this.now), at: this.now,
+        tokens: pos.tokens, saleLamports: Math.round((ret + 1) * this.costs.stake_sol * LAMPORTS + this.costs.tx_cost_sol * LAMPORTS), jupEntry: pos.jupEntry ?? null };
       this.closed.push(t);
       const la = this.launches.get(mint); if (la) la.verdict = `sold (${reason})`;
       this.note(`${pos.symbol}: sold, ${reason}, ${(net * 100).toFixed(1)}%`);
@@ -147,8 +148,9 @@
           const st = la.state;
           if (la.done || price(st.vs, st.vt) > pos.decided * (1 + this.costs.max_slippage)) {
             this.positions.delete(mint); this.failed++;
-            la.verdict = la.done ? 'graduated before the order landed' : 'buy failed: price ran past the slippage cap';
-            this.note(`${pos.symbol}: buy failed (${la.done ? 'graduated first' : 'price moved too far'}), fee paid`);
+            const jump = price(st.vs, st.vt) / pos.decided - 1;
+            la.verdict = la.done ? 'skipped: graduated before the order landed' : `skipped: price jumped ${Math.round(jump * 100)}% before the order landed`;
+            this.note(`${pos.symbol}: buy skipped, ${la.done ? 'it graduated first' : `the price jumped ${Math.round(jump * 100)}% (over the ${Math.round(this.costs.max_slippage * 100)}% cap)`}; transaction fee paid`);
             continue;
           }
           const lamports = Math.round(this.costs.stake_sol * LAMPORTS);

@@ -73,6 +73,7 @@ All figures are simulated on historical data after assumed costs. Rules are chos
 - **Result**: the single rule won the comparison (+39% a trade on the fit launches, +56% on the check launches, from 38 and 18 trades). On the 527 launches it never saw it lost 12% a trade (36 trades, 11% won, −0.86 SOL at 0.2 SOL a trade). The swarm made +23% on the check launches; the learned filter found nothing. Buying every launch lost about 8% a trade. The record says "did not pass", and the bot runs on paper as a live experiment, labelled as such.
 - **Forward check** (`train_pumpfun.py forward`, rule frozen): on the next 542 launches it made +34% a trade (29 trades, 28% won, best +364%, median −40%), while buying every launch lost 2%. Its 90% range (−6% to +75%) still includes losing, and the test window before it lost 12%: two short windows pointing opposite ways is noise, not a proven edge, so the verdict stands.
 - **What was ruled out on the way**: copying wallets whose buys were followed by gains. Some wallets are better than others (their results carry over weakly), but copying the best 56 of them 1.5 seconds late lost 7% a trade on later launches, worse than copying anyone.
+- **Second connector: Jupiter** (`/api/fusion/ai/pumpfun/quote`). Jupiter, Solana's main trade router, routes pump.fun's curve before graduation and its AMM after. Every paper buy and sell is priced again by Jupiter for the same amount when it lands, and the gap is shown beside the trade. "Read its curve" shows Jupiter's price, liquidity, 24-hour change and the impact of a 0.1 SOL buy for any Solana token, pump.fun or not.
 - **Paper only.** There is no wallet; nothing is signed or sent.
 
 ### Portfolio AI (21 markets at once)
@@ -136,7 +137,7 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 - **Real orders exist only in the Trade terminal** and only behind its guardrails: live trading is armed per session by typing "trade real money", every live order is confirmed, there is a notional cap and a 20-live-orders-a-day cap, a kill switch, and jury and red-team approval. The autopilot only ever trades paper or demo accounts.
 - **No language models.** The council, jurors, chat brain and bots are deterministic statistical code. Nothing here is conscious or sentient.
 - **Failed ideas stay on record.** Rejected rules and experiments are listed in the tested records and on the pages.
-- **Decoration is labelled.** On the 3D map, bright comets are real requests only; the rest is decoration and the legend says so.
+- **No decoration posing as data.** On the 3D map, comets are real requests and cubes are orders; only venues and agents that have actually done something are lit and labelled.
 
 ### Guarantees
 
@@ -295,7 +296,7 @@ Most of the thinking now runs in the visitor's browser (`static/js/engine/`), so
 - **Monte Carlo** (`engine/mc_core.js`, run in a Web Worker). 5,000 paths per order: log-normal network delay, price drift during the delay, fills walking a randomly thinned book (or spread + impact), fees and on-chain gas spikes, block-bootstrapped horizon returns or a fair-probability draw for binaries. Confidence = share of profitable paths after costs, plus VaR/CVaR and p99 slippage.
 - **Predictive arbitrage engine** (predictions page, `engine/arb.js`, paper only). Prices Polymarket's 5-minute "Up or Down" crypto contracts exactly as they settle (Chainlink 60-second TWAP vs start price) from Binance 1-second candles, compares both books after the market's fee (rate × p(1−p)), and paper-fills only if the edge survives the measured round trip plus signing time. It records signal-vs-fill edge decay and book lag. No real orders are ever sent.
 - **Replay lab** (`/#replay`, `engine/replay.js`). FTX, LUNA, Black Thursday, the yen unwind, election night 2024, tariff shocks, COVID, DeepSeek and the 2022 bear market, played bar by bar with the council (learning inside the replay), a volatility alarm, the risk matrix and the co-pilot's stops, against buy-and-hold.
-- **3D engine map** (`/#execution-map`, `engine/execmap.js`, Three.js r170 vendored under `static/vendor/three`, MIT). A 3D topology of every venue the device talks to; real requests (from a fetch tap that records host, status and timing only) and orders animate along the edges. See the 2.56 notes below.
+- **3D engine map** (`/#execution-map`, `engine/execmap.js`, Three.js r170 vendored under `static/vendor/three`, MIT). A calm 3D map: your device in the middle, one ring of venues it talks to and an inner ring of the engine's agents. Real requests (from a fetch tap that records host, status and timing only) travel as comets and orders orbit as cubes. Only venues and agents that have done something are lit and labelled; idle ones are grey dots. One line of live figures sits under the scene, and the tables list active rows (with "Show all").
 - **Strategy co-pilot** (top-bar ✦ button or Ctrl/Cmd+J, `engine/copilot.js`). Deterministic parsing of plain-language instructions into a bounded config diff with JSON preview, apply-on-confirm and undo. Example: "Shift dynamic trailing stop-loss down by 1.5% and hedge current prediction positions if volatility spikes above 40%."
 - **Proof-of-Strategy** (`engine/audit.js`). Every execution is appended automatically to a SHA-256 hash chain signed with a non-extractable ECDSA P-256 device key (IndexedDB). The badge recomputes figures from signed entries only; logs export with the public key and can be re-verified anywhere; Alpaca entries reconcile against Alpaca's own order records.
 
@@ -449,6 +450,24 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 ## 7. Release notes
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
+
+### 2.81: Jupiter as a second memecoin connector, a calm 3D map, clearer messages
+
+**Jupiter connector** (`loki/api/pumpfun_api.py`). Jupiter routes pump.fun tokens on the bonding curve ("Pump.fun") and after graduation ("Pump.fun Amm"), so it prices any pump.fun token at any stage, plus every other Solana token.
+- `GET /api/fusion/ai/pumpfun/quote?mint=…&side=buy|sell&amount=…`: Jupiter's executable quote. No route is an ordinary answer (`available: false`), not an error.
+- The pump.fun paper bot checks every fill against it: Jupiter's quote for the same buy when it lands, and for the same sale when it closes, shown beside each trade with the typical gap. In a first live run the typical gap was about 7%. Sales into a falling price were the worst (up to 35% below the paper fill), because the price keeps falling between the curve reading and the quote. That is a real limit of paper fills in a crash, and the bot now shows it instead of hiding it.
+- "Read its curve" now works for any token: the pump.fun curve when there is one, and Jupiter's price, liquidity, 24-hour change and route always.
+
+**3D engine map: rebuilt to be calm.**
+- **Kept:** one core, one ring of venues, one ring of agents.
+- **Gone:** the starfield, nebula, aurora, shooting stars, scan waves, dashed rings, energy shield, particle disk, wireframe shells and lens streak.
+- **Labels and colour:** only venues and agents that have done something are labelled and in colour; idle ones are grey dots, and their arcs are nearly invisible.
+- **Overlays:** the four stat boxes no longer cover the scene; one line of live figures and a short legend sit under it.
+- **Tables:** they list active rows, with "Show all".
+
+**Clearer messages.**
+- A paper buy the bot skips now says why ("price jumped 24% before the order landed, over the 15% cap") instead of "buy failed".
+- The Real account panel explains that exchange balances need the Loki launcher on your own computer, instead of showing an error on every visit.
 
 ### 2.80: a pump.fun bot read straight from pump.fun's program, and every bot retrained
 

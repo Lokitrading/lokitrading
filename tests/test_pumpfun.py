@@ -251,12 +251,52 @@ def test_curve_endpoint_reads_and_validates(client, monkeypatch):
         return {"value": {"owner": pf.PROGRAM, "data": [base64.b64encode(data).decode(), "base64"]}}
 
     monkeypatch.setattr(api, "_rpc", fake_rpc)
+    monkeypatch.setattr(api, "_jupiter", lambda path: None)  # Jupiter has no market for it
     body = c.get("/api/fusion/ai/pumpfun/curve", params={"mint": ex["mint"]}).json()
-    assert calls == [ex["bonding_curve"]] and body["raised_sol"] == 16 and body["standard_curve"] is True
+    assert calls == [ex["bonding_curve"]] and body["curve"]["raised_sol"] == 16 and body["curve"]["standard_curve"] is True
+    assert body["jupiter"] is None
     assert c.get("/api/fusion/ai/pumpfun/curve", params={"mint": "O" * 40}).status_code == 422
     monkeypatch.setattr(api, "_rpc", lambda m, p: {"value": {"owner": "11111111111111111111111111111111", "data": ["", "base64"]}})
     api._cache.clear()
-    assert c.get("/api/fusion/ai/pumpfun/curve", params={"mint": ex["mint"]}).status_code == 404
+    assert c.get("/api/fusion/ai/pumpfun/curve", params={"mint": ex["mint"]}).status_code == 404  # neither knows it
+
+
+JUP_QUOTE = {"inAmount": "200000000", "outAmount": "610188158814", "priceImpactPct": "0.01036",
+             "routePlan": [{"swapInfo": {"label": "Pump.fun Amm"}}]}
+
+
+def test_token_without_a_curve_is_answered_by_jupiter(client, monkeypatch):
+    c, api = client
+    mint = FIXTURE["curve_example"]["mint"]
+    monkeypatch.setattr(api, "_rpc", lambda m, p: {"value": None})  # no pump.fun curve (e.g. a long-graduated or non-pump token)
+    seen = []
+
+    def fake_jupiter(path):
+        seen.append(path)
+        if path.startswith("/price/v3"):
+            return {mint: {"usdPrice": 2.4e-05, "liquidity": 4743.7, "priceChange24h": 12.5, "launchpad": "pump.fun"}}
+        return JUP_QUOTE
+
+    monkeypatch.setattr(api, "_jupiter", fake_jupiter)
+    body = c.get("/api/fusion/ai/pumpfun/curve", params={"mint": mint}).json()
+    assert body["curve"] is None and body["jupiter"]["price_usd"] == 2.4e-05
+    assert body["jupiter"]["buy_0_1_sol"]["route"] == ["Pump.fun Amm"] and body["jupiter"]["buy_0_1_sol"]["price_impact_pct"] == 1.036
+    assert any(p.startswith("/swap/v1/quote?inputMint=" + api.SOL_MINT) for p in seen)
+
+
+def test_quote_endpoint_asks_jupiter_for_the_exact_trade(client, monkeypatch):
+    c, api = client
+    mint = FIXTURE["curve_example"]["mint"]
+    seen = []
+    monkeypatch.setattr(api, "_jupiter", lambda path: seen.append(path) or JUP_QUOTE)
+    q = c.get("/api/fusion/ai/pumpfun/quote", params={"mint": mint, "side": "sell", "amount": 610188158814}).json()
+    assert q["out_amount"] == 610188158814 and q["side"] == "sell" and q["route"] == ["Pump.fun Amm"]
+    assert seen[0].startswith(f"/swap/v1/quote?inputMint={mint}&outputMint={api.SOL_MINT}&amount=610188158814")
+    assert c.get("/api/fusion/ai/pumpfun/quote", params={"mint": mint, "side": "hold", "amount": 1}).status_code == 422
+    monkeypatch.setattr(api, "_jupiter", lambda path: None)
+    api._cache.clear()
+    none = c.get("/api/fusion/ai/pumpfun/quote", params={"mint": mint, "side": "buy", "amount": 5})
+    assert none.status_code == 200 and none.json()["available"] is False  # no route is an answer, not an error
 
 
 def test_paper_parity_fixture_still_matches_live_paper():

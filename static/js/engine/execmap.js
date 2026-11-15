@@ -1,22 +1,15 @@
-/* HOLOGRAPHIC EXECUTION MAP — a live 3D topology of where Loki's traffic goes.
+/* 3D ENGINE MAP: a live, calm 3D topology of where Loki's traffic goes.
  *
- * Your device sits in the middle; every venue it talks to (Binance, Polymarket
- * odds and order books, Alpaca paper/live, Tradovate and Yahoo through Loki's
- * relay, the Loki server itself) orbits around it. Every real request lights a
- * pulse travelling out and back, coloured by the answer (green ok, amber slow,
- * red failed); pending orders orbit their venue as small cubes until they fill.
- * Nothing here is decorative data: it is drawn from the page's own network tap
- * (hosts, timings and status codes only; never bodies, headers or keys).
- * The inner ring is the engine's own "neural flow": each sub-agent (council,
- * swarm, consensus gate, evolution, Monte Carlo risk, risk matrix, execution
- * monitor, arbitrage engine) lights up when it actually fires an event, and
- * the table shows its current memory state (weights, generation, VaR…).
- * Look: a reactor-style core, curved light arcs to every venue with ambient
- * particle flow (decorative, faint), bright comets for real requests (data),
- * a neural ring of agents, starfield, scan waves and a live HUD. Hover a node
- * for its numbers, click to fly to it, double-click to reset, drag to orbit,
- * scroll or pinch to zoom. Reduced-motion slows everything right down.
- * Three.js is loaded only when this view is opened.
+ * Your device sits in the middle; every venue it talks to (Binance, Polymarket odds and order books,
+ * Alpaca paper/live, Tradovate and Yahoo through Loki's relay, the Loki server itself) sits on one
+ * ring around it, and the engine's own sub-agents (council, swarm, consensus gate, evolution, Monte
+ * Carlo risk, risk matrix, execution monitor, arbitrage engine, Day Trader) on an inner ring. Every
+ * real request is a comet travelling out and back, coloured by the answer (green ok, amber slow, red
+ * failed); pending orders orbit their venue as small cubes. Only venues and agents that have actually
+ * done something are lit and labelled, so the map shows what is happening and nothing else. Data
+ * comes from the page's own network tap (hosts, timings and status codes only; never bodies, headers
+ * or keys). Hover a node for its numbers, click to fly to it, double-click to reset, drag to orbit,
+ * scroll or pinch to zoom. Reduced motion slows everything right down. Three.js loads only here.
  */
 'use strict';
 (() => {
@@ -114,17 +107,19 @@
     running = true;
     if (started) return;
     started = true;
-    root.innerHTML = `<div class="xm-stage" id="xm-stage">
-        <canvas id="xm-canvas" aria-label="3D map of live connections and engine agents"></canvas>
-        <div class="xm-vignette" aria-hidden="true"></div><div class="xm-scan" aria-hidden="true"></div>
-        <div class="xm-hud xm-hud-tl" aria-live="polite"><span class="xm-live"><i></i>LIVE</span><div id="xm-kpis" class="xm-kpis"></div></div>
-        <div class="xm-hud xm-hud-tr"><button type="button" class="xm-btn" id="xm-spin" aria-pressed="true" title="Pause the slow rotation">⟳ Auto-orbit</button><button type="button" class="xm-btn" id="xm-reset" title="Reset the camera (or double-click)">⌖ Reset</button><button type="button" class="xm-btn" id="xm-full" title="Fullscreen">⛶</button></div>
-        <div class="xm-hud xm-hud-bl xm-legend"><span><i class="ok"></i>answered</span><span><i class="slow"></i>slow &gt;1.5 s</span><span><i class="bad"></i>failed</span><span><i class="out"></i>sent</span><span><i class="agent"></i>agent fired</span><span class="xm-deco">disk, shield, rings, aurora &amp; shooting stars are decoration</span></div>
-        <div class="xm-tip" id="xm-tip" hidden></div>
+    root.innerHTML = `<div class="xm-main">
+        <div class="xm-stage" id="xm-stage">
+          <canvas id="xm-canvas" aria-label="3D map of live connections and engine agents"></canvas>
+          <div class="xm-hud xm-hud-tr"><button type="button" class="xm-btn" id="xm-spin" aria-pressed="true" title="Pause the slow rotation" aria-label="Auto-rotate">⟳</button><button type="button" class="xm-btn" id="xm-reset" title="Reset the view (or double-click)" aria-label="Reset the view">⌖</button><button type="button" class="xm-btn" id="xm-full" title="Fullscreen" aria-label="Fullscreen">⛶</button></div>
+          <div class="xm-tip" id="xm-tip" hidden></div>
+        </div>
+        <div class="xm-bar"><span class="xm-live"><i></i>Live</span><span id="xm-kpis" class="xm-kpis" aria-live="polite"></span></div>
+        <div class="xm-legend"><span><i class="ok"></i>answered</span><span><i class="slow"></i>slow</span><span><i class="bad"></i>failed</span><span><i class="out"></i>sent</span><span><i class="agent"></i>agent</span><span class="xm-hint">Only active venues and agents are labelled. Drag to turn, scroll to zoom, click a node to fly to it.</span></div>
       </div>
-      <div class="xm-side"><p class="eyebrow">LIVE CONNECTIONS FROM THIS DEVICE</p><table class="xm-table"><thead><tr><th>Venue</th><th>Calls</th><th>Avg ms</th><th>Last</th></tr></thead><tbody id="xm-rows"></tbody></table>
-      <p class="eyebrow">ENGINE SUB-AGENTS · MEMORY STATE</p><table class="xm-table"><thead><tr><th>Agent</th><th>Events</th><th>State</th></tr></thead><tbody id="xm-agents"></tbody></table>
-      <p class="caption">Bright comets are real requests this page made (green answered, amber slow, red failed, white on the way out); cubes are orders. Faint drifting particles are ambient decoration. Hover a node for its numbers, click to fly to it, double-click to reset. Hosts, timings and status codes only — never bodies, headers or keys.</p></div>`;
+      <div class="xm-side"><div class="xm-side-head"><p class="eyebrow">CONNECTIONS FROM THIS DEVICE</p><button type="button" class="xm-link" id="xm-all" aria-pressed="false">Show all</button></div>
+      <table class="xm-table"><thead><tr><th>Venue</th><th>Calls</th><th>Avg</th><th>Last</th></tr></thead><tbody id="xm-rows"></tbody></table>
+      <p class="eyebrow">ENGINE AGENTS</p><table class="xm-table"><thead><tr><th>Agent</th><th>Events</th><th>State</th></tr></thead><tbody id="xm-agents"></tbody></table>
+      <p class="caption">Comets are real requests this page made; cubes are orders. Hosts, timings and status codes only, never bodies, headers or keys.</p></div>`;
     tableLoop(root);
     try {
       three = await import('/static/vendor/three/three.module.min.js');
@@ -137,191 +132,126 @@
     }
   }
 
+  let showAll = false;
+  const isActiveVenue = (id) => stats[id].n > 0;
+  const isActiveAgent = (id) => agentState[id].n > 0;
   function tableLoop(root) {
     const rows = root.querySelector('#xm-rows');
+    const allBtn = root.querySelector('#xm-all');
+    allBtn.addEventListener('click', () => { showAll = !showAll; allBtn.setAttribute('aria-pressed', String(showAll)); allBtn.textContent = showAll ? 'Active only' : 'Show all'; });
     const paint = () => {
       if (!document.body.contains(rows)) return;
-      rows.innerHTML = VENUES.map((v) => { const s = stats[v.id]; const cls = !s.n ? '' : s.last && s.last < 400 ? (s.ms > 1500 ? 'slow' : 'ok') : 'bad';
-        return `<tr class="${cls}"><td><i style="background:${hex(v.color)}"></i>${F.esc(v.label)}</td><td>${s.n}</td><td>${s.n ? Math.round(s.ms) : '—'}</td><td>${s.last == null ? '—' : s.last || 'fail'}</td></tr>`; }).join('');
+      const venues = VENUES.filter((v) => showAll || isActiveVenue(v.id));
+      rows.innerHTML = venues.length ? venues.map((v) => { const s = stats[v.id]; const cls = !s.n ? 'idle' : s.last && s.last < 400 ? (s.ms > 1500 ? 'slow' : 'ok') : 'bad';
+        return `<tr class="${cls}"><td><i style="background:${hex(v.color)}"></i>${F.esc(v.label)}</td><td>${s.n}</td><td>${s.n ? Math.round(s.ms) + ' ms' : '—'}</td><td>${s.last == null ? '—' : s.last || 'fail'}</td></tr>`; }).join('')
+        : '<tr class="idle"><td colspan="4">No calls yet. Open Trade, Live markets or AI trading to see requests flow.</td></tr>';
       const ag = root.querySelector('#xm-agents');
-      if (ag) ag.innerHTML = AGENTS.map((a) => { const st = agentState[a.id], hot = Date.now() - st.at < 4000;
-        return `<tr class="${hot ? 'ok' : ''}"><td><i style="background:${hex(a.color)}"></i>${F.esc(a.label)}</td><td>${st.n}</td><td>${F.esc(st.memory)}</td></tr>`; }).join('');
+      const agents = AGENTS.filter((a) => showAll || isActiveAgent(a.id));
+      if (ag) ag.innerHTML = agents.length ? agents.map((a) => { const st = agentState[a.id], hot = Date.now() - st.at < 4000;
+        return `<tr class="${hot ? 'ok' : st.n ? '' : 'idle'}"><td><i style="background:${hex(a.color)}"></i>${F.esc(a.label)}</td><td>${st.n}</td><td>${F.esc(st.memory)}</td></tr>`; }).join('')
+        : '<tr class="idle"><td colspan="3">No agent has fired yet in this tab.</td></tr>';
       const kp = root.querySelector('#xm-kpis');
       if (kp) {
         const now = Date.now(), last = recent.filter((r) => now - r.t < 60000), errs = last.filter((r) => !r.ok).length;
         const avg = last.length ? Math.round(last.reduce((a, r) => a + r.ms, 0) / last.length) : null;
         const active = AGENTS.filter((a) => now - agentState[a.id].at < 10000).length;
-        kp.innerHTML = `<div><b>${last.length}</b><span>requests / min</span></div><div><b>${avg == null ? '—' : avg + 'ms'}</b><span>avg latency</span></div><div><b class="${errs ? 'bad' : ''}">${errs}</b><span>errors / min</span></div><div><b>${active}/${AGENTS.length}</b><span>agents active</span></div>`;
+        kp.innerHTML = `<b>${last.length}</b> requests a minute · <b>${avg == null ? '—' : avg + ' ms'}</b> average · <b class="${errs ? 'bad' : ''}">${errs}</b> failed · <b>${active}</b> of ${AGENTS.length} agents active`;
       }
       setTimeout(paint, 1000);
     };
     paint();
   }
 
+  /* A calm scene: one core, one ring of venues, one ring of agents. Only venues and agents that have
+   * actually done something are lit and labelled; everything idle is a small dim dot. */
   function build(root) {
     const T = three, canvas = root.querySelector('#xm-canvas'), stage = root.querySelector('#xm-stage'), tip = root.querySelector('#xm-tip');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
     const small = Math.min(window.innerWidth, window.innerHeight) < 520;
-    let quality = 0; // 0 full, 1 lower resolution, 2 no glow pass: stepped down automatically when frames run slow
+    let quality = 0; // quality governor: 0 full, 1 lower resolution, 2 no glow pass (stepped down when frames run slow)
     const ratioFor = (q) => Math.min(q === 0 ? (small ? 1.25 : 1.5) : 1, window.devicePixelRatio || 1);
     renderer.setPixelRatio(ratioFor(0));
-    renderer.setClearColor(0x03070c, 1);
+    renderer.setClearColor(0x050a10, 1);
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = T.SRGBColorSpace;
-    renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+    renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
     const scene = new T.Scene();
-    scene.fog = new T.FogExp2(0x03070c, 0.022);
-    const camera = new T.PerspectiveCamera(52, 1, 0.5, 400);
+    scene.fog = new T.FogExp2(0x050a10, 0.018);
+    const camera = new T.PerspectiveCamera(48, 1, 0.5, 300);
     let fit = 1; // pulls the camera back on tall, narrow stages so the whole map stays in frame
     const ADD = T.AdditiveBlending;
 
-    /* ---------- textures made on the fly (no image files) ---------- */
     const radial = (stops) => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t; };
-    const glowTex = radial([[0, 'rgba(255,255,255,1)'], [0.18, 'rgba(255,255,255,.65)'], [0.45, 'rgba(255,255,255,.18)'], [1, 'rgba(255,255,255,0)']]);
-    const dotTex = radial([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,.5)'], [1, 'rgba(255,255,255,0)']]);
+    const glowTex = radial([[0, 'rgba(255,255,255,1)'], [0.2, 'rgba(255,255,255,.55)'], [0.5, 'rgba(255,255,255,.12)'], [1, 'rgba(255,255,255,0)']]);
     const glow = (color, size, opacity = 1) => { const s = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color, transparent: true, opacity, blending: ADD, depthWrite: false })); s.scale.set(size, size, 1); return s; };
-    const label = (text, color, scale = 1) => {
-      const c = document.createElement('canvas'); c.width = 640; c.height = 112; const g = c.getContext('2d');
-      g.font = '600 40px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.shadowColor = hex(color); g.shadowBlur = 18; g.fillStyle = '#eafcff'; g.fillText(text, 320, 66);
+    const label = (text, scale = 1) => {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 96; const g = c.getContext('2d');
+      g.font = '500 34px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(5,10,16,.55)';
+      const w = Math.min(500, g.measureText(text).width + 36); g.beginPath(); g.roundRect ? g.roundRect(256 - w / 2, 18, w, 58, 29) : g.rect(256 - w / 2, 18, w, 58); g.fill();
+      g.fillStyle = '#e4f1f4'; g.fillText(text, 256, 59);
       const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace;
-      const s = new T.Sprite(new T.SpriteMaterial({ map: t, transparent: true, depthWrite: false, opacity: 0.92 })); s.scale.set(4.6 * scale, 0.8 * scale, 1); return s;
+      const s = new T.Sprite(new T.SpriteMaterial({ map: t, transparent: true, depthWrite: false, opacity: 0 })); s.scale.set(3.6 * scale, 0.68 * scale, 1); return s;
     };
+    const ringMat = (c, o) => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: T.DoubleSide, depthWrite: false });
+    const ring = (r, w, c, o, y) => { const m = new T.Mesh(new T.RingGeometry(r, r + w, 160), ringMat(c, o)); m.rotation.x = -Math.PI / 2; m.position.y = y; scene.add(m); return m; };
+    const orbitRing = ring(8, 0.04, 0x8bdad4, 0.22, -0.2);
+    const agentRing = ring(3.6, 0.03, 0xc3a6ff, 0.18, 1.6);
+    ring(12, 0.02, 0x2a4152, 0.35, -0.2);
 
-    /* ---------- backdrop: stars, nebula, floor ---------- */
-    const starGeo = new T.BufferGeometry(), N = 1800, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
-    const palette = [new T.Color(0x8bdad4), new T.Color(0xc3a6ff), new T.Color(0xffffff), new T.Color(0x6ea8ff)];
-    for (let i = 0; i < N; i++) {
-      const r = 60 + Math.random() * 90, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
-      pos.set([r * Math.sin(ph) * Math.cos(th), r * Math.cos(ph) * 0.6 + 10, r * Math.sin(ph) * Math.sin(th)], i * 3);
-      const cc = palette[i % palette.length]; col.set([cc.r, cc.g, cc.b], i * 3);
-    }
-    starGeo.setAttribute('position', new T.BufferAttribute(pos, 3)); starGeo.setAttribute('color', new T.BufferAttribute(col, 3));
-    const stars = new T.Points(starGeo, new T.PointsMaterial({ size: 0.55, map: dotTex, vertexColors: true, transparent: true, opacity: 0.85, blending: ADD, depthWrite: false, fog: false }));
-    scene.add(stars);
-    const nebA = glow(0x1d6f6a, 120, 0.35); nebA.position.set(-40, 18, -70); nebA.material.fog = false; scene.add(nebA);
-    const nebB = glow(0x4b2a7a, 110, 0.32); nebB.position.set(45, 8, -60); nebB.material.fog = false; scene.add(nebB);
-    const VS = 'varying vec2 vUv; varying vec3 vPos; varying vec3 vN; varying vec3 vView; void main(){ vUv = uv; vPos = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vView = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }';
-    const NOISE = 'float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); } float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y), mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); } float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * noise(p); p *= 2.02; a *= 0.5; } return s; }';
-    const uni = { uTime: { value: 0 }, uHeat: { value: 0 }, uAlarm: { value: 0 } };
-    // Floor: a polar holo-grid drawn in a shader, with a slow outward sweep and heat from real traffic.
-    const floor = new T.Mesh(new T.PlaneGeometry(64, 64), new T.ShaderMaterial({ uniforms: uni, vertexShader: VS, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide,
-      fragmentShader: 'uniform float uTime; uniform float uHeat; uniform float uAlarm; varying vec3 vPos; void main(){ float r = length(vPos.xy), a = atan(vPos.y, vPos.x); float rings = smoothstep(0.47, 0.5, abs(fract(r / 1.5) - 0.5)); float spokes = smoothstep(0.5 - 0.035 / max(r, 1.0), 0.5, abs(fract(a * 24.0 / 6.2831853) - 0.5)) * smoothstep(1.0, 3.0, r); float sweep = smoothstep(0.9, 0.0, abs(r - mod(uTime * 2.2, 34.0))) * 0.55; float fade = smoothstep(31.0, 4.0, r); vec3 base = mix(vec3(0.07, 0.42, 0.40), vec3(0.42, 0.30, 0.78), smoothstep(4.0, 24.0, r)); vec3 col = base * (rings * 0.55 + spokes * 0.28 + sweep * (1.0 + uHeat)) * fade; col = mix(col, vec3(1.0, 0.25, 0.2) * (rings + sweep) * fade, uAlarm * 0.7); gl_FragColor = vec4(col, 1.0); }' }));
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -3.2; scene.add(floor);
-    const ringMat = (c, o) => new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: ADD, side: T.DoubleSide, depthWrite: false });
-    const orbitRing = new T.Mesh(new T.RingGeometry(7.95, 8.05, 160), ringMat(0x8bdad4, 0.35)); orbitRing.rotation.x = -Math.PI / 2; orbitRing.position.y = -0.2; scene.add(orbitRing);
-    const innerRing = new T.Mesh(new T.RingGeometry(3.55, 3.62, 120), ringMat(0xc3a6ff, 0.35)); innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = 2.1; scene.add(innerRing);
-    // Aurora ribbons high in the sky (decorative).
-    const aurora = [0, 1].map((k) => { const m = new T.Mesh(new T.PlaneGeometry(150, 34, 1, 1), new T.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uSeed: { value: k * 3.7 } }, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide, fog: false,
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uTime; uniform float uSeed; varying vec2 vUv; void main(){ float x = vUv.x * 9.0 + uSeed; float w = sin(x + uTime * 0.25) * 0.5 + sin(x * 2.3 - uTime * 0.17) * 0.25 + sin(x * 5.1 + uTime * 0.4) * 0.08; float band = smoothstep(0.34, 0.0, abs(vUv.y - 0.5 - w * 0.22)); float rays = 0.55 + 0.45 * sin(vUv.x * 160.0 + uSeed * 9.0 + uTime * 0.6); float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x); vec3 col = mix(vec3(0.10, 0.85, 0.62), vec3(0.50, 0.32, 0.95), vUv.y + w * 0.3); gl_FragColor = vec4(col * band * rays * edge * 0.20, 1.0); }' }));
-      m.position.set(k ? 48 : -44, 30 + k * 6, k ? -62 : -72); m.rotation.set(0.25, k ? -0.5 : 0.45, 0); scene.add(m); return m; });
-    // Flat HUD rings around the core: dashes that counter-rotate (decorative).
-    const hudRing = (r, width, dashes, color, y) => { const m = new T.Mesh(new T.RingGeometry(r, r + width, 128, 1), new T.ShaderMaterial({ uniforms: { uDash: { value: dashes }, uColor: { value: new T.Color(color) } }, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide,
-      vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uDash; uniform vec3 uColor; varying vec3 vP; void main(){ float a = atan(vP.y, vP.x) / 6.2831853 + 0.5; float d = step(0.45, fract(a * uDash)); gl_FragColor = vec4(uColor * d * 0.75, 1.0); }' })); m.rotation.x = -Math.PI / 2; m.position.y = y; scene.add(m); return m; };
-    const hudRings = [hudRing(5.4, 0.07, 48, 0x8bdad4, -3.1), hudRing(5.75, 0.03, 120, 0xc3a6ff, -3.1), hudRing(10.4, 0.09, 72, 0x6ea8ff, -3.1)];
-    const waves = [];
-    const spawnWave = (color = 0x8bdad4) => { const m = new T.Mesh(new T.RingGeometry(0.98, 1, 96), ringMat(color, 0.6)); m.rotation.x = -Math.PI / 2; m.position.y = -3.15; scene.add(m); waves.push({ m, t: 0 }); };
-
-    /* ---------- the core: a small reactor ---------- */
+    // the core: one soft sphere and a halo that breathe with real traffic
     const coreGroup = new T.Group(); scene.add(coreGroup);
-    // Plasma heart: animated noise, hotter with real traffic.
-    const heart = new T.Mesh(new T.SphereGeometry(0.62, 48, 48), new T.ShaderMaterial({ uniforms: uni, vertexShader: VS,
-      fragmentShader: NOISE + 'uniform float uTime; uniform float uHeat; uniform float uAlarm; varying vec3 vPos; varying vec3 vN; varying vec3 vView; void main(){ float n = fbm(vPos * 3.2 + vec3(0.0, uTime * 0.55, uTime * 0.3)); float veins = smoothstep(0.42, 0.62, n); float rim = pow(1.0 - max(dot(vN, vView), 0.0), 2.2); vec3 cool = vec3(0.35, 1.0, 0.86), hot = vec3(0.95, 0.85, 1.0); vec3 col = mix(cool * 0.55, hot * 1.25, veins) * (1.0 + uHeat * 0.5) + rim * vec3(0.5, 0.85, 1.0) * 0.9; col = mix(col, vec3(2.2, 0.5, 0.4) * (0.6 + veins), uAlarm * 0.6); gl_FragColor = vec4(col, 1.0); }' }));
-    coreGroup.add(heart);
-    // Energy shield: fresnel shell with a drifting lattice (decorative).
-    const shield = new T.Mesh(new T.SphereGeometry(2.85, 64, 48), new T.ShaderMaterial({ uniforms: uni, vertexShader: VS, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide,
-      fragmentShader: 'uniform float uTime; uniform float uHeat; uniform float uAlarm; varying vec2 vUv; varying vec3 vN; varying vec3 vView; void main(){ float rim = pow(1.0 - abs(dot(vN, vView)), 3.0); vec2 g = vec2(vUv.x * 36.0 + uTime * 0.25, vUv.y * 18.0); float lat = smoothstep(0.44, 0.5, abs(fract(g.x) - 0.5)) + smoothstep(0.44, 0.5, abs(fract(g.y + sin(g.x) * 0.12) - 0.5)); float band = smoothstep(0.08, 0.0, abs(vUv.y - fract(uTime * 0.12))) * 0.8; vec3 col = mix(vec3(0.30, 0.95, 0.85), vec3(0.75, 0.60, 1.0), vUv.y) * (rim * 0.42 + lat * 0.05 * (0.2 + rim) + band * rim * 0.5) * (0.5 + uHeat * 0.4); col = mix(col, vec3(1.0, 0.3, 0.25) * (rim + lat * 0.1), uAlarm); gl_FragColor = vec4(col, 1.0); }' }));
-    coreGroup.add(shield);
-    // Accretion disk: thousands of points orbiting in the vertex shader (decorative).
-    const DN = small ? 1400 : 3600, dA = new Float32Array(DN * 4), dP = new Float32Array(DN * 3);
-    for (let i = 0; i < DN; i++) { const r = 2.3 + Math.pow(Math.random(), 1.6) * 4.6; dA.set([r, Math.random() * 6.2831853, (Math.random() - 0.5) * 0.5 * Math.exp(-(r - 2.3) * 0.25), 0.5 + Math.random()], i * 4); }
-    const diskGeo = new T.BufferGeometry(); diskGeo.setAttribute('position', new T.BufferAttribute(dP, 3)); diskGeo.setAttribute('aOrb', new T.BufferAttribute(dA, 4));
-    const disk = new T.Points(diskGeo, new T.ShaderMaterial({ uniforms: { ...uni, uScale: { value: 1 } }, transparent: true, depthWrite: false, blending: ADD,
-      vertexShader: 'uniform float uTime; uniform float uHeat; uniform float uScale; attribute vec4 aOrb; varying float vR; varying float vTw; void main(){ float r = aOrb.x, a = aOrb.y + uTime * (0.9 + uHeat * 0.8) / pow(r, 1.4); vec3 p = vec3(cos(a) * r, aOrb.z + sin(a * 3.0 + uTime) * 0.05, sin(a) * r); vR = r; vTw = 0.6 + 0.4 * sin(uTime * 2.0 * aOrb.w + aOrb.y * 9.0); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_PointSize = uScale * aOrb.w * 46.0 / -mv.z; gl_Position = projectionMatrix * mv; }',
-      fragmentShader: 'varying float vR; varying float vTw; void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); vec3 col = mix(vec3(0.75, 1.0, 0.95), vec3(0.55, 0.42, 1.0), smoothstep(2.3, 6.5, vR)); gl_FragColor = vec4(col * a * vTw * 0.55, 1.0); }' }));
-    disk.rotation.x = 0.16; disk.frustumCulled = false; coreGroup.add(disk);
-    const shell = new T.Mesh(new T.IcosahedronGeometry(1.05, 1), new T.MeshBasicMaterial({ color: 0x8bdad4, wireframe: true, transparent: true, opacity: 0.55, blending: ADD })); coreGroup.add(shell);
-    const shell2 = new T.Mesh(new T.IcosahedronGeometry(1.35, 0), new T.MeshBasicMaterial({ color: 0xc3a6ff, wireframe: true, transparent: true, opacity: 0.25, blending: ADD })); coreGroup.add(shell2);
-    const torus = (r, c, tilt) => { const m = new T.Mesh(new T.TorusGeometry(r, 0.025, 8, 160), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, blending: ADD })); m.rotation.set(tilt[0], tilt[1], 0); coreGroup.add(m); return m; };
-    const rings = [torus(1.7, 0x8bdad4, [1.2, 0.2]), torus(1.95, 0xc3a6ff, [0.4, 1.1]), torus(2.2, 0x6ea8ff, [2.0, 0.6])];
-    const coreHalo = glow(0x8bdad4, 7, 0.38); coreGroup.add(coreHalo);
-    const streak = glow(0xbfeaff, 1, 0.5); streak.scale.set(15, 0.5, 1); coreGroup.add(streak); // lens streak across the core
-    const shocks = [];
-    const spawnShock = (color) => { const m = new T.Mesh(new T.SphereGeometry(1, 32, 16), new T.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.5, blending: ADD, depthWrite: false })); coreGroup.add(m); shocks.push({ m, t: 0 }); };
-    const coreLabel = label('Your device · Loki engine', 0x8bdad4); coreLabel.position.set(0, -2.1, 0); scene.add(coreLabel);
+    const heart = new T.Mesh(new T.SphereGeometry(0.7, 40, 40), new T.MeshBasicMaterial({ color: 0x9fe8e0 })); coreGroup.add(heart);
+    const coreHalo = glow(0x8bdad4, 5.5, 0.45); coreGroup.add(coreHalo);
+    const coreLabel = label('Your device · Loki', 1.3); coreLabel.position.set(0, -1.6, 0); coreLabel.material.opacity = 0.9; scene.add(coreLabel);
 
-    /* ---------- venues on the outer orbit, with curved light arcs ---------- */
     const pickables = [], nodes = {};
-    const arcPoints = 64;
     VENUES.forEach((v, k) => {
-      const a = (k / VENUES.length) * Math.PI * 2, r = 8, y = Math.sin(k * 1.7) * 1.2;
-      const p = new T.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
-      const mid = p.clone().multiplyScalar(0.5); mid.y += 2.6 + (k % 3) * 0.5;
+      const a = (k / VENUES.length) * Math.PI * 2, r = 8;
+      const p = new T.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
+      const mid = p.clone().multiplyScalar(0.5); mid.y += 1.6;
       const curve = new T.QuadraticBezierCurve3(new T.Vector3(0, 0, 0), mid, p);
-      const tube = new T.Mesh(new T.TubeGeometry(curve, arcPoints, 0.018, 6, false), new T.MeshBasicMaterial({ color: v.color, transparent: true, opacity: 0.22, blending: ADD, depthWrite: false }));
-      scene.add(tube);
-      const node = new T.Mesh(new T.SphereGeometry(0.34, 24, 24), new T.MeshBasicMaterial({ color: v.color })); node.position.copy(p); scene.add(node);
-      const cage = new T.Mesh(new T.OctahedronGeometry(0.62, 0), new T.MeshBasicMaterial({ color: v.color, wireframe: true, transparent: true, opacity: 0.5, blending: ADD })); cage.position.copy(p); scene.add(cage);
-      const halo = glow(v.color, 2.2, 0.85); halo.position.copy(p); scene.add(halo);
-      const pillarH = p.y + 3.2, pillar = new T.Mesh(new T.CylinderGeometry(0.03, 0.14, pillarH, 12, 1, true), new T.ShaderMaterial({ uniforms: { uTime: uni.uTime, uColor: { value: new T.Color(v.color) }, uHeatN: { value: 0 } }, transparent: true, depthWrite: false, blending: ADD, side: T.DoubleSide, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'uniform float uTime; uniform vec3 uColor; uniform float uHeatN; varying vec2 vUv; void main(){ float flow = smoothstep(0.75, 1.0, fract(vUv.y * 3.0 - uTime * (0.35 + uHeatN))); float base = 0.14 + 0.25 * (1.0 - vUv.y); gl_FragColor = vec4(uColor * (base + flow * (0.5 + uHeatN * 1.5)), 1.0); }' })); pillar.position.set(p.x, -3.2 + pillarH / 2, p.z); scene.add(pillar);
-      const pad = new T.Mesh(new T.RingGeometry(0.5, 0.62, 48), ringMat(v.color, 0.5)); pad.rotation.x = -Math.PI / 2; pad.position.set(p.x, -3.18, p.z); scene.add(pad);
-      const tag = label(v.label, v.color, 0.82); tag.position.copy(p).add(new T.Vector3(0, 0.95, 0)); scene.add(tag);
-      // ambient flow: a few faint particles drifting along the arc (decorative only)
-      const fg = new T.BufferGeometry(), fp = new Float32Array(5 * 3); fg.setAttribute('position', new T.BufferAttribute(fp, 3));
-      const flow = new T.Points(fg, new T.PointsMaterial({ size: 0.22, map: dotTex, color: v.color, transparent: true, opacity: 0.55, blending: ADD, depthWrite: false })); scene.add(flow);
-      node.userData = { kind: 'venue', id: v.id, label: v.label };
-      pickables.push(node);
-      nodes[v.id] = { base: p.clone(), pos: p, node, cage, halo, tag, tube, curve, flow, pillar, pad, phase: Math.random(), heat: 0, k };
+      const line = new T.Mesh(new T.TubeGeometry(curve, 48, 0.012, 5, false), new T.MeshBasicMaterial({ color: v.color, transparent: true, opacity: 0.04, blending: ADD, depthWrite: false })); scene.add(line);
+      const node = new T.Mesh(new T.SphereGeometry(0.28, 20, 20), new T.MeshBasicMaterial({ color: v.color, transparent: true, opacity: 0.35 })); node.position.copy(p); scene.add(node);
+      const halo = glow(v.color, 1.6, 0); halo.position.copy(p); scene.add(halo);
+      const tag = label(v.label, 1.3); tag.position.copy(p).add(new T.Vector3(0, 0.95, 0)); scene.add(tag);
+      node.userData = { kind: 'venue', id: v.id, label: v.label }; pickables.push(node);
+      nodes[v.id] = { pos: p, node, halo, tag, line, curve, heat: 0, lit: 0, color: new T.Color(v.color) };
     });
-
-    /* ---------- neural ring of engine agents ---------- */
     const agentNodes = {};
     AGENTS.forEach((ag, k) => {
       const a = (k / AGENTS.length) * Math.PI * 2 + 0.3, r = 3.6;
-      const p = new T.Vector3(Math.cos(a) * r, 2.1 + Math.cos(k * 2.1) * 0.35, Math.sin(a) * r);
-      const solid = new T.Mesh(new T.OctahedronGeometry(0.16, 0), new T.MeshBasicMaterial({ color: ag.color })); solid.position.copy(p); scene.add(solid);
-      const wire = new T.Mesh(new T.OctahedronGeometry(0.32, 0), new T.MeshBasicMaterial({ color: ag.color, wireframe: true, transparent: true, opacity: 0.6, blending: ADD })); wire.position.copy(p); scene.add(wire);
-      const halo = glow(ag.color, 1.2, 0.7); halo.position.copy(p); scene.add(halo);
-      const tag = label(ag.label, ag.color, 0.6); tag.position.copy(p).add(new T.Vector3(0, 0.52, 0)); scene.add(tag);
-      const curve = new T.QuadraticBezierCurve3(new T.Vector3(0, 0, 0), p.clone().multiplyScalar(0.4).add(new T.Vector3(0, 1.4, 0)), p);
-      const line = new T.Mesh(new T.TubeGeometry(curve, 32, 0.01, 4, false), new T.MeshBasicMaterial({ color: ag.color, transparent: true, opacity: 0.15, blending: ADD, depthWrite: false })); scene.add(line);
+      const p = new T.Vector3(Math.cos(a) * r, 1.6, Math.sin(a) * r);
+      const solid = new T.Mesh(new T.OctahedronGeometry(0.17, 0), new T.MeshBasicMaterial({ color: ag.color, transparent: true, opacity: 0.3 })); solid.position.copy(p); scene.add(solid);
+      const halo = glow(ag.color, 1, 0); halo.position.copy(p); scene.add(halo);
+      const tag = label(ag.label, 1.05); tag.position.copy(p).add(new T.Vector3(0, 0.55, 0)); scene.add(tag);
+      const curve = new T.QuadraticBezierCurve3(new T.Vector3(0, 0, 0), p.clone().multiplyScalar(0.5).add(new T.Vector3(0, 0.9, 0)), p);
       solid.userData = { kind: 'agent', id: ag.id, label: ag.label }; pickables.push(solid);
-      agentNodes[ag.id] = { pos: p, solid, wire, halo, line, curve, heat: 0 };
-    });
-    const synapses = [['council', 'consensus'], ['swarm', 'consensus'], ['mcrisk', 'risk'], ['risk', 'consensus'], ['execq', 'consensus'], ['evolve', 'council'], ['swarm', 'risk'], ['execq', 'arb'], ['daytrader', 'risk'], ['daytrader', 'execq']].map(([a, b]) => {
-      const A = agentNodes[a].pos, B = agentNodes[b].pos, m = A.clone().add(B).multiplyScalar(0.5); m.y += 0.8;
-      const c = new T.QuadraticBezierCurve3(A, m, B);
-      const mesh = new T.Mesh(new T.TubeGeometry(c, 24, 0.008, 4, false), new T.MeshBasicMaterial({ color: 0xc3a6ff, transparent: true, opacity: 0.14, blending: ADD, depthWrite: false }));
-      scene.add(mesh); return { a, b, curve: c, mesh, heat: 0 };
+      agentNodes[ag.id] = { pos: p, solid, halo, tag, curve, heat: 0, lit: 0, color: new T.Color(ag.color) };
     });
 
-    /* ---------- comets (real requests) and order cubes ---------- */
-    const comets = [], cubes = new Map(), cometGeo = new T.SphereGeometry(0.11, 12, 12);
+    // comets (real requests) and order cubes
+    const comets = [], cubes = new Map(), cometGeo = new T.SphereGeometry(0.09, 10, 10);
     const COLORS = { out: 0xe7f0ff, ok: 0x6fe3a1, slow: 0xffd27a, bad: 0xff6b5b };
     function spawn(item) {
       const n = nodes[item.id]; if (!n) return;
       const kind = item.phase === 'start' ? 'out' : !item.status || item.status >= 400 ? 'bad' : item.ms > 1500 ? 'slow' : 'ok';
       const head = new T.Mesh(cometGeo, new T.MeshBasicMaterial({ color: COLORS[kind], transparent: true, blending: ADD }));
-      const h = glow(COLORS[kind], 0.9, 0.9); head.add(h);
-      const trail = []; for (let i = 0; i < 6; i++) { const t = glow(COLORS[kind], 0.55 - i * 0.07, 0.55 - i * 0.08); scene.add(t); trail.push(t); }
+      head.add(glow(COLORS[kind], 0.7, 0.8));
+      const trail = []; for (let i = 0; i < 3; i++) { const t = glow(COLORS[kind], 0.4 - i * 0.08, 0.45 - i * 0.12); scene.add(t); trail.push(t); }
       scene.add(head);
-      comets.push({ head, trail, curve: n.curve, out: kind === 'out', t: 0, speed: kind === 'out' ? 0.9 : 0.7, node: n });
-      n.heat = Math.min(1, n.heat + 0.55);
-      if (kind === 'bad') { spawnWave(0xff6b5b); alarm = 1; }
+      comets.push({ head, trail, curve: n.curve, out: kind === 'out', t: 0, speed: kind === 'out' ? 0.9 : 0.7 });
+      n.heat = Math.min(1, n.heat + 0.5);
     }
     function agentPulse(id) {
       const n = agentNodes[id]; if (!n) return;
       n.heat = Math.min(1, n.heat + 0.7);
-      if (shocks.length < 4) spawnShock(n.solid.material.color);
-      const head = new T.Mesh(cometGeo, new T.MeshBasicMaterial({ color: 0xe7d8ff, transparent: true, blending: ADD })); head.add(glow(0xc3a6ff, 0.8, 0.9)); scene.add(head);
-      comets.push({ head, trail: [], curve: n.curve, out: false, t: 0, speed: 1.2, node: null });
-      synapses.forEach((s) => { if (s.a === id || s.b === id) s.heat = 1; });
+      const head = new T.Mesh(cometGeo, new T.MeshBasicMaterial({ color: 0xe7d8ff, transparent: true, blending: ADD })); head.add(glow(0xc3a6ff, 0.6, 0.8)); scene.add(head);
+      comets.push({ head, trail: [], curve: n.curve, out: false, t: 0, speed: 1.2 });
     }
 
-    /* ---------- camera controls: orbit, zoom, pinch, focus ---------- */
-    let yaw = 0.7, pitch = 0.38, dist = reduce ? 19 : 44, target = new T.Vector3(0, 0.6, 0), autoSpin = true, alarm = 0;
-    let goal = reduce ? null : { target: new T.Vector3(0, 0.6, 0), dist: 19 }; // {target, dist}; starts with a fly-in
+    // camera controls: orbit, zoom, pinch, focus
+    let yaw = 0.7, pitch = 0.5, dist = reduce ? 21 : 40, target = new T.Vector3(0, 0.4, 0), autoSpin = true;
+    let goal = reduce ? null : { target: new T.Vector3(0, 0.4, 0), dist: 21 };
     let post = null;
     try {
       const float = renderer.capabilities.isWebGL2 && renderer.extensions.has('EXT_color_buffer_float');
@@ -329,9 +259,9 @@
       const sceneRT = new T.WebGLRenderTarget(4, 4, opt(true)), rtA = new T.WebGLRenderTarget(4, 4, opt(false)), rtB = new T.WebGLRenderTarget(4, 4, opt(false));
       const QVS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
       const pass = (fragmentShader, uniforms) => new T.ShaderMaterial({ vertexShader: QVS, fragmentShader, uniforms, depthTest: false, depthWrite: false });
-      const bright = pass('uniform sampler2D tMap; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(0.55, 1.05, l), 1.0); }', { tMap: { value: sceneRT.texture } });
+      const bright = pass('uniform sampler2D tMap; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(0.6, 1.1, l), 1.0); }', { tMap: { value: sceneRT.texture } });
       const blur = pass('uniform sampler2D tMap; uniform vec2 uDir; varying vec2 vUv; void main(){ vec3 c = texture2D(tMap, vUv).rgb * 0.227; c += (texture2D(tMap, vUv + uDir * 1.385).rgb + texture2D(tMap, vUv - uDir * 1.385).rgb) * 0.316; c += (texture2D(tMap, vUv + uDir * 3.231).rgb + texture2D(tMap, vUv - uDir * 3.231).rgb) * 0.070; gl_FragColor = vec4(c, 1.0); }', { tMap: { value: null }, uDir: { value: new T.Vector2() } });
-      const final = pass('uniform sampler2D tScene; uniform sampler2D tBloom; uniform float uTime; uniform float uAlarm; varying vec2 vUv; vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); } void main(){ vec2 d = vUv - 0.5; float r2 = dot(d, d); vec2 off = d * r2 * 0.003; vec3 c = vec3(texture2D(tScene, vUv + off).r, texture2D(tScene, vUv).g, texture2D(tScene, vUv - off).b); c += texture2D(tBloom, vUv).rgb * 0.85; c = aces(c * 1.05); c *= mix(1.0, 0.42, smoothstep(0.18, 0.62, r2)); c += vec3(0.25, 0.02, 0.0) * uAlarm * smoothstep(0.12, 0.5, r2); gl_FragColor = vec4(pow(c, vec3(1.0 / 2.2)), 1.0); }', { tScene: { value: sceneRT.texture }, tBloom: { value: null }, uTime: uni.uTime, uAlarm: uni.uAlarm });
+      const final = pass('uniform sampler2D tScene; uniform sampler2D tBloom; varying vec2 vUv; vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); } void main(){ vec2 d = vUv - 0.5; vec3 c = texture2D(tScene, vUv).rgb + texture2D(tBloom, vUv).rgb * 0.55; c = aces(c); c *= mix(1.0, 0.7, smoothstep(0.2, 0.7, dot(d, d))); gl_FragColor = vec4(pow(c, vec3(1.0 / 2.2)), 1.0); }', { tScene: { value: sceneRT.texture }, tBloom: { value: null } });
       const quad = new T.Mesh(new T.PlaneGeometry(2, 2), bright), qScene = new T.Scene(), qCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1); quad.frustumCulled = false; qScene.add(quad);
       const run = (material, targetRT) => { quad.material = material; renderer.setRenderTarget(targetRT); renderer.render(qScene, qCam); };
       post = {
@@ -340,44 +270,45 @@
           renderer.toneMapping = T.NoToneMapping;
           renderer.setRenderTarget(sceneRT); renderer.render(scene, camera);
           run(bright, rtA);
-          for (let i = 0; i < 2; i++) { const s = 1 + i * 1.8; blur.uniforms.tMap.value = rtA.texture; blur.uniforms.uDir.value.set(this.px[0] * s, 0); run(blur, rtB); blur.uniforms.tMap.value = rtB.texture; blur.uniforms.uDir.value.set(0, this.px[1] * s); run(blur, rtA); }
+          for (let i = 0; i < 2; i++) { const sc = 1 + i * 1.6; blur.uniforms.tMap.value = rtA.texture; blur.uniforms.uDir.value.set(this.px[0] * sc, 0); run(blur, rtB); blur.uniforms.tMap.value = rtB.texture; blur.uniforms.uDir.value.set(0, this.px[1] * sc); run(blur, rtA); }
           final.uniforms.tBloom.value = rtA.texture; run(final, null);
         },
       };
     } catch (error) { post = null; }
-    const resize = () => { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 420; renderer.setSize(w, h, false); camera.aspect = w / h; fit = Math.max(1, Math.min(2.2, 1.25 / camera.aspect)); camera.updateProjectionMatrix(); disk.material.uniforms.uScale.value = renderer.getPixelRatio() * Math.min(1.4, h / 520); if (post) post.size(w, h); };
+    const resize = () => { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 420; renderer.setSize(w, h, false); camera.aspect = w / h; fit = Math.max(1, Math.min(2.2, 1.25 / camera.aspect)); camera.updateProjectionMatrix(); if (post) post.size(w, h); };
     resize(); window.addEventListener('resize', resize); document.addEventListener('fullscreenchange', () => setTimeout(resize, 50));
-    const pointers = new Map(); let drag = null, pinch = null, moved = false;
+    const pointers = new Map(); let drag = null, pinch = null, moved = false, hovered = null;
     canvas.addEventListener('pointerdown', (e) => { pointers.set(e.pointerId, e); canvas.setPointerCapture(e.pointerId); moved = false;
       if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), dist }; drag = null; }
       else drag = { x: e.clientX, y: e.clientY, yaw, pitch }; });
     canvas.addEventListener('pointermove', (e) => {
       if (pointers.has(e.pointerId)) pointers.set(e.pointerId, e);
-      if (pinch && pointers.size === 2) { const [a, b] = [...pointers.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); dist = Math.max(7, Math.min(34, pinch.dist * pinch.d / Math.max(1, d))); goal = null; return; }
-      if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; yaw = drag.yaw + dx * 0.006; pitch = Math.max(-0.15, Math.min(1.25, drag.pitch + dy * 0.004)); goal = null; }
+      if (pinch && pointers.size === 2) { const [a, b] = [...pointers.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); dist = Math.max(8, Math.min(34, pinch.dist * pinch.d / Math.max(1, d))); goal = null; return; }
+      if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; yaw = drag.yaw + dx * 0.006; pitch = Math.max(0.05, Math.min(1.3, drag.pitch + dy * 0.004)); goal = null; }
       hover(e);
     });
     const up = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; if (!pointers.size) { if (!moved) click(e); drag = null; } };
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
-    canvas.addEventListener('pointerleave', () => { tip.hidden = true; });
-    canvas.addEventListener('wheel', (e) => { e.preventDefault(); dist = Math.max(7, Math.min(34, dist + e.deltaY * 0.012)); goal = null; }, { passive: false });
+    canvas.addEventListener('pointerleave', () => { tip.hidden = true; hovered = null; });
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); dist = Math.max(8, Math.min(34, dist + e.deltaY * 0.012)); goal = null; }, { passive: false });
     canvas.addEventListener('dblclick', () => resetView());
     const ray = new T.Raycaster(), ndc = new T.Vector2();
     const pick = (e) => { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); const hit = ray.intersectObjects(pickables, false)[0]; return hit ? hit.object.userData : null; };
     function hover(e) {
-      const d = pick(e); if (!d) { tip.hidden = true; canvas.style.cursor = drag ? 'grabbing' : 'grab'; return; }
+      const d = pick(e); hovered = d ? d.id : null;
+      if (!d) { tip.hidden = true; canvas.style.cursor = drag ? 'grabbing' : 'grab'; return; }
       canvas.style.cursor = 'pointer';
       const r = canvas.getBoundingClientRect();
-      if (d.kind === 'venue') { const s = stats[d.id]; tip.innerHTML = `<b>${F.esc(d.label)}</b><span>${s.n} calls · ${s.n ? Math.round(s.ms) + ' ms avg' : 'no calls yet'}${s.errors ? ` · ${s.errors} failed` : ''}</span><span>last answer: ${s.last == null ? '—' : s.last || 'failed'}</span>`; }
+      if (d.kind === 'venue') { const s = stats[d.id]; tip.innerHTML = `<b>${F.esc(d.label)}</b><span>${s.n} calls · ${s.n ? Math.round(s.ms) + ' ms average' : 'no calls yet'}${s.errors ? ` · ${s.errors} failed` : ''}</span>`; }
       else { const st = agentState[d.id]; tip.innerHTML = `<b>${F.esc(d.label)}</b><span>${st.n} events · ${st.at ? Math.round((Date.now() - st.at) / 1000) + ' s ago' : 'not fired yet'}</span><span>${F.esc(st.memory)}</span>`; }
       tip.style.left = `${Math.min(r.width - 220, e.clientX - r.left + 14)}px`; tip.style.top = `${Math.max(8, e.clientY - r.top - 10)}px`; tip.hidden = false;
     }
     function click(e) {
       const d = pick(e); if (!d) return;
       const p = d.kind === 'venue' ? nodes[d.id].pos : agentNodes[d.id].pos;
-      goal = { target: p.clone(), dist: 9 }; autoSpin = false; syncSpin();
+      goal = { target: p.clone(), dist: 10 }; autoSpin = false; syncSpin();
     }
-    function resetView() { goal = { target: new T.Vector3(0, 0.6, 0), dist: 19 }; autoSpin = !reduce; syncSpin(); }
+    function resetView() { goal = { target: new T.Vector3(0, 0.4, 0), dist: 21 }; autoSpin = !reduce; syncSpin(); }
     const spinBtn = root.querySelector('#xm-spin');
     const syncSpin = () => { spinBtn.setAttribute('aria-pressed', String(autoSpin)); spinBtn.classList.toggle('on', autoSpin); };
     spinBtn.addEventListener('click', () => { autoSpin = !autoSpin; syncSpin(); });
@@ -385,76 +316,58 @@
     root.querySelector('#xm-full').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {}); });
     if (reduce) autoSpin = false; syncSpin();
 
-    /* ---------- frame loop ---------- */
-    let last = performance.now(), waveClock = 0, starClock = 2, slowFor = 0;
-    const shooting = [];
-    const spawnStar = () => { const s = glow(0xcfe9ff, 1.6, 0.9); s.material.fog = false; const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 20; s.position.set(Math.cos(a) * r, 16 + Math.random() * 14, Math.sin(a) * r); const dir = new T.Vector3(-Math.sin(a) * (Math.random() < 0.5 ? 1 : -1), -0.25 - Math.random() * 0.2, Math.cos(a)).normalize().multiplyScalar(34); scene.add(s); shooting.push({ s, dir, t: 0 }); };
-    const tmp = new T.Vector3();
+    let last = performance.now(), slowFor = 0;
+    const ease = (cur, goalV, k) => cur + (goalV - cur) * k;
+    const IDLE = new T.Color(0x3a4b58); // idle venues and agents are muted grey dots
     function frame(now) {
       requestAnimationFrame(frame);
       if (!running || document.hidden) { last = now; return; }
       const dt = Math.min(0.05, (now - last) / 1000), time = now / 1000, slow = reduce ? 0.25 : 1; last = now;
       if (goal) { target.lerp(goal.target, 0.06); dist += (goal.dist - dist) * 0.06; if (target.distanceTo(goal.target) < 0.01 && Math.abs(goal.dist - dist) < 0.05) goal = null; }
-      if (autoSpin && !drag && !pinch) yaw += dt * 0.07 * slow;
+      if (autoSpin && !drag && !pinch) yaw += dt * 0.05 * slow;
       const far = dist * fit;
-      camera.position.set(target.x + Math.cos(yaw) * Math.cos(pitch) * far, target.y + Math.sin(pitch) * far + Math.sin(time * 0.3) * 0.15 * slow, target.z + Math.sin(yaw) * Math.cos(pitch) * far);
+      camera.position.set(target.x + Math.cos(yaw) * Math.cos(pitch) * far, target.y + Math.sin(pitch) * far, target.z + Math.sin(yaw) * Math.cos(pitch) * far);
       camera.lookAt(target);
-      // activity drives the core's heartbeat
-      const wall = Date.now(), rate = recent.filter((r) => wall - r.t < 10000).length; // requests in the last 10 s
-      const beat = 1 + Math.sin(time * (2 + Math.min(6, rate * 0.4))) * 0.06 * slow;
-      heart.scale.setScalar(beat); coreHalo.scale.setScalar(6.5 + Math.min(4, rate * 0.25) + Math.sin(time * 2) * 0.3 * slow);
-      alarm *= Math.pow(0.12, dt);
-      uni.uTime.value = time * slow; uni.uHeat.value += (Math.min(1, rate / 14) - uni.uHeat.value) * 0.05; uni.uAlarm.value = alarm;
-      shield.rotation.y -= dt * 0.05 * slow;
-      aurora.forEach((m) => { m.material.uniforms.uTime.value = time * slow; });
-      hudRings[0].rotation.z += dt * 0.12 * slow; hudRings[1].rotation.z -= dt * 0.2 * slow; hudRings[2].rotation.z -= dt * 0.04 * slow;
-      streak.material.opacity = 0.32 + uni.uHeat.value * 0.4 + Math.sin(time * 1.7) * 0.05 * slow;
-      for (let i = shocks.length - 1; i >= 0; i--) { const sh = shocks[i]; sh.t += dt * 0.9; sh.m.scale.setScalar(0.8 + sh.t * 3.4); sh.m.material.opacity = Math.max(0, 0.45 * (1 - sh.t)); if (sh.t >= 1) { coreGroup.remove(sh.m); sh.m.geometry.dispose(); sh.m.material.dispose(); shocks.splice(i, 1); } }
+      const wall = Date.now(), rate = recent.filter((r) => wall - r.t < 10000).length;
+      heart.scale.setScalar(1 + Math.sin(time * 1.6) * 0.03 * slow + Math.min(0.15, rate * 0.01));
+      coreHalo.scale.setScalar(5 + Math.min(3, rate * 0.2));
       // quality governor: if frames stay slow, drop resolution, then the glow pass
       slowFor = dt > 0.034 ? slowFor + dt : Math.max(0, slowFor - dt * 0.5);
       if (slowFor > 2.5 && quality < 2) { quality += 1; slowFor = 0; renderer.setPixelRatio(ratioFor(quality)); if (quality === 2) { post = null; renderer.setRenderTarget(null); renderer.toneMapping = T.ACESFilmicToneMapping; } resize(); }
-      starClock -= dt; if (!reduce && starClock <= 0) { starClock = 3 + Math.random() * 6; spawnStar(); }
-      for (let i = shooting.length - 1; i >= 0; i--) { const st = shooting[i]; st.t += dt / 1.1; st.s.position.addScaledVector(st.dir, dt); st.s.scale.set(5.5 * (1 - st.t) + 0.4, 0.5, 1); st.s.material.opacity = Math.max(0, 0.9 * (1 - st.t)); st.s.material.rotation = Math.atan2(st.dir.y, Math.hypot(st.dir.x, st.dir.z)); if (st.t >= 1) { scene.remove(st.s); st.s.material.dispose(); shooting.splice(i, 1); } }
-      shell.rotation.y += dt * 0.35 * slow; shell.rotation.x += dt * 0.12 * slow; shell2.rotation.y -= dt * 0.2 * slow;
-      rings[0].rotation.z += dt * 0.6 * slow; rings[1].rotation.z -= dt * 0.45 * slow; rings[2].rotation.z += dt * 0.3 * slow;
-      stars.rotation.y += dt * 0.004 * slow;
-      // scan waves across the floor
-      waveClock += dt * slow; if (!reduce && waveClock > 3.5) { waveClock = 0; spawnWave(); }
-      for (let i = waves.length - 1; i >= 0; i--) { const w = waves[i]; w.t += dt * 0.35; const s = 1 + w.t * 15; w.m.scale.set(s, s, 1); w.m.material.opacity = Math.max(0, 0.55 * (1 - w.t)); if (w.t >= 1) { scene.remove(w.m); w.m.geometry.dispose(); w.m.material.dispose(); waves.splice(i, 1); } }
-      // venues: bob, glow with heat, ambient flow
+      // venues and agents: lit (and labelled) only once they have done something, or while hovered
       for (const v of VENUES) {
         const n = nodes[v.id]; n.heat *= Math.pow(0.35, dt);
-        const bob = Math.sin(time * 0.8 + n.k) * 0.12 * slow; n.node.position.y = n.base.y + bob; n.cage.position.y = n.base.y + bob; n.halo.position.y = n.base.y + bob;
-        n.cage.rotation.y += dt * (0.4 + n.heat * 3); n.cage.rotation.x += dt * 0.2;
-        n.halo.scale.setScalar(2.2 + n.heat * 2.4); n.tube.material.opacity = 0.18 + n.heat * 0.6;
-        n.pillar.material.uniforms.uHeatN.value = n.heat; n.pad.material.opacity = 0.35 + n.heat * 0.6; n.pad.rotation.z += dt * (0.3 + n.heat * 2);
-        const fp = n.flow.geometry.attributes.position;
-        for (let j = 0; j < 5; j++) { const u = (n.phase + time * 0.06 * slow + j / 5) % 1; n.curve.getPoint(u, tmp); fp.setXYZ(j, tmp.x, tmp.y, tmp.z); }
-        fp.needsUpdate = true;
+        const active = isActiveVenue(v.id); n.lit = ease(n.lit, active ? 1 : 0, 0.08);
+        n.node.material.opacity = 0.35 + n.lit * 0.65; n.node.material.color.copy(IDLE).lerp(n.color, n.lit); n.halo.material.opacity = n.lit * (0.35 + n.heat * 0.5); n.halo.scale.setScalar(1.6 + n.heat * 1.6);
+        n.line.material.opacity = 0.03 + n.lit * 0.14 + n.heat * 0.5;
+        n.tag.material.opacity = ease(n.tag.material.opacity, active || hovered === v.id ? 0.95 : 0, 0.12);
       }
-      for (const id in agentNodes) { const n = agentNodes[id]; n.heat *= Math.pow(0.3, dt); n.wire.rotation.y += dt * (0.6 + n.heat * 5); n.wire.rotation.x += dt * 0.3; n.halo.scale.setScalar(1.2 + n.heat * 1.8); n.line.material.opacity = 0.12 + n.heat * 0.7; }
-      for (const s of synapses) { s.heat *= Math.pow(0.3, dt); s.mesh.material.opacity = 0.12 + s.heat * 0.7; }
-      innerRing.rotation.z += dt * 0.15 * slow; orbitRing.material.opacity = 0.28 + Math.sin(time) * 0.06;
-      // new events
+      for (const ag of AGENTS) {
+        const n = agentNodes[ag.id]; n.heat *= Math.pow(0.3, dt);
+        const active = isActiveAgent(ag.id); n.lit = ease(n.lit, active ? 1 : 0, 0.08);
+        n.solid.material.opacity = 0.3 + n.lit * 0.7; n.solid.material.color.copy(IDLE).lerp(n.color, n.lit); n.solid.rotation.y += dt * (0.4 + n.heat * 4) * slow;
+        n.halo.material.opacity = n.lit * (0.25 + n.heat * 0.6); n.halo.scale.setScalar(1 + n.heat * 1.4);
+        const recentFire = wall - agentState[ag.id].at < 15000;
+        n.tag.material.opacity = ease(n.tag.material.opacity, recentFire || hovered === ag.id ? 0.9 : 0, 0.12);
+      }
+      orbitRing.material.opacity = 0.18 + Math.min(0.2, rate * 0.01); agentRing.material.opacity = 0.14;
       let budget = 12; while (queue.length && budget--) spawn(queue.shift());
       while (agentQueue.length) agentPulse(agentQueue.shift());
-      // comets with trails
       for (let i = comets.length - 1; i >= 0; i--) {
         const c = comets[i]; c.t += dt * c.speed;
         const u = Math.max(0, Math.min(1, c.out ? c.t : 1 - c.t)); c.curve.getPoint(u, c.head.position);
-        c.trail.forEach((g, j) => { const uu = Math.max(0, Math.min(1, c.out ? u - (j + 1) * 0.025 : u + (j + 1) * 0.025)); c.curve.getPoint(uu, g.position); });
+        c.trail.forEach((g, j) => { const uu = Math.max(0, Math.min(1, c.out ? u - (j + 1) * 0.03 : u + (j + 1) * 0.03)); c.curve.getPoint(uu, g.position); });
         if (c.t >= 1) { scene.remove(c.head); c.head.material.dispose(); c.trail.forEach((g) => { scene.remove(g); g.material.dispose(); }); comets.splice(i, 1); }
       }
-      // order cubes orbit their venue
       orders = orders.filter((o) => now - o.born < o.life);
       const alive = new Set();
       orders.forEach((o, k) => {
         const key = o.born + ':' + k; alive.add(key);
         let cube = cubes.get(key);
-        if (!cube) { cube = new T.Mesh(new T.BoxGeometry(0.3, 0.3, 0.3), new T.MeshBasicMaterial({ color: 0xffd27a, wireframe: true, transparent: true, blending: ADD })); cube.add(glow(0xffd27a, 1, 0.7)); scene.add(cube); cubes.set(key, cube); }
-        const n = nodes[o.id] || nodes.loki, a = (now - o.born) / 600 + k;
-        cube.position.set(n.node.position.x + Math.cos(a) * 1, n.node.position.y + Math.sin(a * 1.3) * 0.45, n.node.position.z + Math.sin(a) * 1);
-        cube.rotation.x += dt * 2; cube.rotation.y += dt * 3;
+        if (!cube) { cube = new T.Mesh(new T.BoxGeometry(0.26, 0.26, 0.26), new T.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.9 })); scene.add(cube); cubes.set(key, cube); }
+        const n = nodes[o.id] || nodes.loki, a = (now - o.born) / 700 + k;
+        cube.position.set(n.pos.x + Math.cos(a) * 0.9, n.pos.y + 0.2, n.pos.z + Math.sin(a) * 0.9);
+        cube.rotation.y += dt * 2;
       });
       for (const [key, cube] of cubes) if (!alive.has(key)) { scene.remove(cube); cube.geometry.dispose(); cube.material.dispose(); cubes.delete(key); }
       if (post) { try { post.render(); } catch (error) { post = null; renderer.setRenderTarget(null); renderer.toneMapping = T.ACESFilmicToneMapping; } }
