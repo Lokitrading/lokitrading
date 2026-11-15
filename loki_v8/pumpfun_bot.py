@@ -224,7 +224,7 @@ def _sale_values(p: Prepared, tokens: int, costs: Costs, spend: float) -> np.nda
     vt = vs0 * vt0 / vs
     gross = vs - (vs * vt) / (vt + tokens)
     net = gross * (1 - p.fee / 10_000) / pf.LAMPORTS - costs.tx_cost_sol
-    return net / costs.size_sol - 1
+    return np.asarray(net / costs.size_sol - 1, dtype=float)
 
 
 def entry_fill(p: Prepared, i: int, costs: Costs) -> Optional[Tuple[int, int, float]]:
