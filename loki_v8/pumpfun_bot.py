@@ -22,7 +22,6 @@ import gzip
 import itertools
 import json
 import math
-import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Deque, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -739,19 +738,6 @@ def forward(data_dir: Path, record: Dict[str, Any]) -> Dict[str, Any]:
 def _iso(t: float) -> str:
     import datetime as _dt
     return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def shuffled_check(data_dir: Path, rule: Dict[str, Any], seed: int = 7) -> float:
-    """Placebo: the chosen rule's mean return when entry times are moved to random trades (for reports)."""
-    launches, gaps, end = load(data_dir)
-    prepared = [p for p in (prepare(la) for la in usable(launches, gaps, end)) if p is not None]
-    rng = random.Random(seed)
-    ex = Exit(rule["take_profit"], rule["stop_loss"], rule["trail"], rule["max_hold_s"])
-    out = []
-    for p in prepared:
-        if len(p.at) > 2:
-            out.append(float(exit_returns(p, rng.randrange(len(p.at)), [ex], Costs())[0]))
-    return float(np.mean(out)) if out else 0.0
 
 
 # --- live paper trading ----------------------------------------------------------------------------

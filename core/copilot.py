@@ -289,10 +289,6 @@ class LokiCopilot:
         self.last_symbol = retained_symbol
         return reply
 
-    def _intent(self, question: str) -> str:
-        """Legacy single-topic helper; conversation planning uses every topic."""
-        return self._topics(question)[0]
-
     def _topics(self, question: str) -> list[str]:
         q = _normal_question(question)
         # Instrument labels such as TEST/USDT must not become "test" intents.

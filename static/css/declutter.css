@@ -101,7 +101,7 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 
 /* Panels: one soft outline; cards inside a panel are tinted, not outlined again */
 .loki-workspace .panel, .loki-workspace #ai-trading > .panel { border-radius: 12px; padding: 24px; background: var(--panel); }
-.loki-workspace .panel :is(.metric, .floor-cat, .watch-card, .brief-col, .pf-stat, .pf-metric, .pf-level, .pf-years, .pf-forward, .dt-market, .decision-step, .cc-stat),
+.loki-workspace .panel :is(.metric, .floor-cat, .watch-card, .brief-col, .pf-stat, .pf-metric, .pf-years),
 .loki-workspace .metric { border-color: transparent; background: rgba(148, 190, 220, .045); box-shadow: none; }
 .loki-workspace .panel .panel { border-color: var(--line-soft); }
 .loki-workspace .caption { font-size: 11.5px; color: var(--subtle); }

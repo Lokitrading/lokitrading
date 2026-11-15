@@ -4,7 +4,7 @@ In order, this module:
 
 * builds the app and its security headers (Content-Security-Policy, HSTS, no-store);
 * guards every page and API route with the site access gate and the member privacy boundary;
-* serves the pages (workspace, gate, login, account, legal pages, private chat, revenue statement);
+* serves the pages (workspace, gate, login, account, legal pages, revenue model);
 * handles sign-up, login and sessions through Supabase;
 * exposes the small core APIs (health, currency rate, proof engine, strategy lab,
   Talk to Loki, risk preview);
@@ -625,7 +625,7 @@ async def fx_rate():
 
 
 # ---------------------------------------------------------------------------
-# More pages: login, private chat, revenue statement.
+# More pages: login and the revenue model.
 # ---------------------------------------------------------------------------
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):

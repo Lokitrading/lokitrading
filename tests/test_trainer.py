@@ -12,7 +12,7 @@ import pandas as pd
 
 from loki_v8 import train as train_module
 from loki_v8.backtest import Trade
-from loki_v8.config import default_config
+from loki_v8.config import LokiConfig
 
 
 def synthetic_bars(n=420, seed=7):
@@ -49,7 +49,7 @@ class TestTrainSymbol:
     def test_produces_ranked_report(self):
         df = synthetic_bars()
         rep = train_module.train_symbol(
-            df, default_config(), "TEST", grid=SMALL_GRID, train_frac=0.7
+            df, LokiConfig(), "TEST", grid=SMALL_GRID, train_frac=0.7
         )
         assert rep.ok, rep.error
         assert rep.bars == len(df)
@@ -74,14 +74,14 @@ class TestTrainSymbol:
 
     def test_rejects_short_history(self):
         df = synthetic_bars(n=120)
-        rep = train_module.train_symbol(df, default_config(), "SHORT")
+        rep = train_module.train_symbol(df, LokiConfig(), "SHORT")
         assert not rep.ok
         assert "insufficient history" in rep.error
 
     def test_validation_ignores_trades_entered_before_the_split(self, monkeypatch):
         """No-lookahead guarantee: in-sample trades never count as validation."""
         df = synthetic_bars()
-        cfg = default_config()
+        cfg = LokiConfig()
         split_idx = int(len(df) * 0.7)
 
         # Every simulated trade was entered BEFORE the split, so after the
@@ -117,14 +117,14 @@ class TestTrainSymbol:
 
     def test_full_history_grid_runs_without_network(self):
         """Default 24-combo grid completes on synthetic bars."""
-        rep = train_module.train_symbol(synthetic_bars(), default_config(), "TEST", train_frac=0.7)
+        rep = train_module.train_symbol(synthetic_bars(), LokiConfig(), "TEST", train_frac=0.7)
         assert rep.ok, rep.error
         assert rep.n_combos == 24
 
 
 class TestApplyBest:
     def test_updates_config_case_insensitively_and_ignores_unknown(self, tmp_path):
-        cfg = default_config()
+        cfg = LokiConfig()
         report = {
             "symbols": [
                 {
@@ -149,7 +149,7 @@ class TestApplyBest:
         assert not hasattr(cfg, "not_a_real_param")
 
     def test_returns_empty_for_missing_or_failed_symbol(self):
-        cfg = default_config()
+        cfg = LokiConfig()
         before = cfg.signal_threshold
         assert train_module.apply_best({"symbols": []}, "AAPL", cfg) == {}
         assert (
@@ -168,17 +168,17 @@ class TestReportPersistence:
         path = tmp_path / "training_report.json"
         monkeypatch.setattr(train_module, "report_path", lambda cfg=None: path)
         report = {"generated_at": "2026-01-01T00:00:00", "symbols": [], "grid_size": 24}
-        train_module.save_report(report, default_config())
-        assert train_module.load_report(default_config()) == report
+        train_module.save_report(report, LokiConfig())
+        assert train_module.load_report(LokiConfig()) == report
 
     def test_load_missing_returns_none(self, tmp_path, monkeypatch):
         monkeypatch.setattr(train_module, "report_path", lambda cfg=None: tmp_path / "nope.json")
         monkeypatch.setattr(train_module, "BUNDLED_REPORT_FILENAME", "absent_snapshot.json")
-        assert train_module.load_report(default_config()) is None
+        assert train_module.load_report(LokiConfig()) is None
 
     def test_load_missing_falls_back_to_bundled_snapshot(self, tmp_path, monkeypatch):
         monkeypatch.setattr(train_module, "report_path", lambda cfg=None: tmp_path / "nope.json")
-        report = train_module.load_report(default_config())  # bundled snapshot ships with the repo
+        report = train_module.load_report(LokiConfig())  # bundled snapshot ships with the repo
         if report is not None:
             assert report.get("symbols"), "bundled snapshot must carry the trained book"
 

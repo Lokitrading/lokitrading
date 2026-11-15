@@ -1,8 +1,7 @@
 """Phase 1 of the external audit: honest revenue copy, a transparency page,
 and the paper/live separation the terms promise — pinned, not vibes.
 
-The wording lives in loki.api.loki_wording so templates cannot drift apart;
-these tests pin the constants and the rendered pages.
+These tests pin the rendered pages.
 """
 
 from __future__ import annotations
@@ -10,34 +9,10 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from loki.api import site_access
-from loki.api.loki_wording import (
-    DISPUTE_PROCESS,
-    LOSS_TREATMENT,
-    PROFIT_DEFINITION,
-    REPORTING_PERIOD,
-    REVENUE_BANNER,
-    revenue_status,
-)
+from loki.api.loki_wording import revenue_status
 from loki.api.server import app
 
 client = TestClient(app)
-
-
-def test_profit_wording_constants_carry_the_definitions():
-    assert "net realised profit" in PROFIT_DEFINITION.lower() or PROFIT_DEFINITION.startswith(
-        "Net realised"
-    )
-    for needle in (
-        "closed",
-        "unrealised",
-        "paper",
-        "simulated",
-    ):
-        assert needle in PROFIT_DEFINITION.lower()
-    assert "negative event" in LOSS_TREATMENT
-    assert "calendar months" in REPORTING_PERIOD
-    for needle in ("30 days", "withheld"):
-        assert needle in DISPUTE_PROCESS
 
 
 def test_revenue_status_defaults_proposed_and_env_can_promote(monkeypatch):
@@ -45,7 +20,6 @@ def test_revenue_status_defaults_proposed_and_env_can_promote(monkeypatch):
     assert revenue_status() == "proposed"
     monkeypatch.setenv("LOKI_REVENUE_STATUS", "finalized")
     assert revenue_status() == "finalized"
-    assert "formal agreement" in REVENUE_BANNER
 
 
 def test_transparency_page_is_public_and_names_the_operator():

@@ -15,7 +15,6 @@
 .loki-workspace .sidebar { background: #0d141f; border-right-color: #202d3e; }
 .loki-workspace .brand { font-size: 21px; letter-spacing: 3px; gap: 13px; }
 .loki-workspace .brand-mark { width: 37px; height: 39px; border-color: #517c73; background: #152d2b; color: #b5f4df; border-radius: 11px; }
-.loki-workspace .nav-label { color: #8d9bb1; letter-spacing: 1.6px; }
 .loki-workspace .sidebar nav a { font-size: 12px; min-height: 46px; border: 1px solid transparent; border-radius: 9px; transition: background .18s, border-color .18s; }
 .loki-workspace .sidebar nav a:hover { background: #182435; border-color: #2a3a50; }
 .loki-workspace .sidebar nav a.active { background: #17312e; border-color: #2b5146; color: #b3f2da; box-shadow: inset 3px 0 #86e2c5; }
@@ -54,8 +53,6 @@
 .workspace-launchers > a:hover { background: #192a37; border-color: #568579; }
 .workspace-launchers strong { display: block; font-size: 13px; font-weight: 550; }
 .workspace-launchers div > span { display: block; font-size: 10px; color: #9eb1c6; margin-top: 4px; }
-.launcher-icon { flex: 0 0 37px; height: 37px; display: grid; place-items: center; border-radius: 10px; background: #1d3435; color: #9debd0; font-size: 22px; }
-.launcher-arrow { margin-left: auto; color: #7c9eaa; }
 .loki-workspace #ai-trading { padding-top: 24px; }
 .loki-workspace #ai-trading > .panel { background: #101a27; border-radius: 15px; }
 .loki-workspace #ai-candles { min-height: 320px !important; border: 1px solid #233449; background: #0b1420; }
@@ -124,9 +121,6 @@
   background-size: 24px 24px;
 }
 .loki-workspace .workspace-launchers > a { border-radius: 8px; background: #101923; }
-.loki-workspace .launcher-icon { background: transparent; border: 1px solid #32483f; border-radius: 6px; }
-.loki-workspace .launcher-arrow { transition: transform 180ms ease; }
-.loki-workspace .workspace-launchers > a:hover .launcher-arrow { transform: translateX(4px); }
 .loki-workspace .inline-metric strong { font-variant-numeric: tabular-nums; letter-spacing: -.6px; }
 .loki-workspace .button { border-radius: 6px; transition: background 160ms ease, border-color 160ms ease; }
 .loki-workspace input[type=checkbox] { min-height: 0; width: 18px; height: 18px; accent-color: #9debd0; }
@@ -143,5 +137,5 @@
   .loki-workspace .panel { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .loki-workspace .button, .loki-workspace .launcher-arrow { transition: none; }
+  .loki-workspace .button { transition: none; }
 }

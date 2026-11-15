@@ -451,6 +451,13 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.83: unused code removed
+
+A sweep for code nothing uses: every Python module was traced from the real entry points (the server, the CI and training scripts), every API route was checked against the pages and scripts that call it, and every script, stylesheet and element id was checked against the pages.
+- Python: a legacy question helper in Talk to Loki, a placebo function in the pump.fun bot that no report called, a leftover Binance address, a config helper and a rate-limit reset that only tests used, and seven wording constants for the revenue page that no page rendered (the page carries its own text, which the tests check).
+- CSS: about 80 selectors for elements that no longer exist (the old overview header, launcher icons, workflow cards and goal note, sidebar labels, "new" badges).
+- Kept on purpose: the revenue ledger API (the operator records profits through it), and the unchanged upstream copies under `third_party/*/upstream/`, which the licences and provenance files point to.
+
 ### 2.82: the private chat room is gone
 
 Loki's private chat room (`/ai-chat`) is removed, with all of its code: the server module (`loki/api/ai_chat.py`, its sign-in, passcode, cookies and 30-day message store), its page and script, the hosting guide, and its tests. **Talk to Loki** in the workspace stays and is unchanged; the home page's "Talk to Loki" link now opens it.
