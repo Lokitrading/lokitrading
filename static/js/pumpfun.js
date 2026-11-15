@@ -46,8 +46,8 @@
     }
     const m = r.mayhem === 'exclude' ? ' It skips Mayhem-mode launches (an automated agent trades those).' : r.mayhem === 'only' ? ' It only trades Mayhem-mode launches.' : '';
     return `It watches every new pump.fun launch priced in SOL and buys when the launch is at most ${Math.round(r.age_max)} seconds old, `
-      + `${Math.round(r.prog_lo * 100)}–${Math.round(r.prog_hi * 100)}% of the way up its bonding curve, with at least ${r.buyers_min} different buyers `
-      + `and ${r.flow_min} SOL or more of net buying in the last 30 seconds${r.dev_must_hold ? ', and the creator has not sold' : ''}`
+      + `${Math.round(r.prog_lo * 100)}–${Math.round(r.prog_hi * 100)}% of the way up its bonding curve, with at least ${r.buyers_min} different buyers in the last 30 seconds`
+      + `${r.flow_min > 0 ? ` and ${r.flow_min} SOL or more of net buying` : ''}${r.dev_must_hold ? ', and the creator has not sold' : ''}`
       + `${r.bundle_max < 1 ? `, and at most ${Math.round(r.bundle_max * 100)}% of the supply was bought in the launch block` : ''}`
       + `${r.top_max < 1 ? `, and no single wallet holds more than ${Math.round(r.top_max * 100)}% of what buyers hold` : ''}`
       + `${r.model ? ', and only when a model trained on past launches expects the trade to make money after costs (it skips the setups that lost before)' : ''}.${m} `
@@ -67,6 +67,7 @@
       + `<table><thead><tr><th>Launches it never saw</th><th>Trades</th><th>Avg trade</th><th>Won</th><th>Total at ${costs.stake_sol} SOL</th><th>90% range of avg</th></tr></thead><tbody>`
       + row('The bot', t) + row('At most 5 open at once', rec.test_max_5_open)
       + Object.entries(rec.test_stress || {}).map(([k, s]) => row(stressLabel[k] || k, s)).join('')
+      + (rec.forward && rec.forward.bot ? row(`Forward: ${rec.forward.launches} later launches, rule frozen`, rec.forward.bot) : '')
       + row('Buy every launch at 5 s, sell at 60 s', base.buy_every_launch_at_5s_hold_60s)
       + row('Buy every launch at 30 s, sell at 5 min', base.buy_every_launch_at_30s_hold_300s)
       + `</tbody></table><p class="caption">Costs in every figure: pump.fun's ${(costs.curve_fee_bps / 100).toFixed(2)}% fee each way, ${costs.tx_cost_sol} SOL a transaction, orders landing ${costs.latency_s} s after the decision, and buys that would fill more than ${Math.round(costs.max_slippage * 100)}% above the decision price fail. One recording is one market mood; a quieter or wilder day can differ.</p>`;
@@ -178,7 +179,7 @@
       [`At least ${r.flow_min} SOL net buying in 30 s`, f.flow30 >= r.flow_min, `${f.flow30.toFixed(2)} SOL`],
       [`At most ${Math.round(r.bundle_max * 100)}% bought in the launch block`, f.bundle <= r.bundle_max, `${(f.bundle * 100).toFixed(1)}%`],
       [`No wallet over ${Math.round(r.top_max * 100)}% of buyers' holdings`, f.top_share <= r.top_max, `${(f.top_share * 100).toFixed(0)}%`],
-    ];
+    ].filter(([label]) => !/^(At least 0 SOL|At most 100%|No wallet over 100%)/.test(label));  // limits this rule does not use
     if (!r.swarm && r.dev_must_hold) checks.push(['Creator has not sold', f.dev_sold < 0.5, f.dev_sold > 0.5 ? 'sold' : 'holding']);
     if (!r.swarm && (r.mayhem || 'any') !== 'any') checks.push([r.mayhem === 'exclude' ? 'Not a Mayhem-mode launch' : 'A Mayhem-mode launch', (f.mayhem > 0.5) === (r.mayhem === 'only'), f.mayhem > 0.5 ? 'Mayhem' : 'standard']);
     if (r.model) { const sc = P.score(r.model, f); checks.push([`Model expects at least ${pct(r.model.threshold)}`, sc >= r.model.threshold, pct(sc)]); }

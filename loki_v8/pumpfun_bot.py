@@ -715,6 +715,27 @@ def learn(books: Dict[str, "Book"], costs: Costs, fit_min: int, check_min: int, 
             "base_rule": rule_dict(LEARN_BASE, EXIT_GRID[exit_idx]), "trained_on": len(picks)}
 
 
+def forward(data_dir: Path, record: Dict[str, Any]) -> Dict[str, Any]:
+    """The frozen rule on launches recorded after its training data ended (no choosing, no tuning)."""
+    rule = record["rule"]
+    c = record["costs"]
+    costs = Costs(c["stake_sol"], c["tx_cost_sol"], c["latency_s"], c["max_slippage"])
+    launches, gaps, end = load(data_dir)
+    import datetime as _dt
+    after = _dt.datetime.strptime(record["recorded"]["to"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=_dt.timezone.utc).timestamp()
+    fresh = [p for p in (prepare(la) for la in usable(launches, gaps, end) if la.created_at > after) if p is not None]
+    ex = Exit(rule["take_profit"], rule["stop_loss"], rule["trail"], rule["max_hold_s"])
+    keys = {"age_max", "prog_lo", "prog_hi", "buyers_min", "flow_min", "bundle_max", "top_max", "dev_must_hold", "mayhem"}
+    e = Entry(**{k: rule[k] for k in keys})
+    swarm = ([Entry(**a) for a in rule["swarm"]], int(rule["quorum"])) if rule.get("swarm") else None
+    book = Book(fresh, [ex], costs)
+    m = book.matrix(e, rule.get("model"), swarm)
+    return {"launches": len(fresh), "from": _iso(fresh[0].launch.created_at) if fresh else None,
+            "to": _iso(fresh[-1].launch.created_at) if fresh else None,
+            "bot": summarize(m[:, 0] if len(m) else [], costs.size_sol),
+            "buy_every_launch_at_5s_hold_60s": summarize(baseline(book, 5, 60), costs.size_sol)}
+
+
 def _iso(t: float) -> str:
     import datetime as _dt
     return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

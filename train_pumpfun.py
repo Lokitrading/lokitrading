@@ -1,9 +1,10 @@
 """Record pump.fun launches from its Solana program, then train and test the pump.fun bot on them.
 
-Three commands:
+Four commands:
 
     python train_pumpfun.py record --minutes 240 --out data/pumpfun     # every launch, every trade
     python train_pumpfun.py train --data data/pumpfun                   # writes loki_v8/pumpfun_record.json
+    python train_pumpfun.py forward --data data/pumpfun                 # judge the frozen rule on later launches
     python train_pumpfun.py paper --minutes 60                          # run the trained bot live, on paper
 
 Recording subscribes to the pump.fun program's logs on a Solana node (``SOLANA_WS_URL``, default the
@@ -136,6 +137,9 @@ def main() -> None:
     pp.add_argument("--minutes", type=float, default=60)
     pp.add_argument("--record", type=Path, default=Path("loki_v8/pumpfun_record.json"))
     pp.add_argument("--out", type=Path, default=Path("pumpfun_paper.json"))
+    fw = sub.add_parser("forward", help="judge the frozen rule on launches recorded after its training data")
+    fw.add_argument("--data", type=Path, default=Path("data/pumpfun"))
+    fw.add_argument("--record", type=Path, default=Path("loki_v8/pumpfun_record.json"))
     t = sub.add_parser("train", help="train and test the bot on recorded launches")
     t.add_argument("--data", type=Path, default=Path("data/pumpfun"))
     t.add_argument("--out", type=Path, default=Path("loki_v8/pumpfun_record.json"))
@@ -143,6 +147,12 @@ def main() -> None:
     if args.cmd == "record":
         counts = asyncio.run(record(args.out, args.minutes))
         print("done", json.dumps(counts))
+    elif args.cmd == "forward":
+        from loki_v8 import pumpfun_bot
+        rec = json.loads(args.record.read_text(encoding="utf-8"))
+        rec["forward"] = pumpfun_bot.forward(args.data, rec)
+        args.record.write_text(json.dumps(rec, indent=1) + "\n", encoding="utf-8")
+        print(json.dumps(rec["forward"], indent=1))
     elif args.cmd == "paper":
         from loki_v8 import pumpfun_bot
         rec = json.loads(args.record.read_text(encoding="utf-8"))
