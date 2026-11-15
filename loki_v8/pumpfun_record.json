@@ -633,5 +633,38 @@
     "worst_trade_pct": -56.1
    }
   }
+ },
+ "forward": {
+  "launches": 542,
+  "from": "2026-11-15T03:14:21Z",
+  "to": "2026-11-15T03:43:35Z",
+  "bot": {
+   "trades": 29,
+   "mean_return_pct": 33.89,
+   "median_return_pct": -39.88,
+   "win_rate_pct": 27.6,
+   "total_sol": 1.966,
+   "worst_drawdown_sol": -0.795,
+   "mean_ci90_pct": [
+    -6.23,
+    75.39
+   ],
+   "best_trade_pct": 363.9,
+   "worst_trade_pct": -71.6
+  },
+  "buy_every_launch_at_5s_hold_60s": {
+   "trades": 465,
+   "mean_return_pct": -2.17,
+   "median_return_pct": -3.06,
+   "win_rate_pct": 20.4,
+   "total_sol": -2.021,
+   "worst_drawdown_sol": -4.746,
+   "mean_ci90_pct": [
+    -7.65,
+    4.42
+   ],
+   "best_trade_pct": 698.4,
+   "worst_trade_pct": -99.1
+  }
  }
 }
