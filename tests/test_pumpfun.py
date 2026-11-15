@@ -129,11 +129,12 @@ def test_creator_sale_and_graduation_force_exits():
     assert g[0] < pb.exit_returns(pb.prepare(grad), 0, [pb.Exit(5.0, -0.9, None, 600)], pb.Costs())[0] + 1e-12
 
 
-def test_silences_count_as_gaps_and_only_early_overlaps_are_dropped():
-    early = pb.Launch("A", "A", "d", 1000.0, 1)
-    later = pb.Launch("B", "B", "d", 1500.0, 2)
-    kept = pb.usable([early, later], [(1050.0, 1056.0)], end=5000.0)
-    assert [la.mint for la in kept] == ["B"]  # A's first two minutes touch the gap
+def test_only_launches_born_in_a_gap_are_dropped():
+    older = pb.Launch("A", "A", "d", 1000.0, 1)
+    at_gap = pb.Launch("B", "B", "d", 1040.0, 2)
+    late = pb.Launch("C", "C", "d", 4000.0, 3)
+    kept = pb.usable([older, at_gap, late], [(1050.0, 1056.0)], end=5000.0)
+    assert [la.mint for la in kept] == ["A"]  # B was born 10 s before the gap; C's life is not fully recorded yet
 
 
 def test_live_decide_matches_the_backtest_mask():

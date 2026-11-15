@@ -44,7 +44,7 @@
       + `${r.bundle_max < 1 ? `, and at most ${Math.round(r.bundle_max * 100)}% of the supply was bought in the launch block` : ''}`
       + `${r.top_max < 1 ? `, and no single wallet holds more than ${Math.round(r.top_max * 100)}% of what buyers hold` : ''}`
       + `${r.model ? ', and only when a model trained on past launches expects the trade to make money after costs (it skips the setups that lost before)' : ''}.${m} `
-      + `It sells at ${pct(r.take_profit, 0)} or ${pct(r.stop_loss, 0)}${r.trail != null ? `, on a ${Math.round(r.trail * 100)}-point drop from its best once up ${Math.round((r.trail_arm ?? 0.2) * 100)}%` : ''}, `
+      + `It sells ${r.take_profit >= 1e8 ? 'with no profit cap,' : `at ${pct(r.take_profit, 0)},`} at ${pct(r.stop_loss, 0)}${r.trail != null ? `, on a ${Math.round(r.trail * 100)}-point drop from its best once up ${Math.round((r.trail_arm ?? 0.2) * 100)}%` : ''}, `
       + `when the creator sells, or after ${r.max_hold_s >= 60 ? `${Math.round(r.max_hold_s / 60)} minute${r.max_hold_s >= 120 ? 's' : ''}` : `${Math.round(r.max_hold_s)} seconds`}.`;
   }
   function renderRecord() {
@@ -71,7 +71,7 @@
     while (running) {
       abort = new AbortController();
       try {
-        const res = await fetch('/api/fusion/ai/pumpfun/stream?seconds=25', { headers: { Accept: 'application/x-ndjson' }, signal: abort.signal });
+        const res = await fetch('/api/fusion/ai/pumpfun/stream?seconds=45', { headers: { Accept: 'application/x-ndjson' }, signal: abort.signal });
         if (!res.ok || !res.body) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${res.status}`); }
         const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
         for (;;) {

@@ -370,8 +370,10 @@ ENTRY_GRID: Dict[str, List[Any]] = {
     "dev_must_hold": [True, False],
     "mayhem": ["exclude", "only", "any"],
 }
-EXIT_GRID = [Exit(tp, sl, trail, hold) for tp in (0.3, 0.6, 1.0, 2.0) for sl in (-0.15, -0.3, -0.5)
-             for trail in (None, 0.25) for hold in (30.0, 120.0, 600.0)]
+NO_CAP = 1e9  # "let it run": no take-profit
+EXIT_GRID = [Exit(tp, sl, trail, hold) for tp in (0.3, 0.6, 1.0, 2.0, 5.0, NO_CAP) for sl in (-0.15, -0.3, -0.5)
+             for trail in (None, 0.25) for hold in (30.0, 120.0, 600.0, 1800.0)]
+SETTLE_S = max(e.hold_s for e in EXIT_GRID) + 60  # a launch is used once this much of its life is recorded
 
 
 def entry_grid() -> List[Entry]:
@@ -437,9 +439,12 @@ def summarize(r: Iterable[float], size_sol: float = SIZE_SOL) -> Dict[str, Any]:
 
 
 def _score(col: np.ndarray, min_trades: int) -> float:
+    """Selection score: mean less one standard error, with each trade capped at +300% so that one
+    lucky outlier cannot pick the rule."""
     if len(col) < min_trades:
         return -math.inf
-    return float(col.mean() - col.std(ddof=1) / math.sqrt(len(col)))  # mean less one standard error
+    c = np.minimum(col, 3.0)
+    return float(c.mean() - c.std(ddof=1) / math.sqrt(len(c)))
 
 
 def portfolio(book: Book, e: Entry, exit_idx: int, max_open: int = 5, model: Optional[Dict[str, Any]] = None) -> List[float]:
@@ -463,13 +468,13 @@ def portfolio(book: Book, e: Entry, exit_idx: int, max_open: int = 5, model: Opt
     return taken
 
 
-def usable(launches: List[Launch], gaps: List[Tuple[float, float]], end: float, settle_s: float = 900.0,
-           early_s: float = 120.0) -> List[Launch]:
-    """Launches with a full 15 minutes recorded after them and no connection gap in their first two minutes.
+def usable(launches: List[Launch], gaps: List[Tuple[float, float]], end: float, settle_s: float = SETTLE_S,
+           early_s: float = 30.0) -> List[Launch]:
+    """Launches with their whole tradable life recorded (``settle_s``) and no connection gap at birth.
 
     Every trade carries the curve's reserves, so a gap never corrupts the price path; it can only hide
-    some early trades, which would understate buyer counts. Launches whose first ``early_s`` seconds
-    touch a gap are left out for that reason.
+    some trades. The live bot's feed reconnects too, so launches with a gap later in life are kept, as
+    the live bot would see them; only launches born in a gap (or ``early_s`` before one) are left out.
     """
     out = []
     for la in launches:
