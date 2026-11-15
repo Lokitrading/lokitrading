@@ -14,13 +14,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from loki.api import site_access
-from loki.version import __version__
+from loki.version import ASSET_TAG, __version__
 
 router = APIRouter(tags=["Loki Pine indicator"])
 
 # Same convention as loki.api.server: resolve assets independent of cwd.
 _repo_dir = Path(__file__).resolve().parents[2]
 templates = Jinja2Templates(directory=str(_repo_dir / "templates"))
+templates.env.globals["asset"] = ASSET_TAG  # ?v= on every /static link
 
 # Read once per cold start; the Pine text is static by design.
 PINE_SOURCE = (_repo_dir / "templates" / "loki_nq.pine").read_text(encoding="utf-8")

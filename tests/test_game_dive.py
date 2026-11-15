@@ -272,8 +272,8 @@ class TestTemplateWiring:
 
     def test_game_scripts_are_versioned_and_present(self):
         src = TEMPLATE.read_text(encoding="utf-8")
-        assert 'src="/static/js/game_data.js?v={{ version }}"' in src
-        assert 'src="/static/js/game.js?v={{ version }}"' in src
+        assert 'src="/static/js/game_data.js?v={{ asset }}"' in src
+        assert 'src="/static/js/game.js?v={{ asset }}"' in src
 
     def test_dive_input_never_spellchecks_the_player(self):
         src = TEMPLATE.read_text(encoding="utf-8")

@@ -97,7 +97,7 @@ def test_engine_scripts_ship_and_three_is_vendored_with_its_licence():
     html = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
     for f in ("engine/core.js", "engine/council.js", "engine/swarm.js", "engine/risk.js", "engine/mc_core.js", "engine/montecarlo.js",
               "engine/arb.js", "engine/audit.js", "engine/copilot.js", "engine/replay.js", "engine/execmap.js", "trade.js", "copilot_bar.js"):
-        assert f'/static/js/{f}?v={{{{ version }}}}' in html, f
+        assert f'/static/js/{f}?v={{{{ asset }}}}' in html, f
         assert (ROOT / "static" / "js" / f).is_file()
     assert (ROOT / "static" / "js" / "engine" / "mc_worker.js").is_file()
     assert "MIT" in (ROOT / "static" / "vendor" / "three" / "LICENSE").read_text(encoding="utf-8")

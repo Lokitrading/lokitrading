@@ -14,7 +14,7 @@
   const label = button.querySelector('.feed-lights-label');
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const WORDS = { ok: 'Live', slow: 'Slow', setup: 'Not set up', down: 'Down', checking: 'Checking' };
-  const SUMMARY = { ok: 'All feeds live', slow: 'Some feeds slow', setup: 'Live · setup needed', down: 'A feed is down', checking: 'Checking feeds' };
+  const SUMMARY = { ok: 'All feeds live', slow: 'Some feeds slow', setup: 'Feeds live · some optional feeds not set up', down: 'A feed is down', checking: 'Checking feeds' };
   let timer = null;
   let last = null;
 
@@ -22,8 +22,10 @@
     last = data;
     const overall = WORDS[data.overall] ? data.overall : 'down';
     const down = (data.feeds || []).filter((f) => f.state === 'down').length;
-    dot.dataset.state = overall;
-    label.textContent = overall === 'ok' ? 'Feeds live' : overall === 'slow' ? 'Feeds slow' : overall === 'setup' ? 'Feeds live · setup' : `${down} feed${down === 1 ? '' : 's'} down`;
+    // "setup" only means an optional feed has no keys yet; every feed that is set up is live, so the
+    // top bar reads as live and the popover still lists what is not set up.
+    dot.dataset.state = overall === 'setup' ? 'ok' : overall;
+    label.textContent = overall === 'ok' || overall === 'setup' ? 'Feeds live' : overall === 'slow' ? 'Feeds slow' : `${down} feed${down === 1 ? '' : 's'} down`;
     button.setAttribute('aria-label', `${SUMMARY[overall]}. Show data feed status.`);
     const when = data.checked_at ? new Date(data.checked_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
     panel.innerHTML = `<p class="eyebrow">DATA FEEDS · ${esc(SUMMARY[overall].toUpperCase())}</p><ul>` +
