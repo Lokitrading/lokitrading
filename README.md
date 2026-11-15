@@ -130,7 +130,7 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 - The honest-error contract: degraded states are visible, empty logs say empty, headline cards say "information, never advice", the autopilot's published rule is its contract, and the relay caps order size server-side regardless of what the panel says.
 - Keys and secrets never enter the repository; the backup export excludes credentials.
 - The "Bored?" game is entirely local: scores and dive history never leave the browser, and its rarity tiers are hand-written bank data, not measurements from other players.
-- `pytest` (all Python tests), plus `node --test` for the four JavaScript test files. The CI workflows in `.github/` run both on every push.
+- `pytest` (all Python tests), plus `node --test` for the five JavaScript test files. The CI workflows in `.github/` run both on every push.
 
 ### Security
 
@@ -181,7 +181,7 @@ python -m pytest -q -o addopts=""
 ```
 
 ```bash
-node --test tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js
+node --test tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js tests/test_pumpfun.js
 ```
 
 ```bash
@@ -216,6 +216,11 @@ Vercel deploys `main` to the live site. `GET /health` reports the running versio
 | `evolve_daytrade.py --cache DIR --write` | `loki_v8/daytrade_evolution.json` (and the record, on promotion) | Run weekly by `daytrade-evolution.yml` |
 | `crosscheck_alpaca.py` | Nothing; prints an independent-data check | Uses Alpaca's own daily bars |
 | `alpaca_forward.py` | Nothing; trades an Alpaca paper account | A dry run unless `--execute` is passed |
+| `train_memecoin.py --cache DIR --write` | `loki_v8/memecoin_record.json` (big-memecoin bot) | Binance's public 4-hour and daily bars |
+| `train_pumpfun.py record --minutes N --out DIR` | Nothing; records every pump.fun launch and trade from the program | About 30 launches a minute; needs a Solana node (`SOLANA_WS_URL`, public by default) |
+| `train_pumpfun.py train --data DIR` | `loki_v8/pumpfun_record.json` (pump.fun bot) | Fit, check and test on launches in time order |
+| `train_pumpfun.py paper --minutes N` | Nothing; runs the pump.fun bot live on paper | The same machine as the browser bot |
+| `memecoin_shadow.py` | A local SQLite ledger | Shadow mode for new Solana launches (2.77) |
 | `train_analogue.py`, `train_public_derivatives.py` | Local research models under `state/` | See `docs/` |
 
 ## 5. Project layout
@@ -236,7 +241,7 @@ static/css/              stylesheets (style.css is the base)
 static/js/               one script per feature
 static/js/engine/        the on-device engine (window.Loki)
 static/vendor/three/     Three.js r170 for the 3D map (MIT)
-tests/                   the regression suite (pytest, plus four Node test files)
+tests/                   the regression suite (pytest, plus five Node test files)
 docs/                    setup and research notes
 supabase/                SQL to run once in the Supabase project
 .github/workflows/       CI and the scheduled jobs
@@ -253,6 +258,7 @@ tools/                   developer tools (code_health.py: the weekly code-health
 | Brokers | `broker_alpaca.py`, `broker_tradovate.py`, `funded.py`, `broker_workspace.py` |
 | Markets and news | `live_markets.py`, `market_feed.py`, `binance_market_data.py`, `watchtower.py`, `news_desk.py`, `replay_data.py`, `feed_status.py`, `engine_feeds.py` |
 | Prediction markets | `polymarket.py`, `polymarket_bot.py` |
+| Memecoins | `memecoin_api.py` (big-memecoin plan, scan, launch radar), `alpaca_memecoin.py`, `pumpfun_api.py` (pump.fun record, live relay, curve reads), `order_safety.py` |
 | Chat | `loki_brain.py`, `loki_wording.py`, `ai_chat.py` |
 | Research | `fusion.py`, `analogue.py`, `proof_engine.py`, `proof_rate_store.py`, `strategy_backtest.py`, `indicator_page.py` |
 | Games | `dive_board.py`, `dive_sessions.py` |
