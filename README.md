@@ -50,6 +50,7 @@ All figures are simulated on historical data after assumed costs. Rules are chos
 | **Portfolio AI** | Holds 21 markets while they trend; idle cash in T-bills | +14.2% a year, Sharpe 1.29, worst drop −9.2% (2023 → Nov 2026) | Trails buy-and-hold in a strong bull market; its edge is smaller drops |
 | **Day Trader** (stocks and funds) | In and out the same day on six markets, flat every night | +7.4% a year, Sharpe 1.00, worst drop −9.0% (2022 → Nov 2026) with instant fills; +5.9% one minute late; +4.2% five minutes late | Thin edge; lost money on 20 of the 28 markets tested; depends on fast fills |
 | **Day Trader** (futures: MES, MNQ) | The same rules on micro index futures | +7.9% a year, Sharpe 1.06, worst drop −9.2% with instant fills; +6.2% one minute late | Tested on index funds at futures costs; futures are leveraged |
+| **pump.fun bot** (Memecoins tab) | Paper-trades new pump.fun launches on the real bonding curve, read from pump.fun's own Solana program | Did not pass: −12% a trade on the 527 test launches (36 trades); +34% on the next 542 with the rule frozen (29 trades, range −6% to +75%); buying every launch lost 2–8% a trade | Most launches go to zero; one 1.8-hour recording is one market mood |
 | **Six-bot council** | Predicts the next five bars | About zero skill against always guessing the usual up-rate | Five-day direction is close to unpredictable, and the page says so |
 
 ### Day Trader (main mode on the AI trading page)
@@ -61,6 +62,18 @@ All figures are simulated on historical data after assumed costs. Rules are chos
 - **Speed.** Orders are re-priced on 1-minute bars to show what a late fill costs (see the table above and the 2.65 notes). The paper book on the page acts on a new signal within seconds and logs each fill's delay.
 - **Forward record.** The record ends on a fixed date. Every session after it is replayed with the frozen rules and shown on the page, with a note that a few days prove nothing.
 - **Paper money only.** No orders leave the browser.
+
+### pump.fun bot (Memecoins tab)
+
+- **Connector** (`loki_v8/pumpfun.py`): pump.fun has no public trading API, and its website API blocks automated clients. Every launch and trade is an event its program (`6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`) writes to the Solana log, so the bot reads those: launches, trades with the curve's reserves after each one, and graduations. Only events written while pump.fun itself was executing are read. The curve maths matches pump.fun's own fills to within a billionth.
+- **Live relay** (`/api/fusion/ai/pumpfun/stream`): Solana's public node refuses web pages, and the raw stream is about 0.6 MB a second. The server subscribes to the program's logs for 45 seconds at a time and passes the browser one decoded row per launch, trade and graduation, about 10 KB a second. The browser bot (`static/js/engine/pumpfun_core.js`) runs on the rows' own timestamps, so a late batch never changes a paper fill, and it makes exactly the trades the Python bot makes (tested row for row).
+- **What it sees** (decision-time only): launch age, share of the curve sold, buyers and net SOL in the last 30 seconds, buyers since launch, trades in 10 seconds, drop from the peak, the biggest buy's share of recent buying, supply bought in the launch block, the largest holder's share, whether the creator sold, market cap, and Mayhem mode (about half of all launches, where an automated agent trades without fees). Tap a live launch for its X-ray.
+- **Fills**: orders land 1.5 seconds after the decision at the reserves the curve has then; a buy that would fill more than 15% above the decision price fails and costs the transaction fee; pump.fun's 1.25% fee each way; 0.0005 SOL a transaction; our own price impact is given back on the sale. A token that graduates is sold at its last curve price less 1%.
+- **Training** (`train_pumpfun.py` → `loki_v8/pumpfun_record.json`): every standard launch recorded from the program for 1.8 hours (3,028 launches; 2,107 with their whole tradable life recorded), the many that died included. Three kinds of bot were tried: 6,144 entry rules × 144 exits; a learned filter (a ridge model of each trade's return from its entry-time signals); and a swarm of the 15 best rules that buys on a quorum. Each was fitted on the first half of the launches and compared on the next quarter; only the winner was run once on the last quarter.
+- **Result**: the single rule won the comparison (+39% a trade on the fit launches, +56% on the check launches, from 38 and 18 trades). On the 527 launches it never saw it lost 12% a trade (36 trades, 11% won, −0.86 SOL at 0.2 SOL a trade). The swarm made +23% on the check launches; the learned filter found nothing. Buying every launch lost about 8% a trade. The record says "did not pass", and the bot runs on paper as a live experiment, labelled as such.
+- **Forward check** (`train_pumpfun.py forward`, rule frozen): on the next 542 launches it made +34% a trade (29 trades, 28% won, best +364%, median −40%), while buying every launch lost 2%. Its 90% range (−6% to +75%) still includes losing, and the test window before it lost 12%: two short windows pointing opposite ways is noise, not a proven edge, so the verdict stands.
+- **What was ruled out on the way**: copying wallets whose buys were followed by gains. Some wallets are better than others (their results carry over weakly), but copying the best 56 of them 1.5 seconds late lost 7% a trade on later launches, worse than copying anyone.
+- **Paper only.** There is no wallet; nothing is signed or sent.
 
 ### Portfolio AI (21 markets at once)
 
@@ -130,7 +143,7 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 - The honest-error contract: degraded states are visible, empty logs say empty, headline cards say "information, never advice", the autopilot's published rule is its contract, and the relay caps order size server-side regardless of what the panel says.
 - Keys and secrets never enter the repository; the backup export excludes credentials.
 - The "Bored?" game is entirely local: scores and dive history never leave the browser, and its rarity tiers are hand-written bank data, not measurements from other players.
-- `pytest` (all Python tests), plus `node --test` for the four JavaScript test files. The CI workflows in `.github/` run both on every push.
+- `pytest` (all Python tests), plus `node --test` for the five JavaScript test files. The CI workflows in `.github/` run both on every push.
 
 ### Security
 
@@ -181,7 +194,7 @@ python -m pytest -q -o addopts=""
 ```
 
 ```bash
-node --test tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js
+node --test tests/test_ai_trading.js tests/test_engine.js tests/test_games.js tests/test_redteam.js tests/test_pumpfun.js
 ```
 
 ```bash
@@ -216,6 +229,11 @@ Vercel deploys `main` to the live site. `GET /health` reports the running versio
 | `evolve_daytrade.py --cache DIR --write` | `loki_v8/daytrade_evolution.json` (and the record, on promotion) | Run weekly by `daytrade-evolution.yml` |
 | `crosscheck_alpaca.py` | Nothing; prints an independent-data check | Uses Alpaca's own daily bars |
 | `alpaca_forward.py` | Nothing; trades an Alpaca paper account | A dry run unless `--execute` is passed |
+| `train_memecoin.py --cache DIR --write` | `loki_v8/memecoin_record.json` (big-memecoin bot) | Binance's public 4-hour and daily bars |
+| `train_pumpfun.py record --minutes N --out DIR` | Nothing; records every pump.fun launch and trade from the program | About 30 launches a minute; needs a Solana node (`SOLANA_WS_URL`, public by default) |
+| `train_pumpfun.py train --data DIR` | `loki_v8/pumpfun_record.json` (pump.fun bot) | Fit, check and test on launches in time order |
+| `train_pumpfun.py paper --minutes N` | Nothing; runs the pump.fun bot live on paper | The same machine as the browser bot |
+| `memecoin_shadow.py` | A local SQLite ledger | Shadow mode for new Solana launches (2.77) |
 | `train_analogue.py`, `train_public_derivatives.py` | Local research models under `state/` | See `docs/` |
 
 ## 5. Project layout
@@ -236,7 +254,7 @@ static/css/              stylesheets (style.css is the base)
 static/js/               one script per feature
 static/js/engine/        the on-device engine (window.Loki)
 static/vendor/three/     Three.js r170 for the 3D map (MIT)
-tests/                   the regression suite (pytest, plus four Node test files)
+tests/                   the regression suite (pytest, plus five Node test files)
 docs/                    setup and research notes
 supabase/                SQL to run once in the Supabase project
 .github/workflows/       CI and the scheduled jobs
@@ -253,6 +271,7 @@ tools/                   developer tools (code_health.py: the weekly code-health
 | Brokers | `broker_alpaca.py`, `broker_tradovate.py`, `funded.py`, `broker_workspace.py` |
 | Markets and news | `live_markets.py`, `market_feed.py`, `binance_market_data.py`, `watchtower.py`, `news_desk.py`, `replay_data.py`, `feed_status.py`, `engine_feeds.py` |
 | Prediction markets | `polymarket.py`, `polymarket_bot.py` |
+| Memecoins | `memecoin_api.py` (big-memecoin plan, scan, launch radar), `alpaca_memecoin.py`, `pumpfun_api.py` (pump.fun record, live relay, curve reads), `order_safety.py` |
 | Chat | `loki_brain.py`, `loki_wording.py`, `ai_chat.py` |
 | Research | `fusion.py`, `analogue.py`, `proof_engine.py`, `proof_rate_store.py`, `strategy_backtest.py`, `indicator_page.py` |
 | Games | `dive_board.py`, `dive_sessions.py` |
@@ -430,6 +449,21 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 ## 7. Release notes
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
+
+### 2.80: a pump.fun bot read straight from pump.fun's program, and every bot retrained
+
+**pump.fun connector and paper bot** (Memecoins tab; details in section 2):
+- reads launches, trades and graduations from pump.fun's own Solana program, through a server relay that sends the browser about 10 KB a second;
+- paper-trades new launches on the real bonding curve with the program's fees, a landing delay, a slippage cap and a transaction cost;
+- a launch X-ray: every signal the bot reads and each rule check, for any live launch;
+- "Read its curve": the live bonding-curve state of any pump.fun token, read from its account;
+- `train_pumpfun.py record | train | forward | paper`.
+
+**Trained honestly, and it did not pass.** Three kinds of bot (a rule grid, a learned filter and a swarm of 15 rule agents that buys on a quorum) were fitted on the first half of 2,107 recorded launches and compared on the next quarter. The winner lost 12% a trade on the last 527, which it never saw; buying every launch lost about 8%. On the next 542 launches, with the rule frozen, it made +34% a trade from 29 trades, with a 90% range of −6% to +75%: too noisy to call an edge, so the verdict stands. Copying "smart" wallets lost 7% a trade on later launches. The bot is a live paper experiment, labelled as one.
+
+**Day Trader: self-review re-run.** The adaptive setting beat the current rules over all 119 unseen months since 2017 (Sharpe 1.03 against 0.90) but was slightly worse over the last 24 months (−0.61 against −0.60), so the current rules stay. Both versions of the plain rules lost money over those 24 months; the "learns from its mistakes" filter is what keeps the 2022 → Nov 2026 result at +7.4% a year (simulated). The scheduled Sunday job records the review.
+
+**Big-memecoin bot: retrained on fresh bars.** The same rule was picked again: +13.5% from July 2024 to now while holding the coins lost 83%. Its Sharpe of 0.33 is still under its 0.5 bar, so it still does not pass.
 
 ### 2.79: checked end to end, tidier on phones
 
