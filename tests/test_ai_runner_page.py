@@ -52,4 +52,4 @@ def test_background_pages_keep_a_running_runner_alive():
 def test_runner_script_is_wired_into_every_workspace_page():
     for page in ("index.html", "account.html"):
         html = (ROOT / "templates" / page).read_text(encoding="utf-8")
-        assert 'src="/static/js/ai_trading.js?v={{ version }}"' in html, page
+        assert 'src="/static/js/ai_trading.js?v={{ asset }}"' in html, page

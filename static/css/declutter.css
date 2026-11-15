@@ -141,3 +141,19 @@ body.loki-workspace { --line: #1d2b38; --line-soft: #172330; --line-strong: #2b3
 .loki-workspace #memecoin .mc-sub { margin: 30px 0 4px; font-size: 16px; font-weight: 600; }
 .loki-workspace #memecoin .mc-launches { margin-top: 26px; padding-top: 4px; border-top: 1px solid var(--line-soft); }
 .loki-workspace #memecoin #mc-verdict { margin-top: 18px; }
+
+/* === 2.79: phone fit ============================================================================ */
+/* Figures never break mid-number ("A$14,760.<br>86"): the tile sizes its type to its own width, and a
+   number only moves to a new line whole. */
+.loki-workspace .metrics > .metric, .loki-workspace .cc-kpis > div { container-type: inline-size; }
+.loki-workspace .metrics > .metric strong { overflow-wrap: normal; font-size: min(33px, 14cqi); }
+.loki-workspace .cc-kpis b { overflow-wrap: normal; font-size: min(15px, 13cqi); }
+@media (max-width: 900px) {
+  /* The top bar wraps to a second row instead of hiding the feed light and Sign in past the edge */
+  .loki-workspace .topbar-status { flex-wrap: wrap; overflow-x: visible; row-gap: 4px; }
+}
+@media (max-width: 560px) {
+  /* Key and password fields get the full width, so a pasted key can be checked end to end */
+  .loki-workspace :is(#alpaca-cred, #tradovate-cred, #alpaca-keys-form .form-grid, #broker-connect-form .form-grid) { grid-template-columns: minmax(0, 1fr); }
+}
+.skip-link:not(:focus) { opacity: 0; pointer-events: none; }  /* stays out of sight even in full-page captures */

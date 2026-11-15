@@ -31,7 +31,7 @@ def test_the_404_page_is_on_theme_and_self_styled():
     t = (REPO / "templates" / "404.html").read_text(encoding="utf-8")
     assert "404" in t
     assert 'name="theme-color"' in t
-    assert 'href="/favicon.ico?v={{ version }}"' in t   # cache-busted icon
+    assert 'href="/favicon.ico?v={{ asset }}"' in t   # cache-busted icon
     assert "JetBrains Mono" in t            # the site's terminal face
 
 

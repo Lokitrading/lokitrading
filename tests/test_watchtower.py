@@ -236,7 +236,7 @@ def test_headlines_search_uses_public_names(client, monkeypatch):
 def test_watchtower_pages_and_backup_are_wired():
     index = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
     for needle in (
-        "/static/js/watchtower.js?v={{ version }}",
+        "/static/js/watchtower.js?v={{ asset }}",
         'id="watch-form"',
         'id="watch-cards"',
         'id="signal-inner"',

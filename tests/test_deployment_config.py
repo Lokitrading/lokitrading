@@ -99,7 +99,7 @@ class DeploymentConfigTests(unittest.TestCase):
             urls = tag_pattern.findall(text)
             self.assertTrue(urls, f"{name} should reference static assets")
             for url in urls:
-                self.assertTrue(url.endswith("?v={{ version }}"), f"{name}: asset {url} has no ?v={{ version }} cache bust")
+                self.assertTrue(url.endswith("?v={{ asset }}"), f"{name}: asset {url} has no ?v={{ asset }} cache bust")
                 self.assertTrue(url.split("?")[0].endswith((".css", ".js")), f"{name}: unexpected asset {url}")
 
     def test_landing_assets_are_included_in_the_deployment_bundle(self):
@@ -395,8 +395,8 @@ class DeploymentConfigTests(unittest.TestCase):
         self.assertTrue(png.startswith(b"\x89PNG\r\n\x1a\n"), "not a PNG header")
         for name in ("index.html", "gate.html", "login.html"):
             html = (ROOT / "templates" / name).read_text(encoding="utf-8")
-            self.assertIn('href="/favicon.ico?v={{ version }}"', html, name)
-            self.assertIn('href="/favicon.png?v={{ version }}"', html, name)
+            self.assertIn('href="/favicon.ico?v={{ asset }}"', html, name)
+            self.assertIn('href="/favicon.png?v={{ asset }}"', html, name)
 
 
 

@@ -431,6 +431,20 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.79: checked end to end, tidier on phones
+
+**Everything checked live.** Every view and page on the live site was loaded at desktop and phone sizes, and 257 buttons were clicked one by one: no page errors, no failed requests and no server errors.
+
+**Faster repeat visits, never a stale file** (`loki/version.py`, `loki/api/server.py`). Every `/static` link now carries the release plus the deployed commit (`?v=2.79.0-abc1234` on Vercel). A file asked for with the current tag is cached for a year; any other request is revalidated each time. A browser can no longer mix a new page with an old script after a deploy.
+
+**Phones:**
+- The top bar wraps onto a second row instead of hiding the feed light and Sign in past the edge of the screen.
+- Money figures in the portfolio and Red Team tiles no longer split mid-number ("A$14,760." on one line, "86" on the next); the type now shrinks to fit the tile.
+- Tables that scroll sideways no longer split "+12.0%" or "GOOG" across two lines.
+- The Alpaca, Tradovate and broker key fields stack in one column, so a pasted key can be read end to end.
+
+**Feed light:** reads "Feeds live" when every feed that is set up is live. Optional feeds without keys are still listed in the popover as "Not set up".
+
 ### 2.78: hardening the bots against a misbehaving world
 
 **Orders that are never placed twice** (`loki/api/order_safety.py`, used by the Day Trader and the memecoin bot). Every order already had a fixed client id built from its signal. Now, when Alpaca's answer to an order is lost (a timeout or a 5xx), the bot asks Alpaca for that order by its id before reporting anything:

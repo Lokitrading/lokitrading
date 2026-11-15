@@ -34,7 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from loki.version import __version__
+from loki.version import ASSET_TAG, __version__
 from core.copilot import LokiCopilot
 from core.risk_preview import preview_position
 from core.strategy_lab import evaluate_strategy
@@ -194,17 +194,24 @@ repo_dir = Path(__file__).resolve().parents[2]
 static_dir = repo_dir / "static"
 
 
-class FreshStaticFiles(StaticFiles):
-    """Static files that ask the browser to revalidate every time.
+# Every page links its scripts and styles as /static/...?v=ASSET_TAG. The tag changes with each
+# release and each deployed commit, so a file asked for with the current tag can be cached for a
+# year (by the browser and Vercel's CDN): a new deploy changes the URL, never the cached file.
+IMMUTABLE = "public, max-age=31536000, immutable"
 
-    Static-mount responses default to heuristic caching, which lets browsers
-    serve stale JavaScript after a deploy; `no-cache` forces a cheap ETag
-    revalidation so a refreshed site is always the current one.
+
+class FreshStaticFiles(StaticFiles):
+    """Static files: cached for a year when asked for with the current asset tag, revalidated otherwise.
+
+    Without the tag (or with an old one) a file is served with `no-cache`, a cheap ETag
+    revalidation, so a link that does not carry the tag can never serve stale JavaScript.
     """
 
     def file_response(self, *args: Any, **kwargs: Any) -> Response:
         response = super().file_response(*args, **kwargs)
-        response.headers["Cache-Control"] = "no-cache"
+        scope = kwargs.get("scope") or (args[2] if len(args) > 2 else {})
+        query = dict(part.split("=", 1) for part in scope.get("query_string", b"").decode("latin-1").split("&") if "=" in part)
+        response.headers["Cache-Control"] = IMMUTABLE if query.get("v") == ASSET_TAG else "no-cache"
         return response
 
 
@@ -214,6 +221,7 @@ if static_dir.exists():
 # Templates dir
 templates_dir = repo_dir / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
+templates.env.globals["asset"] = ASSET_TAG  # ?v= on every /static link
 
 
 @app.get("/", response_class=HTMLResponse)
