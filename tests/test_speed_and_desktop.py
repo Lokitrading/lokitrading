@@ -182,3 +182,19 @@ def test_the_app_process_always_ends_when_loki_is_done():
     assert "os._exit(code)" in src and 'if __name__ == "__main__":\n    run()' in src
     flow = read(".github/workflows/desktop-app.yml")
     assert flow.count("timeout-minutes: 5") == 4  # each self-test fails fast instead of hanging
+
+
+def test_a_windowed_app_with_no_console_still_starts(tmp_path):
+    """Windows windowed builds have sys.stdout/sys.stderr = None; the server must still start."""
+    import subprocess
+
+    code = (
+        "import sys; sys.stdout = None; sys.stderr = None; "
+        f"sys.path.insert(0, {str(ROOT / 'desktop')!r}); sys.argv = ['Loki', '--smoke']; "
+        "import loki_desktop; loki_desktop.run()"
+    )
+    env = {**os.environ, "LOKI_APP_DATA": str(tmp_path / "Loki")}
+    done = subprocess.run([sys.executable, "-c", code], env=env, timeout=120)
+    log = (tmp_path / "Loki" / "loki.log").read_text(encoding="utf-8")
+    assert done.returncode == 0, log
+    assert "smoke ok" in log

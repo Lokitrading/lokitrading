@@ -161,7 +161,10 @@ class LocalServer:
                 self.seen.add(str(scope.get("path", "")))
             await app(scope, receive, send)
 
-        config = uvicorn.Config(watched, host=HOST, port=port, log_level="warning", access_log=False, lifespan="on")
+        # log_config=None: keep the app's own file logging; uvicorn's console logging cannot work
+        # in a windowed app, which has no console.
+        config = uvicorn.Config(watched, host=HOST, port=port, log_level="warning", access_log=False, lifespan="on",
+                                log_config=None)
         self.server = uvicorn.Server(config)
         self.thread = threading.Thread(target=self.server.run, name="loki-server", daemon=True)
         self.url = f"http://{HOST}:{port}"
@@ -337,6 +340,14 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _quiet_console() -> None:
+    """A windowed app has no console: sys.stdout/sys.stderr are None, and libraries that print or
+    set up console logging then crash. Point them at the null device instead."""
+    for name in ("stdout", "stderr"):
+        if getattr(sys, name) is None:
+            setattr(sys, name, open(os.devnull, "w", encoding="utf-8"))
+
+
 def run() -> None:
     """Run and then end the process outright.
 
@@ -345,8 +356,15 @@ def run() -> None:
     Loki running and a self-test could hang. Once Loki is done, nothing else needs to finish.
     """
     code = 1
+    _quiet_console()
+    threading.excepthook = lambda args: logging.error(
+        "thread %s failed: %s", getattr(args.thread, "name", "?"), "".join(
+            __import__("traceback").format_exception(args.exc_type, args.exc_value, args.exc_traceback)))
     try:
         code = main()
+    except BaseException:  # noqa: BLE001 - recorded in loki.log, then the process ends
+        logging.basicConfig(filename=str(data_dir() / "loki.log"), level=logging.INFO)
+        logging.exception("Loki stopped with an error")
     finally:
         logging.shutdown()
         for stream in (sys.stdout, sys.stderr):
