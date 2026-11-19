@@ -187,3 +187,8 @@ body.loki-workspace:not(.has-research) #overview > #next-steps-panel { grid-colu
 body.loki-workspace:not(.has-research) #next-steps-panel .steps-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 18px; }
 body.loki-workspace:not(.has-research) #next-steps-panel .steps-list li { border-bottom: 0; }
 @media (max-width: 900px) { body.loki-workspace:not(.has-research) #next-steps-panel .steps-list { grid-template-columns: minmax(0, 1fr); } }
+
+/* Your money · Sure */
+.sure-facts { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--text); font-size: 13px; line-height: 1.6; }
+#my-money .check-row { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 12px; }
+#my-money td small { display: block; margin-top: 2px; }

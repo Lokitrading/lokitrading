@@ -45,12 +45,17 @@
   const NUMBER = /^([^0-9+\-]*)([+\-]?\d[\d,]*(?:\.\d+)?)([\s\S]*)$/;
   const lastValue = new WeakMap();
   const rafFor = new WeakMap();
+  // What this module itself last wrote into a node: its own animation frames must not be taken
+  // for new values (that feedback used to restart the count and leave tiles on a wrong number).
+  const written = new WeakMap();
+  // loki_scene.js counts these; one animator per number, never two fighting over it.
+  const COUNTED_ELSEWHERE = '.metric strong, .pf-stat strong, .pf-metric strong';
   const pending = new Set();
   let flushQueued = false;
 
   function animateMetric(node) {
     const text = (node.textContent || '').trim();
-    if (!text || text.length > 22) return;
+    if (!text || text.length > 22 || written.get(node) === text || node.matches(COUNTED_ELSEWHERE)) return;
     const match = text.match(NUMBER);
     if (!match) {
       lastValue.delete(node);
@@ -77,7 +82,9 @@
       const body = grouped
         ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
         : value.toFixed(decimals);
-      node.textContent = `${prefix}${body}${suffix}`;
+      const out = `${prefix}${body}${suffix}`;
+      written.set(node, out);
+      node.textContent = out;
     };
 
     const step = (now) => {

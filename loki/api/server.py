@@ -58,6 +58,7 @@ from loki.api.indicator_page import router as indicator_page_router
 from loki.api.live_markets import router as live_markets_router
 from loki.api.member_data import router as member_router
 from loki.api.news_desk import router as news_desk_router
+from loki.api.sure_connector import router as sure_router
 from loki.api.feed_status import router as feed_status_router
 from loki.api.polymarket import router as polymarket_router
 from loki.api.polymarket_bot import router as polymarket_bot_router
@@ -98,6 +99,7 @@ for _router in (
     broker_tradovate_router,
     replay_router,
     news_desk_router,
+    sure_router,
     dive_board_router,
     dive_sessions_router,
     revenue_router,

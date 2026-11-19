@@ -463,6 +463,19 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.85: your money from Sure, read by Loki's AI
+
+**Your money · Sure** is a new workspace view. It connects to your own [Sure](https://github.com/we-promise/sure) personal-finance server (Sure is the community fork of Maybe Finance) and shows your net worth, assets, liabilities, accounts and investment holdings.
+- **Loki's reading:** beside every holding Loki follows, the Portfolio AI shows its trend score, its regime, and whether its own simulated book holds it.
+- **Plain facts about your mix:** your largest holding's share, how much is in crypto, how much is in cash, and how many of your holdings are in a downtrend. Readings, never advice.
+- **Read-only:** Loki only sends fixed `GET` requests to Sure's `/api/v1` (balance sheet, accounts, holdings) and never writes to Sure.
+- **Your key stays with you:** the Sure address and API key stay in your browser (in this tab only, unless you tick *Remember on this device*) and go with each read. The server never stores, logs or echoes them.
+- **No reaching inside private networks:** on the website, a Sure server must be on the public internet over https. Private, loopback and reserved addresses are refused and redirects are not followed. The desktop app can also reach a Sure server on your own computer or home network. Cloud-metadata (link-local) addresses are always refused.
+- **Never kept waiting:** if Loki's AI is still warming up, your money shows straight away and the AI reading follows on the next refresh.
+- **Licences:** Loki talks to Sure only over Sure's published API. No Sure code is copied into Loki, so Sure keeps its AGPL-3.0 licence and Loki keeps its own.
+
+**Fixed:** number tiles across the site (`.metric`) could freeze on a wrong number when they changed. Two scripts (aurora.js and loki_scene.js) were both counting the same tile up to its new value, and aurora also mistook its own animation frames for new values. Each tile now has one animator, and aurora ignores the text it wrote itself.
+
 ### 2.84: Loki as a desktop app, and a lighter, faster workspace
 
 **Desktop app.** Loki now installs as an app on Windows and macOS. It shows the same workspace in its own window, and the server and every trading AI run on your computer. See [Desktop app](#desktop-app-windows-and-macos) for download and first-launch steps.
