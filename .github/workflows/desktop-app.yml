@@ -47,6 +47,7 @@ jobs:
         run: python desktop/build.py
 
       - name: Self-test the packaged server (Windows)
+        timeout-minutes: 5
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -54,6 +55,7 @@ jobs:
           Get-Content "$env:LOCALAPPDATA\Loki\loki.log" -Tail 20
           if ($p.ExitCode -ne 0) { throw "packaged app self-test failed ($($p.ExitCode))" }
       - name: Self-test the app window (Windows)
+        timeout-minutes: 5
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -74,12 +76,14 @@ jobs:
           Compress-Archive -Path dist\Loki -DestinationPath out\Loki-Windows-portable.zip
 
       - name: Self-test the packaged server (macOS)
+        timeout-minutes: 5
         if: runner.os == 'macOS'
         run: |
           LOG="$HOME/Library/Application Support/Loki/loki.log"
           dist/Loki.app/Contents/MacOS/Loki --smoke || { tail -40 "$LOG"; exit 1; }
           tail -5 "$LOG"
       - name: Self-test the app window (macOS)
+        timeout-minutes: 5
         if: runner.os == 'macOS'
         run: |
           LOG="$HOME/Library/Application Support/Loki/loki.log"

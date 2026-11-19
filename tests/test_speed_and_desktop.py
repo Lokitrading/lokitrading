@@ -174,3 +174,11 @@ class TestWindowSelfTest:
 
     def test_never_uses_evaluate_js(self):
         assert "evaluate_js(" not in read("desktop/loki_desktop.py")
+
+
+def test_the_app_process_always_ends_when_loki_is_done():
+    """A lingering server worker thread must never keep a closed app (or a self-test) alive."""
+    src = read("desktop/loki_desktop.py")
+    assert "os._exit(code)" in src and 'if __name__ == "__main__":\n    run()' in src
+    flow = read(".github/workflows/desktop-app.yml")
+    assert flow.count("timeout-minutes: 5") == 4  # each self-test fails fast instead of hanging

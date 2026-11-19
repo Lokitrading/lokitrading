@@ -337,5 +337,26 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def run() -> None:
+    """Run and then end the process outright.
+
+    The server leaves worker threads behind (sync request handlers, market-data fetches). On
+    Windows a normal interpreter exit waits on them, so a closed window could leave an invisible
+    Loki running and a self-test could hang. Once Loki is done, nothing else needs to finish.
+    """
+    code = 1
+    try:
+        code = main()
+    finally:
+        logging.shutdown()
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                if stream:
+                    stream.flush()
+            except Exception:  # noqa: BLE001 - no console in a windowed build
+                pass
+        os._exit(code)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    run()
