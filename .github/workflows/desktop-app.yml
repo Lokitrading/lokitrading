@@ -76,13 +76,15 @@ jobs:
       - name: Self-test the packaged server (macOS)
         if: runner.os == 'macOS'
         run: |
-          dist/Loki.app/Contents/MacOS/Loki --smoke
-          tail -20 "$HOME/Library/Application Support/Loki/loki.log"
+          LOG="$HOME/Library/Application Support/Loki/loki.log"
+          dist/Loki.app/Contents/MacOS/Loki --smoke || { tail -40 "$LOG"; exit 1; }
+          tail -5 "$LOG"
       - name: Self-test the app window (macOS)
         if: runner.os == 'macOS'
         run: |
-          dist/Loki.app/Contents/MacOS/Loki --window-check
-          tail -20 "$HOME/Library/Application Support/Loki/loki.log"
+          LOG="$HOME/Library/Application Support/Loki/loki.log"
+          dist/Loki.app/Contents/MacOS/Loki --window-check || { tail -40 "$LOG"; exit 1; }
+          tail -5 "$LOG"
       - name: Build the disk image (macOS)
         if: runner.os == 'macOS'
         run: |

@@ -118,3 +118,59 @@ class TestDesktopApp:
         build = read("desktop/build.py")
         for piece in ('("templates", "templates")', '("static", "static")', '"loki_v8"', '"--windowed"', '"--onedir"'):
             assert piece in build
+
+
+class TestWindowSelfTest:
+    """The window self-test is proved by the requests the page's own scripts make (no eval)."""
+
+    def _fake_webview(self, monkeypatch, browse):
+        calls = {"destroyed": False}
+
+        class Window:
+            def destroy(self):
+                calls["destroyed"] = True
+
+        def create_window(title, url, **kwargs):
+            calls["url"] = url
+            return Window()
+
+        def start(func, **kwargs):
+            import threading
+
+            threading.Thread(target=browse, args=(calls["url"],), daemon=True).start()
+            func()
+
+        monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace(create_window=create_window, start=start))
+        return calls
+
+    def test_passes_once_the_workspace_scripts_have_run(self, launcher, monkeypatch):
+        import urllib.request
+
+        server = launcher.LocalServer(launcher._free_port())
+        server.start()
+
+        def browse(url):  # what the real window does: the page, then the requests its scripts make
+            base = url.split("/#")[0]
+            for path in ("/", "/static/js/workspace.js", "/api/status/feeds", "/api/fusion/research-book"):
+                urllib.request.urlopen(base + path, timeout=30).read()
+
+        try:
+            calls = self._fake_webview(monkeypatch, browse)
+            assert launcher.window_check(server, seconds=30) == 0
+            assert calls["destroyed"] and calls["url"].endswith("/#overview")
+        finally:
+            server.stop()
+
+    def test_fails_when_the_scripts_never_run(self, launcher, monkeypatch):
+        import urllib.request
+
+        server = launcher.LocalServer(launcher._free_port())
+        server.start()
+        try:
+            self._fake_webview(monkeypatch, lambda url: urllib.request.urlopen(url.split("/#")[0] + "/", timeout=30).read())
+            assert launcher.window_check(server, seconds=2) == 4
+        finally:
+            server.stop()
+
+    def test_never_uses_evaluate_js(self):
+        assert "evaluate_js(" not in read("desktop/loki_desktop.py")

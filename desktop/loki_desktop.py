@@ -28,7 +28,7 @@ import time
 import urllib.request
 import webbrowser
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Dict
 
 APP_NAME = "Loki"
 # A fixed port keeps the window's saved data (journals, settings, nickname) under one address
@@ -152,7 +152,16 @@ class LocalServer:
             sys.path.insert(0, str(root))
         from loki.api.server import app
 
-        config = uvicorn.Config(app, host=HOST, port=port, log_level="warning", access_log=False, lifespan="on")
+        # Every path the window has requested: the window self-test reads it, because the page's
+        # security policy rightly forbids the eval() that pywebview's evaluate_js relies on.
+        self.seen: set[str] = set()
+
+        async def watched(scope: Dict[str, Any], receive: Any, send: Any) -> None:
+            if scope.get("type") == "http":
+                self.seen.add(str(scope.get("path", "")))
+            await app(scope, receive, send)
+
+        config = uvicorn.Config(watched, host=HOST, port=port, log_level="warning", access_log=False, lifespan="on")
         self.server = uvicorn.Server(config)
         self.thread = threading.Thread(target=self.server.run, name="loki-server", daemon=True)
         self.url = f"http://{HOST}:{port}"
@@ -245,8 +254,17 @@ def smoke(server: LocalServer) -> int:
     return 0
 
 
-def window_check(server: LocalServer) -> int:
-    """Packaged-app self-test of the real window: Loki's workspace must load and run its scripts."""
+# Requests only the workspace's own scripts make once they have run in the window.
+WINDOW_PROOF = ("/static/js/workspace.js", "/api/status/feeds", "/api/fusion/research-book")
+
+
+def window_check(server: LocalServer, seconds: float = 90.0) -> int:
+    """Packaged-app self-test of the real window: the workspace loads in it and its scripts run.
+
+    Proof comes from the server: the page's scripts, once running in the window, fetch the feed
+    status and the research book. Nothing is read through evaluate_js (it needs eval(), which the
+    workspace's Content-Security-Policy blocks, as it should).
+    """
     import webview
 
     if not server.wait_ready():
@@ -254,31 +272,23 @@ def window_check(server: LocalServer) -> int:
     result = {"code": 4}
     window = webview.create_window(APP_NAME, server.url + "/#overview", width=1280, height=820, background_color="#0b1015")
 
-    def on_loaded() -> None:
-        try:
-            for _ in range(40):  # the deferred scripts finish shortly after the page's load event
-                ready = window.evaluate_js("Boolean(document.querySelector('#overview') && window.LokiWorkspace && document.title)")
-                if ready:
-                    result["code"] = 0
-                    logging.info("window check: workspace loaded (%s)", window.evaluate_js("document.title"))
-                    break
-                time.sleep(0.5)
-        except Exception as error:  # noqa: BLE001 - reported through the exit code
-            logging.error("window check failed: %s", error)
-            result["code"] = 5
-        finally:
-            window.destroy()
-
-    def give_up() -> None:
-        time.sleep(90)
-        logging.error("window check timed out")
+    def watch() -> None:
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            if all(path in server.seen for path in WINDOW_PROOF):
+                result["code"] = 0
+                logging.info("window check: the workspace loaded and its scripts ran")
+                break
+            time.sleep(0.25)
+        else:
+            missing = [p for p in WINDOW_PROOF if p not in server.seen]
+            logging.error("window check timed out; never requested: %s; requested: %s", missing, sorted(server.seen)[:40])
         try:
             window.destroy()
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as error:  # noqa: BLE001 - the window may already be gone
+            logging.warning("window close: %s", error)
 
-    window.events.loaded += on_loaded
-    webview.start(give_up, private_mode=True)
+    webview.start(watch, private_mode=True)
     return result["code"]
 
 
