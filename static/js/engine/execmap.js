@@ -100,12 +100,13 @@
   });
 
   let started = false, running = false, three = null;
+  let wake = () => {}; // restarts the render loop; set once the scene is built
   const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
   async function mount(root) {
     if (!root) return;
     running = true;
-    if (started) return;
+    if (started) { wake(); return; }
     started = true;
     root.innerHTML = `<div class="xm-main">
         <div class="xm-stage" id="xm-stage">
@@ -172,6 +173,7 @@
     let quality = 0; // quality governor: 0 full, 1 lower resolution, 2 no glow pass (stepped down when frames run slow)
     const ratioFor = (q) => Math.min(q === 0 ? (small ? 1.25 : 1.5) : 1, window.devicePixelRatio || 1);
     renderer.setPixelRatio(ratioFor(0));
+    renderer.debug.checkShaderErrors = false; // shaders are fixed; checking each compile only costs time
     renderer.setClearColor(0x050a10, 1);
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
@@ -319,9 +321,14 @@
     let last = performance.now(), slowFor = 0;
     const ease = (cur, goalV, k) => cur + (goalV - cur) * k;
     const IDLE = new T.Color(0x3a4b58); // idle venues and agents are muted grey dots
+    // Full rate while something moves (dragging, flying to a node, comets in flight, a hover);
+    // otherwise 30 frames a second for the slow spin. Nothing at all while the map is off screen.
+    let loop = 0;
+    const busy = () => drag || pinch || goal || hovered || comets.length || queue.length || agentQueue.length;
     function frame(now) {
-      requestAnimationFrame(frame);
-      if (!running || document.hidden) { last = now; return; }
+      if (!running || document.hidden) { loop = 0; return; }
+      loop = requestAnimationFrame(frame);
+      if (!busy() && now - last < 31) return;
       const dt = Math.min(0.05, (now - last) / 1000), time = now / 1000, slow = reduce ? 0.25 : 1; last = now;
       if (goal) { target.lerp(goal.target, 0.06); dist += (goal.dist - dist) * 0.06; if (target.distanceTo(goal.target) < 0.01 && Math.abs(goal.dist - dist) < 0.05) goal = null; }
       if (autoSpin && !drag && !pinch) yaw += dt * 0.05 * slow;
@@ -373,8 +380,10 @@
       if (post) { try { post.render(); } catch (error) { post = null; renderer.setRenderTarget(null); renderer.toneMapping = T.ACESFilmicToneMapping; } }
       else renderer.render(scene, camera);
     }
-    requestAnimationFrame(frame);
+    wake = () => { if (!loop) { last = performance.now(); loop = requestAnimationFrame(frame); } };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+    wake();
   }
 
-  Loki.execmap = { mount, pause() { running = false; if (document.fullscreenElement && document.fullscreenElement.id === 'xm-stage') document.exitFullscreen().catch(() => {}); }, resume() { running = true; }, stats: () => stats };
+  Loki.execmap = { mount, pause() { running = false; if (document.fullscreenElement && document.fullscreenElement.id === 'xm-stage') document.exitFullscreen().catch(() => {}); }, resume() { running = true; wake(); }, stats: () => stats };
 })();

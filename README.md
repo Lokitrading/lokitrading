@@ -166,6 +166,17 @@ The record is served at `GET /api/fusion/ai/evolution`, shown on the AI trading 
 
 ## 4. Run, test and deploy
 
+### Desktop app (Windows and macOS)
+
+Loki also runs as an app on your own computer: the same workspace in its own window, with the server and every trading AI running on the laptop.
+
+- **Download:** the [desktop-latest release](../../releases/tag/desktop-latest) has `Loki-Setup-Windows.exe` (installer, no administrator rights needed), `Loki-Windows-portable.zip` (runs without installing) and `Loki-macOS.dmg` (Apple silicon).
+- **First launch:** the app is not code-signed. On Windows choose *More info → Run anyway*; on macOS open *System Settings → Privacy & Security → Open Anyway*.
+- **Your data** (journals, models you train, settings) is saved in `%LOCALAPPDATA%\Loki` on Windows and `~/Library/Application Support/Loki` on macOS, and is kept when the app updates or is uninstalled. The app listens on `127.0.0.1` only, so nothing is reachable from your network, and it has no access gate.
+- **How it works:** `desktop/loki_desktop.py` starts the FastAPI server in the background and opens it in a native window (Edge WebView2 on Windows, WebKit on macOS); closing the window stops the server. If no native window is available it opens Chrome or Edge as an app window. `--browser` forces that; `--smoke` and `--window-check` are the self-tests the build runs on each packaged app.
+- **Build it yourself** on the OS you want it for: `python -m pip install -r requirements.txt -r desktop/requirements-desktop.txt`, then `python desktop/build.py` (output in `dist/`). The [Desktop app workflow](.github/workflows/desktop-app.yml) does this on Windows and macOS for every change on `main`, tests both apps (the server and the real window), builds the installer and the disk image, and replaces the `desktop-latest` release.
+- **Run from source** without packaging: `python desktop/loki_desktop.py` (add `pywebview` for the native window).
+
 ### Run locally
 
 Requires Python 3.12. From the repository root, on Windows (PowerShell):
@@ -261,6 +272,7 @@ supabase/                SQL to run once in the Supabase project
 .github/workflows/       CI and the scheduled jobs
 *.py (root)              scripts that rebuild the tested records (section 4)
 tools/                   developer tools (code_health.py: the weekly code-health sweep)
+desktop/                 the desktop app: launcher (loki_desktop.py), PyInstaller build, Windows installer
 ```
 
 **`loki/api`, by feature**
@@ -450,6 +462,36 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 ## 7. Release notes
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
+
+### 2.85: your money from Sure, read by Loki's AI
+
+**Your money · Sure** is a new workspace view. It connects to your own [Sure](https://github.com/we-promise/sure) personal-finance server (Sure is the community fork of Maybe Finance) and shows your net worth, assets, liabilities, accounts and investment holdings.
+- **Loki's reading:** beside every holding Loki follows, the Portfolio AI shows its trend score, its regime, and whether its own simulated book holds it.
+- **Plain facts about your mix:** your largest holding's share, how much is in crypto, how much is in cash, and how many of your holdings are in a downtrend. Readings, never advice.
+- **Read-only:** Loki only sends fixed `GET` requests to Sure's `/api/v1` (balance sheet, accounts, holdings) and never writes to Sure.
+- **Your key stays with you:** the Sure address and API key stay in your browser (in this tab only, unless you tick *Remember on this device*) and go with each read. The server never stores, logs or echoes them.
+- **No reaching inside private networks:** on the website, a Sure server must be on the public internet over https. Private, loopback and reserved addresses are refused and redirects are not followed. The desktop app can also reach a Sure server on your own computer or home network. Cloud-metadata (link-local) addresses are always refused.
+- **Never kept waiting:** if Loki's AI is still warming up, your money shows straight away and the AI reading follows on the next refresh.
+- **Licences:** Loki talks to Sure only over Sure's published API. No Sure code is copied into Loki, so Sure keeps its AGPL-3.0 licence and Loki keeps its own.
+
+**Fixed:** number tiles across the site (`.metric`) could freeze on a wrong number when they changed. Two scripts (aurora.js and loki_scene.js) were both counting the same tile up to its new value, and aurora also mistook its own animation frames for new values. Each tile now has one animator, and aurora ignores the text it wrote itself.
+
+### 2.84: Loki as a desktop app, and a lighter, faster workspace
+
+**Desktop app.** Loki now installs as an app on Windows and macOS. It shows the same workspace in its own window, and the server and every trading AI run on your computer. See [Desktop app](#desktop-app-windows-and-macos) for download and first-launch steps.
+- Everything you save goes to your own app-data folder, and local secrets are created once on first launch.
+- The app listens on `127.0.0.1` only.
+- Every build is tested on Windows and macOS before it is published: the packaged server answers, and the real app window loads the workspace.
+
+**Faster and lighter** (measured in a headless browser on the overview and 3D map):
+- **Overview radar:** the dish, rings and labels are drawn once and reused. The sweep runs at 30 frames a second instead of 60, and the radar stops drawing entirely while paused.
+- **Background scene:** runs at 30 frames a second with exactly the same speed of motion, and the cursor glow stops working once it has caught up with the pointer.
+- **3D engine map:**
+  - It renders at 30 frames a second while only the slow spin is moving, and at full rate while you drag, fly to a node or traffic is in flight.
+  - Nothing runs while the map is off screen.
+  - It skips three.js's per-shader error checks.
+- **Shared requests:** when several panels need the same read-only data on load (the radar, the daily briefing and the Portfolio AI all read the portfolio), one request now answers all of them. A shared answer is reused for at most 15 seconds, so periodic refreshes stay fresh.
+- **Compression:** pages, scripts, styles and JSON are gzip-compressed. Answers under 1 KB and the live pump.fun stream are left as they are, so each stream line still arrives at once.
 
 ### 2.83: unused code removed
 

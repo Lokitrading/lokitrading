@@ -1,0 +1,135 @@
+name: Desktop app
+
+# Builds Loki as a desktop app for Windows and macOS, tests each packaged app (the server and the
+# real app window), and on main publishes them to the "desktop-latest" release for download.
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'desktop/**', 'loki/**', 'core/**', 'loki_v8/**', 'third_party/**', 'static/**', 'templates/**', 'requirements.txt', 'loki.ico', '.github/workflows/desktop-app.yml' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'desktop/**', 'requirements.txt', '.github/workflows/desktop-app.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+          - os: macos-latest
+            label: macOS
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements.txt -r desktop/requirements-desktop.txt
+      - name: Read the version
+        id: version
+        shell: bash
+        run: echo "value=$(python -c 'from loki.version import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Package
+        run: python desktop/build.py
+
+      - name: Self-test the packaged server (Windows)
+        timeout-minutes: 5
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\Loki\Loki.exe -ArgumentList '--smoke' -Wait -PassThru
+          Get-Content "$env:LOCALAPPDATA\Loki\loki.log" -Tail 20
+          if ($p.ExitCode -ne 0) { throw "packaged app self-test failed ($($p.ExitCode))" }
+      - name: Self-test the app window (Windows)
+        timeout-minutes: 5
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\Loki\Loki.exe -ArgumentList '--window-check' -Wait -PassThru
+          Get-Content "$env:LOCALAPPDATA\Loki\loki.log" -Tail 20
+          if ($p.ExitCode -ne 0) { throw "app window self-test failed ($($p.ExitCode))" }
+      - name: Build the installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc -ErrorAction SilentlyContinue
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress | Out-Null
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          } else { $iscc = $iscc.Source }
+          & $iscc "/DAppVersion=${{ steps.version.outputs.value }}" "/DSourceDir=$env:GITHUB_WORKSPACE\dist\Loki" "/DOutputDir=$env:GITHUB_WORKSPACE\out" desktop\loki.iss
+          if ($LASTEXITCODE -ne 0) { throw "installer build failed" }
+          Compress-Archive -Path dist\Loki -DestinationPath out\Loki-Windows-portable.zip
+
+      - name: Self-test the packaged server (macOS)
+        timeout-minutes: 5
+        if: runner.os == 'macOS'
+        run: |
+          LOG="$HOME/Library/Application Support/Loki/loki.log"
+          dist/Loki.app/Contents/MacOS/Loki --smoke || { tail -40 "$LOG"; exit 1; }
+          tail -5 "$LOG"
+      - name: Self-test the app window (macOS)
+        timeout-minutes: 5
+        if: runner.os == 'macOS'
+        run: |
+          LOG="$HOME/Library/Application Support/Loki/loki.log"
+          dist/Loki.app/Contents/MacOS/Loki --window-check || { tail -40 "$LOG"; exit 1; }
+          tail -5 "$LOG"
+      - name: Build the disk image (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p out dmg
+          cp -R dist/Loki.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname Loki -srcfolder dmg -ov -format UDZO out/Loki-macOS.dmg
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Loki-${{ matrix.label }}
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish for download
+    needs: build
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.build.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: out
+          merge-multiple: true
+      - name: Replace the desktop-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la out
+          test -n "$(ls out)" || { echo "no packaged app to publish"; exit 1; }
+          gh release delete desktop-latest --yes --cleanup-tag || true
+          gh release create desktop-latest out/* --target "$GITHUB_SHA" --prerelease \
+            --title "Loki desktop app (latest)" \
+            --notes "Loki as an app on your computer: the same workspace in its own window, with the server and the trading AIs running locally. Built from ${GITHUB_SHA::7}.
+
+          Windows: download Loki-Setup-Windows.exe and run it (no administrator rights needed). Windows may say it protected your PC because the app is not code-signed: choose More info, then Run anyway. Loki-Windows-portable.zip runs without installing.
+
+          macOS (Apple silicon): open Loki-macOS.dmg and drag Loki to Applications. The first time, macOS blocks apps that are not notarised: open System Settings, Privacy & Security, and choose Open Anyway.
+
+          Your data is saved on your computer (Windows: %LOCALAPPDATA%\\Loki, macOS: ~/Library/Application Support/Loki) and is kept across updates. Paper trading only unless you connect a broker yourself."

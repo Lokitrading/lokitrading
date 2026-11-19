@@ -33,6 +33,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 
 from loki.version import ASSET_TAG, __version__
 from core.copilot import LokiCopilot
@@ -57,6 +58,7 @@ from loki.api.indicator_page import router as indicator_page_router
 from loki.api.live_markets import router as live_markets_router
 from loki.api.member_data import router as member_router
 from loki.api.news_desk import router as news_desk_router
+from loki.api.sure_connector import router as sure_router
 from loki.api.feed_status import router as feed_status_router
 from loki.api.polymarket import router as polymarket_router
 from loki.api.polymarket_bot import router as polymarket_bot_router
@@ -97,6 +99,7 @@ for _router in (
     broker_tradovate_router,
     replay_router,
     news_desk_router,
+    sure_router,
     dive_board_router,
     dive_sessions_router,
     revenue_router,
@@ -134,6 +137,22 @@ CONTENT_SECURITY_POLICY = "; ".join(
         "base-uri 'self'",
         "form-action 'self'",
     )
+)
+
+
+# Compress pages, scripts, styles and JSON (about a quarter of the bytes on a cold load). The live
+# pump.fun stream (NDJSON) and server-sent events stay uncompressed so each line arrives at once.
+# Registered before the other middleware so it sits next to the routes and sees real response
+# sizes (answers under 1 KB are not worth compressing).
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1024,
+    compresslevel=6,
+    exclude_content_types=(
+        "application/x-ndjson", "text/event-stream", "application/gzip", "application/zip",
+        "image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/x-icon",
+        "image/vnd.microsoft.icon", "font/woff", "font/woff2", "audio/*", "video/*",
+    ),
 )
 
 
