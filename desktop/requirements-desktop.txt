@@ -1,0 +1,6 @@
+# Extra packages for building the desktop app (on top of requirements.txt). Pinned like the rest.
+pyinstaller==6.22.3
+# The app window: Edge WebView2 on Windows, WebKit on macOS.
+pywebview==6.2.1
+# Lets PyInstaller turn the PNG icon into the macOS .icns icon.
+pillow==13.0.0

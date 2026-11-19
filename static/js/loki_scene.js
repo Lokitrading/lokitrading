@@ -104,20 +104,28 @@
       return h * layer.base - v * h * layer.amp;
     }
 
-    function frame() {
+    // Drawn at 30 frames a second; motion is scaled by elapsed time, so it moves exactly as fast
+    // as it did at 60 while costing the laptop half the work.
+    let lastTs = 0;
+    function frame(ts) {
       if (!running) return;
+      raf = requestAnimationFrame(frame);
+      if (lastTs && ts - lastTs < 31) return;
+      const steps = lastTs ? Math.min(4, (ts - lastTs) / (1000 / 60)) : 1;
+      lastTs = ts;
       // Reduced motion still gets a calm, slow drift (a frozen hero read as
       // "broken"); only the parallax and fast particles are switched off.
-      t += reduce ? 0.25 : 1;
+      t += (reduce ? 0.25 : 1) * steps;
       if (!reduce) {
-        mouse.x += (mouse.tx - mouse.x) * 0.05;
-        mouse.y += (mouse.ty - mouse.y) * 0.05;
+        const k = 1 - Math.pow(0.95, steps);
+        mouse.x += (mouse.tx - mouse.x) * k;
+        mouse.y += (mouse.ty - mouse.y) * k;
       }
       ctx.clearRect(0, 0, w, h);
 
       // particles + links
       for (const p of particles) {
-        p.x += reduce ? p.vx * 0.2 : p.vx; p.y += reduce ? p.vy * 0.2 : p.vy;
+        p.x += (reduce ? p.vx * 0.2 : p.vx) * steps; p.y += (reduce ? p.vy * 0.2 : p.vy) * steps;
         if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
         if (p.x < -0.05) p.x = 1.05; if (p.x > 1.05) p.x = -0.05;
       }
@@ -176,7 +184,6 @@
           ctx.beginPath(); ctx.arc(hx + px, hy, 3.5, 0, Math.PI * 2); ctx.fill();
         }
       });
-      raf = requestAnimationFrame(frame);
     }
 
     resize();
@@ -187,12 +194,12 @@
     }, { passive: true });
     document.addEventListener('visibilitychange', () => {
       running = !document.hidden;
-      if (running) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+      if (running) { cancelAnimationFrame(raf); lastTs = 0; raf = requestAnimationFrame(frame); }
     });
     if (!full && 'IntersectionObserver' in window) {
       new IntersectionObserver(([entry]) => {
         running = entry.isIntersecting && !document.hidden;
-        if (running) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+        if (running) { cancelAnimationFrame(raf); lastTs = 0; raf = requestAnimationFrame(frame); }
       }).observe(host);
     }
     if (!full && 'ResizeObserver' in window) new ResizeObserver(resize).observe(host);
@@ -354,9 +361,18 @@
     aura.className = 'loki-aura'; aura.setAttribute('aria-hidden', 'true');
     body.appendChild(aura);
     let ax = -999, ay = -999, tx = -999, ty = -999;
-    document.addEventListener('pointermove', (e) => { tx = e.clientX; ty = e.clientY; }, { passive: true });
-    const follow = () => { ax += (tx - ax) * 0.12; ay += (ty - ay) * 0.12; aura.style.transform = `translate3d(${ax}px,${ay}px,0)`; requestAnimationFrame(follow); };
-    requestAnimationFrame(follow);
+    // The glow eases toward the pointer and stops working once it has caught up.
+    let moving = false;
+    const follow = () => {
+      ax += (tx - ax) * 0.12; ay += (ty - ay) * 0.12;
+      aura.style.transform = `translate3d(${ax}px,${ay}px,0)`;
+      if (Math.abs(tx - ax) + Math.abs(ty - ay) > 0.5) requestAnimationFrame(follow); else moving = false;
+    };
+    document.addEventListener('pointermove', (e) => {
+      tx = e.clientX; ty = e.clientY;
+      if (ax < -900) { ax = tx; ay = ty; }
+      if (!moving) { moving = true; requestAnimationFrame(follow); }
+    }, { passive: true });
   }
 
   /* numbers count to their new value */

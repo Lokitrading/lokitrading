@@ -27,6 +27,11 @@
   let sweep = -Math.PI / 2;
   let last = performance.now();
   let visible = true, raf = 0, hover = null, loadedAt = 0, failed = false;
+  // The dish, rings, spokes and group labels never move: drawn once per size, then copied each frame.
+  let base = null;
+  const FRAME_MS = 1000 / 30; // the sweep is slow; 30 frames a second looks the same and costs half
+  let lastDraw = 0;
+  const widths = new Map(); // label widths never change at a fixed font: measured once each
 
   function resize() {
     const wrap = canvas.parentElement;
@@ -38,6 +43,33 @@
     canvas.style.width = canvas.style.height = size + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     cx = cy = size / 2; R = size / 2 - 22;
+    base = null;
+  }
+
+  function drawBase() {
+    base = document.createElement('canvas');
+    base.width = canvas.width; base.height = canvas.height;
+    const g = base.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const bg = g.createRadialGradient(cx, cy, 0, cx, cy, R + 10);
+    bg.addColorStop(0, 'rgba(26,62,58,.55)'); bg.addColorStop(1, 'rgba(8,16,22,.2)');
+    g.fillStyle = bg; g.beginPath(); g.arc(cx, cy, R + 8, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 1;
+    [0.25, 0.5, 0.75, 1].forEach((f, i) => {
+      g.strokeStyle = `rgba(139,218,212,${i === 3 ? 0.35 : 0.14})`;
+      g.beginPath(); g.arc(cx, cy, R * f, 0, Math.PI * 2); g.stroke();
+    });
+    g.strokeStyle = 'rgba(139,218,212,.08)';
+    for (let a = 0; a < 12; a++) {
+      const ang = (a * Math.PI) / 6;
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R); g.stroke();
+    }
+    g.font = '9px ui-monospace, monospace'; g.textAlign = 'center';
+    for (const grp of GROUPS) {
+      const mid = (((grp.from + grp.to) / 2) * Math.PI) / 180;
+      g.save(); g.translate(cx + Math.cos(mid) * (R + 13), cy + Math.sin(mid) * (R + 13)); g.rotate(mid + Math.PI / 2);
+      g.fillStyle = 'rgba(168,240,198,.6)'; g.fillText(grp.label, 0, 3); g.restore();
+    }
   }
 
   function place(positions) {
@@ -81,30 +113,11 @@
     const paused = instrument && instrument.dataset.paused === 'true';
     // Reduced motion: one calm revolution every ~21 s instead of 5 s.
     if (!paused) sweep += dt * (Math.PI * 2) / (reduce ? 21000 : 5200);
-    ctx.clearRect(0, 0, size, size);
-
-    // dish
-    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R + 10);
-    bg.addColorStop(0, 'rgba(26,62,58,.55)'); bg.addColorStop(1, 'rgba(8,16,22,.2)');
-    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(cx, cy, R + 8, 0, Math.PI * 2); ctx.fill();
-
-    // rings + labels
-    ctx.lineWidth = 1;
-    [0.25, 0.5, 0.75, 1].forEach((f, i) => {
-      ctx.strokeStyle = `rgba(139,218,212,${i === 3 ? 0.35 : 0.14})`;
-      ctx.beginPath(); ctx.arc(cx, cy, R * f, 0, Math.PI * 2); ctx.stroke();
-    });
-    ctx.strokeStyle = 'rgba(139,218,212,.08)';
-    for (let a = 0; a < 12; a++) {
-      const ang = (a * Math.PI) / 6;
-      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R); ctx.stroke();
-    }
-    ctx.font = '9px ui-monospace, monospace'; ctx.textAlign = 'center';
-    for (const g of GROUPS) {
-      const mid = (((g.from + g.to) / 2) * Math.PI) / 180;
-      ctx.save(); ctx.translate(cx + Math.cos(mid) * (R + 13), cy + Math.sin(mid) * (R + 13)); ctx.rotate(mid + Math.PI / 2);
-      ctx.fillStyle = 'rgba(168,240,198,.6)'; ctx.fillText(g.label, 0, 3); ctx.restore();
-    }
+    if (!base) drawBase();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(base, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // sweep trail
     if (ctx.createConicGradient) {
@@ -123,7 +136,9 @@
     const placed = [];
     const label = (text, x, y, color) => {
       ctx.font = '9.5px ui-monospace, monospace'; ctx.textAlign = 'left';
-      const w = ctx.measureText(text).width + 4, h = 11;
+      let w = widths.get(text);
+      if (w === undefined) { w = ctx.measureText(text).width + 4; widths.set(text, w); }
+      const h = 11;
       let lx = x + 7, ly = y - 6;
       for (let tries = 0; tries < 6; tries++) {
         const hit = placed.some((r) => lx < r.x + r.w && lx + w > r.x && ly - h < r.y && ly > r.y - r.h);
@@ -170,12 +185,22 @@
     }
   }
 
+  const isPaused = () => instrument && instrument.dataset.paused === 'true';
   function frame(t) {
+    if (!visible || document.hidden) return;
+    raf = requestAnimationFrame(frame);
+    if (t - lastDraw < FRAME_MS - 2) return;
+    lastDraw = t;
     const dt = Math.min(64, t - last); last = t;
     draw(dt);
-    if (visible && !document.hidden) raf = requestAnimationFrame(frame);
+    // Paused and settled: one last frame is on screen; nothing to animate until it resumes.
+    if (isPaused() && blips.every((b) => Math.abs(b.radius - b.cur) < 0.002)) { cancelAnimationFrame(raf); raf = 0; }
   }
-  function start() { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(frame); }
+  function start() { cancelAnimationFrame(raf); last = performance.now(); lastDraw = 0; raf = requestAnimationFrame(frame); }
+  if (instrument && 'MutationObserver' in window) {
+    new MutationObserver(() => { if (!isPaused() && visible && !document.hidden) start(); })
+      .observe(instrument, { attributes: true, attributeFilter: ['data-paused'] });
+  }
 
   canvas.addEventListener('pointermove', (e) => {
     const r = canvas.getBoundingClientRect();
@@ -188,9 +213,9 @@
     tip.innerHTML = `<b>${esc(hover.symbol)}</b><span>trend score ${esc(hover.score >= 0 ? '+' : '')}${esc(hover.score)}</span>` +
       `<span>${esc((hover.regime || '').replace('_', ' ').toLowerCase() || '—')}</span>` +
       `<span>${hover.held ? `held · ${esc((hover.weight * 100).toFixed(1))}% of book${hover.entry_date ? ` · since ${esc(hover.entry_date)}` : ''}` : 'watching — not in an entry setup'}</span>`;
-    if (reduce) draw(0);
+    if (reduce || !raf) draw(0);
   });
-  canvas.addEventListener('pointerleave', () => { hover = null; tip.hidden = true; });
+  canvas.addEventListener('pointerleave', () => { hover = null; tip.hidden = true; if (!raf) draw(0); });
   canvas.addEventListener('click', () => { if (hover) location.hash = '#live-markets'; });
 
   resize();
