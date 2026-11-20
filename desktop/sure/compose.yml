@@ -1,0 +1,85 @@
+# Sure (https://github.com/we-promise/sure), run beside the Loki desktop app on this computer.
+#
+# The Loki app starts this for you when Docker is installed: it writes this file and a .env with
+# secrets created once on this computer into its app-data folder, then runs
+#   docker compose -p loki-sure up -d
+# Sure is the unmodified official image (AGPL-3.0, its own licence); Loki only talks to it over
+# Sure's API. Everything listens on 127.0.0.1 only, so nothing is reachable from your network.
+# Your Sure data lives in the Docker volumes below and survives restarts and Loki updates.
+
+x-db-env: &db_env
+  POSTGRES_USER: sure_user
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing}
+  POSTGRES_DB: sure_production
+
+x-rails-env: &rails_env
+  <<: *db_env
+  SECRET_KEY_BASE: ${SECRET_KEY_BASE:?missing}
+  ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:?missing}
+  ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:?missing}
+  ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:?missing}
+  SELF_HOSTED: "true"
+  RAILS_FORCE_SSL: "false"
+  RAILS_ASSUME_SSL: "false"
+  DB_HOST: db
+  DB_PORT: 5432
+  REDIS_URL: redis://redis:6379/1
+
+services:
+  web:
+    image: ghcr.io/we-promise/sure:${SURE_IMAGE_TAG:-stable}
+    volumes:
+      - app-storage:/rails/storage
+    ports:
+      - "127.0.0.1:${SURE_PORT:-3000}:3000"
+    restart: unless-stopped
+    environment:
+      <<: *rails_env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/we-promise/sure:${SURE_IMAGE_TAG:-stable}
+    command: bundle exec sidekiq
+    volumes:
+      - app-storage:/rails/storage
+    restart: unless-stopped
+    environment:
+      <<: *rails_env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      <<: *db_env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  app-storage:
+  postgres-data:
+  redis-data:

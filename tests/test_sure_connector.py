@@ -143,3 +143,76 @@ def test_a_slow_ai_never_holds_up_your_money(monkeypatch):
     assert time.monotonic() - started < 2
     monkeypatch.setattr(ai_paper, "ai_portfolio", lambda response: {"positions": POSITIONS})
     assert sc._loki_positions(wait_s=2) == POSITIONS
+
+
+@pytest.mark.parametrize("text,expected", [("$60,000.00", 60000), ("A$1,234.50", 1234.5), ("€1.234,56", 1234.56),
+                                           ("-$12.00", -12), ("177200.0", 177200), (16500000, 16500000),
+                                           ("1.234.567", 1234567), ("$1,234", 1234), ("—", None), (None, None)])
+def test_money_in_any_currency_format(text, expected):
+    """Real Sure sends formatted amounts ("$60,000.00"); every currency's format must parse."""
+    assert sc._num(text) == expected
+
+
+def test_the_local_sure_status_is_only_for_the_desktop_app(monkeypatch):
+    monkeypatch.delenv("LOKI_DESKTOP", raising=False)
+    assert client.get("/api/sure/local").json() == {"desktop": False}
+    monkeypatch.setenv("LOKI_DESKTOP", "1")
+    monkeypatch.setenv("LOKI_SURE_LOCAL", "no-docker")
+    monkeypatch.setenv("LOKI_SURE_LOCAL_URL", "http://127.0.0.1:3000")
+    assert client.get("/api/sure/local").json() == {"desktop": True, "url": "http://127.0.0.1:3000", "state": "no-docker"}
+    monkeypatch.setenv("LOKI_SURE_LOCAL", "starting")
+    monkeypatch.setattr(sc.requests, "get", lambda *a, **k: type("R", (), {"status_code": 200})())
+    assert client.get("/api/sure/local").json()["state"] == "running"
+
+
+class TestSureOnThisComputer:
+    """The desktop app runs Sure beside Loki: settings written once, never shared, Docker optional."""
+
+    @pytest.fixture
+    def local(self):
+        import sys
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(root / "desktop"))
+        try:
+            import sure_local
+        finally:
+            sys.path.remove(str(root / "desktop"))
+        return sure_local, root
+
+    def test_secrets_are_created_once_on_this_computer_and_kept(self, local, tmp_path):
+        sure_local, root = local
+        folder = sure_local.prepare(tmp_path, root)
+        first = (folder / ".env").read_text()
+        for key in sure_local.ENV_KEYS:
+            assert f"{key}=" in first
+        assert (folder / "compose.yml").read_text() == (root / "desktop/sure/compose.yml").read_text()
+        assert sure_local.prepare(tmp_path, root) == folder and (folder / ".env").read_text() == first
+        other = sure_local.prepare(tmp_path / "other", root)
+        assert (other / ".env").read_text() != first  # every computer gets its own
+
+    def test_sure_only_listens_on_this_computer(self, local):
+        _, root = local
+        compose = (root / "desktop/sure/compose.yml").read_text()
+        assert '"127.0.0.1:${SURE_PORT:-3000}:3000"' in compose and "ghcr.io/we-promise/sure" in compose
+        assert "SECRET_KEY_BASE: ${SECRET_KEY_BASE:?missing}" in compose  # never a shared default secret
+
+    def test_without_docker_loki_says_so_and_carries_on(self, local, tmp_path, monkeypatch):
+        sure_local, root = local
+        monkeypatch.setattr(sure_local, "answering", lambda *a, **k: False)
+        monkeypatch.setattr(sure_local, "docker_ready", lambda: None)
+        assert sure_local.start(tmp_path, root) == "no-docker"
+        monkeypatch.setenv("LOKI_SURE", "0")
+        assert sure_local.start(tmp_path, root) == "off"
+
+    def test_with_docker_it_starts_the_official_image(self, local, tmp_path, monkeypatch):
+        sure_local, root = local
+        calls = []
+        monkeypatch.setattr(sure_local, "answering", lambda *a, **k: False)
+        monkeypatch.setattr(sure_local, "docker_ready", lambda: "docker")
+        monkeypatch.setattr(sure_local, "_run", lambda args, cwd=None, timeout=30: calls.append((args, cwd)) or
+                            type("D", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+        assert sure_local.start(tmp_path, root) == "starting"
+        args, cwd = calls[0]
+        assert args[:4] == ["docker", "compose", "-p", "loki-sure"] and args[-2:] == ["up", "-d"] and cwd == tmp_path / "sure"

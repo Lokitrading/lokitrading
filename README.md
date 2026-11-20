@@ -463,6 +463,20 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.86: Loki and Sure as one app on your computer
+
+**The desktop app now runs Sure alongside Loki.** If Docker Desktop is installed and running, opening Loki starts [Sure](https://github.com/we-promise/sure) (personal finance) in the background, and "Your money" connects to it.
+- **What the app does:**
+  - copies `desktop/sure/compose.yml` (Sure's web app, worker, Postgres and Redis) into Loki's app-data folder;
+  - writes a `.env` next to it with secrets created once on your computer, readable only by you: Sure's `SECRET_KEY_BASE`, the database password and its three encryption keys;
+  - runs `docker compose -p loki-sure up -d`.
+- **Sure stays private and separate:** Sure listens on `127.0.0.1:3000` only and runs from its official, unmodified image, so it keeps its own AGPL-3.0 licence. Loki talks to it only over its API.
+- **Your Sure data** lives in Docker volumes and survives restarts and Loki updates. Closing Loki leaves Sure running, so it is ready next time. To stop it, run `docker compose -p loki-sure down` in that `sure` folder. Set `LOKI_SURE=0` to never start it.
+- **The "Your money" page shows Sure's state:** running (with an **Open Sure** button for first-time setup: create your account, then Settings → API key), starting (the first start downloads about 2 GB), Docker not installed (with a link to Docker Desktop), or failed. In the app it fills in Sure's address for you.
+- **Real amounts now parse in any currency:** Sure sends formatted amounts such as "$60,000.00", and they are now read correctly in every currency format ("€1.234,56", "A$1,234.50", "-$12.00").
+- **Fixed:** while Loki's AI was warming up, the page wrongly said none of your holdings were followed.
+- **Tested against real Sure:** the launcher set Sure up from an empty data folder, then Loki read a seeded account through Sure's API: net worth $177,200, three accounts, three holdings, with the AI's trend reading beside SPY and NVDA.
+
 ### 2.85: your money from Sure, read by Loki's AI
 
 **Your money · Sure** is a new workspace view. It connects to your own [Sure](https://github.com/we-promise/sure) personal-finance server (Sure is the community fork of Maybe Finance) and shows your net worth, assets, liabilities, accounts and investment holdings.
