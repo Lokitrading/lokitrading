@@ -240,6 +240,25 @@ def run_window(server: LocalServer | None, url: str, base: Path, icon: Path | No
     return True
 
 
+def start_sure(base: Path) -> None:
+    """Start Sure (personal finance) beside Loki in the background, when Docker is available."""
+    import sure_local
+
+    os.environ["LOKI_SURE_LOCAL_URL"] = sure_local.URL
+    os.environ["LOKI_SURE_LOCAL"] = "checking"
+
+    def go() -> None:
+        try:
+            state = sure_local.start(base, bundle_root())
+        except Exception as error:  # noqa: BLE001 - Loki works without Sure
+            logging.error("Sure start failed: %s", error)
+            state = "failed"
+        os.environ["LOKI_SURE_LOCAL"] = state
+        logging.info("Sure on this computer: %s", state)
+
+    threading.Thread(target=go, name="sure-start", daemon=True).start()
+
+
 def smoke(server: LocalServer) -> int:
     """Packaged-app self-test: the server starts and the workspace, a script and an AI read answer."""
     if not server.wait_ready():
@@ -321,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{HOST}:{port}"
     if server is not None:
         server.start()
+    start_sure(base)
     icon = bundle_root() / ("loki.ico" if sys.platform == "win32" else "static/favicon.png")
     try:
         if args.browser or not run_window(server, url, base, icon):

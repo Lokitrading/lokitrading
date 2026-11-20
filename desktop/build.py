@@ -22,6 +22,7 @@ def main() -> int:
         ("templates", "templates"),
         ("static", "static"),
         ("loki.ico", "."),
+        ("desktop/sure/compose.yml", "desktop/sure"),
     ]
     data += [(str(p.relative_to(ROOT)), "loki_v8") for p in sorted((ROOT / "loki_v8").glob("*.json"))]
     icon = ROOT / ("loki.ico" if sys.platform != "darwin" else "static/favicon.png")

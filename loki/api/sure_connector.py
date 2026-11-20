@@ -131,12 +131,33 @@ def _pages(base: str, key: str, path: str, field: str, params: Optional[Dict[str
 
 
 def _num(value: Any) -> Optional[float]:
-    if value is None:
+    """A number from Sure's JSON: plain numbers, or formatted money such as "$60,000.00",
+    "A$1,234.50", "€1.234,56" or "-$12.00" (Sure formats amounts in the account's currency)."""
+    if value is None or isinstance(value, bool):
         return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    negative = text.startswith("-") or text.startswith("(") or "-" in text[:3]
+    digits = "".join(ch for ch in text if ch.isdigit() or ch in ".,")
+    if not any(ch.isdigit() for ch in digits):
+        return None
+    last_dot, last_comma = digits.rfind("."), digits.rfind(",")
+    if last_dot >= 0 and last_comma >= 0:  # both: the later one is the decimal mark
+        decimal = "." if last_dot > last_comma else ","
+    elif last_comma >= 0:  # only commas: a decimal mark when 1-2 digits follow the last one
+        decimal = "," if len(digits) - last_comma - 1 in (1, 2) and digits.count(",") == 1 else ""
+    else:
+        decimal = "." if digits.count(".") == 1 else ""
+    thousands = {".", ","} - {decimal}
+    cleaned = "".join(ch for ch in digits if ch not in thousands)
+    if decimal == ",":
+        cleaned = cleaned.replace(",", ".")
     try:
-        return float(str(value).replace(",", "").replace("$", ""))
+        number = float(cleaned)
     except ValueError:
         return None
+    return -number if negative else number
 
 
 def latest_holdings(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -213,7 +234,7 @@ def analyse(sheet: Dict[str, Any], accounts: List[Dict[str, Any]], holdings: Lis
         held = [r["loki"]["symbol"] for r in covered_rows if r["loki"]["ai_holds"]]
         if held:
             facts.append("Loki's Portfolio AI also holds " + ", ".join(sorted(set(held))) + " in its own simulated book.")
-    elif rows:
+    elif rows and positions:
         facts.append("None of your holdings are in the 21 markets Loki's AI follows, so it has no reading for them.")
 
     def money(block: Any) -> Optional[float]:
@@ -258,6 +279,23 @@ def _loki_positions(wait_s: float = AI_WAIT_S) -> List[Dict[str, Any]]:
     worker.join(wait_s)
     plan = box.get("plan")
     return list(plan.get("positions") or []) if isinstance(plan, dict) else []
+
+
+@router.get("/local")
+def sure_local(response: Response) -> Dict[str, Any]:
+    """In the desktop app: is Sure running on this computer, and where? (The app starts it.)"""
+    response.headers["Cache-Control"] = "no-store"
+    if os.environ.get("LOKI_DESKTOP") != "1":
+        return {"desktop": False}
+    url = os.environ.get("LOKI_SURE_LOCAL_URL") or ""
+    state = os.environ.get("LOKI_SURE_LOCAL") or "off"
+    if url and state in ("checking", "starting", "running"):
+        try:
+            up = requests.get(url + "/up", timeout=1.5, allow_redirects=False).status_code == 200
+        except requests.RequestException:
+            up = False
+        state = "running" if up else ("starting" if state != "checking" else "checking")
+    return {"desktop": True, "url": url or None, "state": state}
 
 
 @router.get("/overview")

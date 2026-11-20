@@ -99,8 +99,35 @@
   });
 
   if (creds) { $('sure-url').value = creds.url; $('sure-remember').checked = creds.remembered; setConnected(false); }
+  // Desktop app: Sure runs on this computer beside Loki (the app starts it with Docker).
+  let localTimer = 0;
+  async function checkLocal() {
+    let info;
+    try { info = await (await fetch('/api/sure/local', { cache: 'no-store' })).json(); } catch { return; }
+    const box = $('sure-local');
+    if (!info || !info.desktop) { box.hidden = true; return; }
+    const open = info.url ? `<a class="button secondary" href="${esc(info.url)}" target="_blank" rel="noopener noreferrer">Open Sure ↗</a>` : '';
+    const text = {
+      running: `<strong>Sure is running on this computer.</strong> First time? Open Sure, create your account and add your accounts, then go to Settings → API key, create a read key and paste it below.`,
+      starting: `<strong>Sure is starting on this computer…</strong> The first start downloads about 2 GB, so it can take several minutes. This note updates by itself.`,
+      checking: `<strong>Looking for Sure on this computer…</strong>`,
+      'no-docker': `<strong>Sure can run inside Loki on this computer.</strong> Install <a class="text-link" href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener noreferrer">Docker Desktop</a>, start it, then reopen Loki; it sets Sure up for you. Or connect a Sure server you already run.`,
+      failed: `<strong>Sure could not start on this computer.</strong> Check that Docker Desktop is running, then reopen Loki. Details are in loki.log in Loki's data folder.`,
+      off: `Sure on this computer is turned off (LOKI_SURE=0). You can still connect any Sure server.`,
+    }[info.state] || '';
+    box.innerHTML = `<p>${text}</p>${info.state === 'running' ? open : ''}`;
+    box.hidden = !text;
+    if (info.url && !$('sure-url').value) $('sure-url').value = info.url;
+    clearTimeout(localTimer);
+    if (['starting', 'checking'].includes(info.state)) localTimer = setTimeout(checkLocal, 10000);
+  }
+
   let loaded = false;
-  const onView = () => { if (location.hash === '#my-money' && creds && !loaded) { loaded = true; load(); } };
+  const onView = () => {
+    if (location.hash !== '#my-money') return;
+    checkLocal();
+    if (creds && !loaded) { loaded = true; load(); }
+  };
   window.addEventListener('hashchange', onView);
   onView();
 })();
