@@ -582,6 +582,44 @@ def evolution_answer() -> str:
     return "\n".join(lines)
 
 
+_MEMORY_Q = re.compile(r"\b(what (have|did) (you|it|loki|the ai) (learn\w*|study\w*)|lessons?|(your|its|the ai'?s?) (memory|mistakes?)|"
+                       r"learn\w* from (your|its) mistakes?|what mistakes|remember(ed)? (any|what)|weak spots?|study(ing)? by (yourself|itself))\b", re.I)
+
+
+def memory_answer() -> str:
+    """What Loki's memory has learned: graded decisions, lessons, and whether any are proven."""
+    try:
+        from loki.api import ai_paper
+
+        m = ai_paper._memory_study(ai_paper._portfolio_inputs())
+    except Exception:  # noqa: BLE001 - markets unreachable: say so
+        return "My memory needs fresh market data to study, and the feeds aren't answering right now. Try again in a minute."
+    les, proof, form = m.get("lessons") or {}, m.get("proof") or {}, m.get("form") or {}
+    o = les.get("overall") or {}
+    v = m.get("verdicts") or {}
+    lines = [f"I remember {m.get('remembered', 0)} of my Portfolio AI decisions from {m.get('from')} to {m.get('to')} and grade each "
+             f"one a week later. Of {m.get('graded', 0)} graded: {v.get('right', 0)} right, {v.get('mistake', 0)} mistakes "
+             f"(held and it fell), {v.get('missed', 0)} missed moves."]
+    if o.get("n"):
+        lines.append(f"When I held a market I was right {o['right_pct']:.0f}% of the time, average week {o['mean_fwd_pct']:+.2f}%.")
+    for w in (les.get("weak_spots") or [])[:2]:
+        lines.append("• Weak spot — " + w["lesson"])
+    for w in (les.get("strong_spots") or [])[:2]:
+        lines.append("• Strong spot — " + w["lesson"])
+    if form.get("status") in ("improving", "slipping", "steady"):
+        lines.append(f"Lately I'm {form['status']}: right {form['recent']['right_pct']:.0f}% of my last {form['recent']['n']} held "
+                     f"decisions vs {form['before']['right_pct']:.0f}% before.")
+    status = proof.get("status")
+    if status == "proven":
+        lines.append("I've proven a lesson on decisions it wasn't learned from, so I now hold half as much of: " +
+                     ", ".join(proof.get("adopted") or []) + ".")
+    else:
+        lines.append("I don't act on a lesson until it's proven on later decisions it wasn't learned from — "
+                     f"right now: {proof.get('why') or status}")
+    lines.append("Full memory: AI trading → Loki's memory. " + FOOTER)
+    return "\n".join(lines)
+
+
 _PORTFOLIO_Q = re.compile(r"\b(portfolio ai|portfolio|all (the )?markets|what (is|are) (the ai|you|it) (holding|buying|in)|holdings|allocation|what changed|this week|how is the ai doing|ai doing|self.?check|health)\b", re.I)
 
 
@@ -883,6 +921,8 @@ def _answer(msg: str, name: str, allow_data: bool, last_symbol: Optional[str] = 
         return {"intent": "game", "text": GAME_TEXT}
     if re.search(r"\b(day ?trad\w*|intraday|scalp\w*)\b", low) and not symbols:
         return {"intent": "daytrade", "text": daytrade_answer()}
+    if allow_data and _MEMORY_Q.search(msg) and not symbols:
+        return {"intent": "memory", "text": memory_answer()}
     if allow_data and _PORTFOLIO_Q.search(msg) and not symbols and not re.search(r"\bmy\b", low):
         return {"intent": "portfolio", "text": portfolio_answer()}
     if _EVOLVE.search(msg) and not symbols and re.search(r"\b(ai|loki|you|model|bot|strategy|it)\b", low):

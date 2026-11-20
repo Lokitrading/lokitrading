@@ -26,6 +26,7 @@ import json
 import logging
 import math
 import threading
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -539,6 +540,48 @@ def _portfolio_inputs() -> Dict[str, Any]:
     return inputs
 
 
+_MEMORY_CACHE: Dict[str, Any] = {}
+_MEMORY_TTL_SECONDS = 1800
+
+
+def _memory_study(inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """Loki's memory study (loki_v8/mind.py) on the same sleeves the plan uses, cached per input set."""
+    from loki_v8 import mind
+
+    key = id(inputs)
+    with _PORTFOLIO_LOCK:
+        hit = _MEMORY_CACHE.get("study")
+    if hit and hit[0] == key and time.time() - hit[1] < _MEMORY_TTL_SECONDS:
+        cached: Dict[str, Any] = hit[2]
+        return cached
+    result = mind.study(inputs["sleeves"])
+    with _PORTFOLIO_LOCK:
+        _MEMORY_CACHE["study"] = (key, time.time(), result)
+    return result
+
+
+def _apply_memory(alloc: Dict[str, Any], study: Dict[str, Any]) -> Dict[str, Any]:
+    """Proven lessons only: a held weak-spot setup keeps half its weight. Unproven lessons change nothing."""
+    from loki_v8 import mind
+
+    proof = study.get("proof") or {}
+    adopted = list(proof.get("adopted") or []) if proof.get("status") == "proven" else []
+    cautioned = []
+    if adopted:
+        for row in alloc.get("positions", []):
+            group = mind.caution_for(row, adopted)
+            if group and row.get("weight", 0) > 0:
+                row["weight"] = round(row["weight"] * mind.CAUTION, 5)
+                row["memory_caution"] = group
+                cautioned.append({"symbol": row.get("symbol"), "lesson": group})
+        gross = round(sum(r.get("weight", 0) for r in alloc.get("positions", [])), 4)
+        alloc["gross"], alloc["cash"] = gross, round(1.0 - gross, 4)
+        if alloc.get("cash_parking"):
+            alloc["cash_parking"]["weight"] = round(max(0.0, 1.0 - gross), 5)
+    alloc["memory"] = {"status": proof.get("status"), "adopted": adopted, "cautioned": cautioned}
+    return alloc
+
+
 def _portfolio_plan(risk: str = DEFAULT_RISK) -> Dict[str, Any]:
     """Replay every market's verified profile to the latest completed bar, at one risk level."""
     from loki_v8 import portfolio_ai
@@ -551,6 +594,10 @@ def _portfolio_plan(risk: str = DEFAULT_RISK) -> Dict[str, Any]:
     is_default = not level or bool(level.get("default"))
     book = portfolio_ai.combine(sleeves, target, vol_window=block.get("vol_window"), cash_yield=inputs["cash_yield"])
     alloc = portfolio_ai.allocation(sleeves, book, inputs["prices"])
+    try:
+        alloc = _apply_memory(alloc, _memory_study(inputs))
+    except Exception as exc:  # noqa: BLE001 - the plan stands without the memory
+        logger.warning("memory study failed: %s", exc.__class__.__name__)
     recent = portfolio_ai.window_stats(book["returns"], str(book["returns"].index[-260].date()), "2100-01-01")
     reference = (block.get("expected_range") if is_default else level.get("expected_range")) or {}
     health = portfolio_ai.health(book["returns"], reference)
@@ -583,6 +630,75 @@ def _portfolio_plan(risk: str = DEFAULT_RISK) -> Dict[str, Any]:
             "Paper money only — never advice."
         ),
     }
+
+
+def _journal(inputs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Desktop app only: a permanent journal of the live decisions, kept on this computer.
+
+    The replayed memory is rebuilt from prices each time; the journal is what the AI actually decided
+    each day, kept across rule changes, and graded as the days pass.
+    """
+    import json
+    from pathlib import Path
+
+    from loki_v8 import mind
+
+    base = os.environ.get("LOKI_DATA_DIR")
+    if os.environ.get("LOKI_DESKTOP") != "1" or not base:
+        return None
+    path = Path(base) / "mind_journal.json"
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    except (OSError, ValueError):
+        entries = []
+    seen = {(e.get("d"), e.get("s")) for e in entries}
+    added = 0
+    for symbol, sl in inputs["sleeves"].items():
+        state = sl.get("state") or {}
+        day = state.get("as_of")
+        if not day or (day, symbol) in seen or not state.get("last_close"):
+            continue
+        expo = float(sl["exposure"].iloc[-1]) if len(sl["exposure"]) else 0.0
+        entries.append({"d": day, "s": symbol, "held": expo > 0, "w": round(expo, 4), "score": state.get("score"),
+                        "regime": state.get("regime"), "px": state["last_close"]})
+        added += 1
+    entries = entries[-20000:]
+    if added:
+        try:
+            path.write_text(json.dumps(entries, separators=(",", ":")), encoding="utf-8")
+        except OSError as exc:
+            logger.warning("memory journal not saved: %s", exc.__class__.__name__)
+    closes = {s: v["close"] for s, v in inputs["sleeves"].items() if v.get("close") is not None}
+    graded = mind.grade(entries, closes)
+    done = [g for g in graded if g["verdict"] != "pending"]
+    return {"decisions": len(entries), "graded": len(done), "since": entries[0]["d"] if entries else None,
+            "lessons": mind.lessons(graded) if done else None}
+
+
+def _evolution_summary() -> Dict[str, Any]:
+    import json
+
+    try:
+        data = json.loads(_EVOLUTION_LOG.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    gens = data.get("generations") or []
+    return {"generations": len(gens), "promotions": len(data.get("promotions") or []),
+            "latest": ({"date": gens[-1].get("date"),
+                        "equity": (gens[-1].get("equity") or {}).get("reason"),
+                        "crypto": (gens[-1].get("crypto") or {}).get("reason")} if gens else None)}
+
+
+@router.get("/memory")
+def ai_memory(response: Response) -> Dict[str, Any]:
+    """Loki's memory: remembered decisions, how they turned out, lessons, and whether any are proven."""
+    _private_response(response)
+    inputs = _portfolio_inputs()
+    study = dict(_memory_study(inputs))
+    study["journal"] = _journal(inputs)
+    study["evolution"] = _evolution_summary()
+    study["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return study
 
 
 @router.get("/portfolio")

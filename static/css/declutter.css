@@ -192,3 +192,11 @@ body.loki-workspace:not(.has-research) #next-steps-panel .steps-list li { border
 .sure-facts { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--text); font-size: 13px; line-height: 1.6; }
 #my-money .check-row { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 12px; }
 #my-money td small { display: block; margin-top: 2px; }
+
+/* Loki's memory */
+.mind-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin: 14px 0 18px; background: rgba(148, 190, 220, .08); }
+.mind-bar span { display: block; height: 100%; }
+.mind-bar .ok { background: var(--accent, #a8f0c6); } .mind-bar .bad { background: var(--red, #ffb1a5); } .mind-bar .miss { background: var(--amber, #ecd499); }
+.mind-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 16px; }
+.mind-list { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: 12.5px; line-height: 1.6; }
+@media (max-width: 760px) { .mind-grid { grid-template-columns: minmax(0, 1fr); } }
