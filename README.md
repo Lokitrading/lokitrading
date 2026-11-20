@@ -463,6 +463,27 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.87: Loki's memory, self-study and learning from mistakes
+
+The **Loki's memory** panel (AI trading → Portfolio) shows a memory that studies itself (`loki_v8/mind.py`, `GET /api/fusion/ai/memory`). Four steps:
+1. **Remember.** Every 5 trading days over the last ~2 years, each of the 21 markets' decisions (held it or stayed out) is recorded, with the trend score, regime and price the AI saw that day, and nothing it could not have known then.
+2. **Grade.** Five trading days later, every decision is marked against the real price: *right*, *mistake* (held and it fell) or *missed move* (stayed out of a big rise).
+3. **Learn lessons.** Mistakes are grouped by the conditions the AI saw: regime, trend-score band, kind of market, and regime × kind. A group with 25+ graded decisions that is right at least 8 points less often than average and loses money becomes a *weak spot*. One that clearly beats the average becomes a *strong spot*. Most-missed markets and recent form (getting better or worse) are tracked too.
+4. **Prove before acting.** Weak spots are learned from the earlier 60% of decisions only and judged on the later 40% they never saw.
+   - **Adopted** only if holding half of them would have made more money on those later decisions and beaten 90% of 60 randomly relabelled groups. An adopted lesson halves that setup's weight in the live plan, and the allocation is marked "half size".
+   - **Otherwise** a lesson is shown and never used. A filter that chases its own past mistakes without this check overfits and loses money.
+
+**Where else it shows up:**
+- **Talk to Loki** answers from its memory ("what have you learned?", "what mistakes did you make?").
+- **The desktop app** also keeps a permanent journal of the live decisions on your computer (`mind_journal.json` in the app-data folder). It is graded as the days pass and kept across rule changes.
+
+**Alongside the existing self-evolution:** every week the AI still competes against challenger versions of itself, and the learn-from-mistakes filter is retrained on every closed trade.
+
+**Honest current reading** (cached data to mid-November 2026):
+- 2,184 decisions remembered; when holding, right 53% of the time, with an average week of +0.21%.
+- The latest 60 held decisions are flagged as **slipping** (30% right).
+- Weak spot: crypto in a bull regime was right 33–36% of the time. It did **not** hold up on later decisions, so it is shown and not used.
+
 ### 2.86: Loki and Sure as one app on your computer
 
 **The desktop app now runs Sure alongside Loki.** If Docker Desktop is installed and running, opening Loki starts [Sure](https://github.com/we-promise/sure) (personal finance) in the background, and "Your money" connects to it.

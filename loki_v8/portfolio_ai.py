@@ -116,7 +116,20 @@ def run_sleeve(df: pd.DataFrame, params: Dict[str, Any], symbol: str) -> Dict[st
     except Exception:  # noqa: BLE001 - presentation extra only
         state["regime"] = None
     state["as_of"] = str(norm[-1].date())
-    return {"symbol": symbol, "returns": returns, "exposure": exposure, "state": state}
+    # Daily history the memory (loki_v8/mind.py) studies: each value uses only bars up to that day.
+    hist_close = close.copy()
+    hist_close.index = norm.normalize()
+    hist_score = frame["score"].reindex(idx) if "score" in frame.columns else pd.Series(np.nan, index=idx)
+    hist_score.index = norm.normalize()
+    try:
+        from .regime import regime_series
+
+        hist_regime = regime_series(frame).reindex(idx)
+        hist_regime.index = norm.normalize()
+    except Exception:  # noqa: BLE001 - the memory then groups without regimes
+        hist_regime = None
+    return {"symbol": symbol, "returns": returns, "exposure": exposure, "state": state,
+            "close": hist_close, "score": hist_score, "regime": hist_regime}
 
 
 def combine(sleeves: Dict[str, Dict[str, Any]], target_vol_pct: float, warmup: int = 300,

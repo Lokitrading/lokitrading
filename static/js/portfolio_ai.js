@@ -235,7 +235,8 @@
       return `<div class="pf-row${held ? '' : ' idle'}"><span class="pf-sym">${esc(p.symbol)}</span>` +
         `<span class="pf-bar"><i style="width:${(p.weight / max) * 100}%"></i></span>` +
         `<span class="pf-w">${held ? w.toFixed(1) + '%' : 'cash'}</span>` +
-        `<span class="pf-meta">${held ? `since ${esc(p.entry_date)} · ${pct(p.unrealized_pct)}` : 'no uptrend'}</span></div>`;
+        `<span class="pf-meta">${held ? `since ${esc(p.entry_date)} · ${pct(p.unrealized_pct)}` : 'no uptrend'}` +
+        `${p.memory_caution ? ` · <span class="negative" title="A lesson proven on decisions it was not learned from">half size: ${esc(p.memory_caution)}</span>` : ''}</span></div>`;
     }).join('');
     $('pf-alloc').innerHTML = donut() + rows + `<div class="pf-row total"><span class="pf-sym">CASH</span><span class="pf-bar"><i style="width:${(plan.cash / Math.max(max, plan.cash)) * 100}%;background:#5b6b78"></i></span><span class="pf-w">${(plan.cash * 100).toFixed(1)}%</span><span class="pf-meta">${plan.active_markets} markets watched${plan.missing_markets && plan.missing_markets.length ? ` · ${plan.missing_markets.length} feed(s) missing` : ''}</span></div>`;
   }
