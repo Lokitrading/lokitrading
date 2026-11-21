@@ -70,7 +70,7 @@ def _norm(kind: Any) -> str:
 
 
 def evaluate(report: Optional[Dict[str, Any]], chain: Optional[Dict[str, Any]],
-             limits: ShieldLimits = ShieldLimits()) -> Dict[str, Any]:
+             limits: ShieldLimits = ShieldLimits(), stream_top10_pct: Optional[float] = None) -> Dict[str, Any]:
     """Pure decision from RugCheck's report and the on-chain authorities."""
     checks: List[Dict[str, Any]] = []
 
@@ -96,13 +96,18 @@ def evaluate(report: Optional[Dict[str, Any]], chain: Optional[Dict[str, Any]],
         top10 = sum(float(h.get("pct") or 0) for h in real[:10])
         add("top-10 holders below limit", top10 <= limits.max_top10_pct,
             f"top 10 real wallets hold {top10:.1f}% (limit {limits.max_top10_pct:g}%; pools and programs excluded)")
+    elif stream_top10_pct is not None and not (rep.get("markets") or []):
+        # A launch only seconds old is not indexed yet; on the bonding curve, the live trade stream
+        # shows every buy, so its holder shares are complete for this token.
+        add("top-10 holders below limit", stream_top10_pct <= limits.max_top10_pct,
+            f"top 10 buyers hold {stream_top10_pct:.1f}% (live trade stream; limit {limits.max_top10_pct:g}%)")
     else:
         add("top-10 holders below limit", False, "holder list unavailable, so concentration cannot be checked")
 
     markets = rep.get("markets") or []
     lp_markets = [m for m in markets if _norm(m.get("marketType")) not in CL_POOLS and _norm(m.get("marketType")) not in CURVE_PROGRAMS]
     liquidity = float(rep.get("totalMarketLiquidity") or 0)
-    on_curve = not markets and _norm(rep.get("launchpad", {}).get("name") if isinstance(rep.get("launchpad"), dict) else rep.get("launchpad")) in CURVE_PROGRAMS
+    on_curve = not markets and (stream_top10_pct is not None or _norm(rep.get("launchpad", {}).get("name") if isinstance(rep.get("launchpad"), dict) else rep.get("launchpad")) in CURVE_PROGRAMS)
     if lp_markets:
         biggest = max(lp_markets, key=lambda m: float((m.get("lp") or {}).get("lpLockedUSD") or (m.get("lp") or {}).get("quoteUSD") or 0))
         locked = float((biggest.get("lp") or {}).get("lpLockedPct") or 0)
@@ -125,14 +130,18 @@ def evaluate(report: Optional[Dict[str, Any]], chain: Optional[Dict[str, Any]],
     return {"ok": not blocked, "checks": checks, "blocked_by": blocked}
 
 
-def check(mint: str, limits: ShieldLimits = ShieldLimits(), now: Optional[float] = None) -> Dict[str, Any]:
+def check(mint: str, limits: ShieldLimits = ShieldLimits(), now: Optional[float] = None,
+          stream_top10_pct: Optional[float] = None) -> Dict[str, Any]:
     """Run the shield for one mint (cached briefly so a burst of signals does not re-query)."""
     now = time.time() if now is None else now
-    hit = _cache.get(mint)
+    hit = _cache.get(mint) if stream_top10_pct is None else None
     if hit and now - hit[0] < CACHE_S:
         out: Dict[str, Any] = hit[1]
         return out
-    result = evaluate(rugcheck_report(mint), onchain_authorities(mint), limits)
+    chain = onchain_authorities(mint)
+    result = evaluate(rugcheck_report(mint), chain, limits, stream_top10_pct)
+    if chain is not None:
+        result["decimals"] = chain.get("decimals")
     result["mint"] = mint
     _cache[mint] = (now, result)
     return result

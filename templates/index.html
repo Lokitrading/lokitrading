@@ -36,6 +36,7 @@
       <a class="active" href="#overview" data-view="overview" aria-current="page"><svg class="ui-icon" aria-hidden="true"><use href="#icon-grid"/></svg> Overview</a>
       <a href="#command" data-view="command"><svg class="ui-icon" aria-hidden="true"><use href="#icon-sliders"/></svg> Command center</a>
       <p class="nav-group">Trade</p>
+      <a href="#terminal" data-view="terminal"><svg class="ui-icon" aria-hidden="true"><use href="#icon-spark"/></svg> Memecoin terminal</a>
       <a href="#ai-trading" data-view="ai-trading"><svg class="ui-icon" aria-hidden="true"><use href="#icon-spark"/></svg> AI trading</a>
       <a href="#trade" data-view="trade"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow"/></svg> Trade</a>
       <a href="#portfolio" data-view="portfolio"><svg class="ui-icon" aria-hidden="true"><use href="#icon-wallet"/></svg> Paper portfolio</a>
@@ -64,6 +65,32 @@
     <div id="loki-ticker" class="loki-ticker" hidden aria-label="Live market prices"></div>
     <header class="topbar"><span class="breadcrumb">Workspace <span class="slash">/</span> <strong id="page-name">Overview</strong></span><div class="topbar-status"><button class="palette-chip" id="open-palette" type="button" aria-haspopup="dialog" aria-controls="command-palette" aria-label="Open the command palette (Control or Command K)"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"/></svg><span class="search-label">Quick search</span><kbd>⌘ K</kbd></button><div class="mode-switch" role="group" aria-label="Trading mode"><button id="mode-paper" type="button" aria-pressed="true">Paper</button><button id="mode-real" type="button" aria-pressed="false">Real</button></div><span class="context-chip" id="context-status">No dataset</span><div class="feed-lights" id="feed-lights"><button type="button" class="feed-lights-button" id="feed-lights-button" aria-expanded="false" aria-controls="feed-lights-panel" aria-label="Data feed status"><span class="feed-dot" data-state="checking"></span><span class="feed-lights-label">Feeds</span></button><div class="feed-lights-panel" id="feed-lights-panel" role="dialog" aria-label="Data feed status" hidden></div></div><span class="pill mode-pill-sim" id="mode-pill" role="status">PAPER TRADING · SIMULATED</span></div></header>
     <div class="workspace-context" id="workspace-context" hidden><div><span class="status-dot"></span><strong id="context-symbol"></strong><span id="context-detail"></span></div><a href="#strategy-lab">Change dataset ↗</a></div>
+    <section id="terminal" class="workspace-view" aria-label="Memecoin terminal" hidden>
+      <div class="page-heading"><p class="eyebrow">SOLANA MEMECOIN TERMINAL · AUD <span class="sim-tag" title="Paper only: nothing is signed or sent">PAPER</span></p><h1>Scalp in seconds, priced in Australian dollars.</h1><p class="muted">Reads pump.fun's program live. A volume spike or a watched whale proposes a buy; the anti-rug shield and the circuit breakers must both pass; exits run on every price. Every figure is in AUD after pump.fun's fee and Solana fees. <strong>Ctrl + Shift + X</strong> nukes everything.</p></div>
+      <div class="metrics tm-rates"><article class="metric"><span>SOL / AUD</span><strong id="tm-solaud">—</strong><small id="tm-rate-src">loading…</small></article><article class="metric"><span>USDC / AUD</span><strong id="tm-usdcaud">—</strong><small>live (Coinbase)</small></article><article class="metric"><span>Round-trip fees</span><strong id="tm-fees">—</strong><small>base + priority, both legs</small></article><article class="metric"><span>Circuit breaker</span><strong><span id="tm-breaker" class="tag">—</span></strong><small>exits always allowed</small></article></div>
+      <section class="panel"><div class="section-title"><div><p class="eyebrow">CONTROLS</p><h2>Size, limits and exits.</h2></div><span class="tag" id="tm-status">Stopped</span></div>
+        <div class="form-grid tm-grid">
+          <label>Trade size (A$)<input id="tm-size" type="number" min="1" max="10000" step="1" value="20"></label>
+          <label>Daily loss limit (A$)<input id="tm-daily" type="number" min="1" step="1" value="100"></label>
+          <label>Max per trade (A$)<input id="tm-maxtrade" type="number" min="1" step="1" value="50"></label>
+          <label>Max open positions<input id="tm-maxopen" type="number" min="1" max="20" step="1" value="3"></label>
+          <label>Stop loss (%)<input id="tm-stop" type="number" min="1" max="90" step="1" value="25"></label>
+          <label>Take profit at (x)<input id="tm-tp" type="number" min="1.1" max="100" step="0.1" value="2"></label>
+          <label>Sell at take profit (%)<input id="tm-tpshare" type="number" min="1" max="100" step="1" value="50"></label>
+          <label>Trailing stop on the moonbag (%)<input id="tm-trail" type="number" min="1" max="90" step="1" value="25"></label>
+          <label>Dump if no move within (min)<input id="tm-stale" type="number" min="0.5" max="60" step="0.5" value="3"></label>
+          <label>Max hold (min)<input id="tm-maxhold" type="number" min="1" max="240" step="1" value="30"></label>
+          <label>Jito tip (lamports, 0 = priority fee)<input id="tm-jito" type="number" min="0" max="10000000" step="10000" value="0"></label>
+        </div>
+        <div class="tm-triggers"><label class="check-row"><input id="tm-spike" type="checkbox" checked> Volume spike trigger (6x the usual minute, buyer growth)</label><label class="check-row"><input id="tm-whale" type="checkbox"> Whale radar: mirror these wallets' buys</label><textarea id="tm-wallets" rows="2" placeholder="Solana wallet addresses, one per line" aria-label="Watched whale wallets"></textarea></div>
+        <div class="button-row"><button class="button primary" id="tm-start" type="button">Start paper scalping ▶</button><button class="button secondary" id="tm-stop" type="button" disabled>Stop</button><button class="button secondary" id="tm-reset" type="button">Reset breaker</button><button class="button secondary" id="tm-clear" type="button">Reset paper book</button><button class="button tm-nuke" id="tm-nuke" type="button" title="Ctrl+Shift+X">NUKE ALL ✕</button></div>
+      </section>
+      <div class="metrics"><article class="metric"><span>Cash</span><strong id="tm-cash">—</strong><small>paper, starts at A$1,000</small></article><article class="metric"><span>Open value</span><strong id="tm-open">—</strong><small>if sold now on the curve</small></article><article class="metric"><span>Net P&amp;L</span><strong id="tm-net">—</strong><small>closed trades, after all fees</small></article><article class="metric"><span>Win rate</span><strong id="tm-win">—</strong><small>closed trades</small></article></div>
+      <section class="panel"><div class="section-title"><div><p class="eyebrow">OPEN POSITIONS</p><h2>Live, in AUD.</h2></div></div><div class="table-scroll"><table><thead><tr><th>Token</th><th>Spent</th><th>Value now</th><th>Net P&amp;L</th><th>Still held</th><th>Held</th></tr></thead><tbody id="tm-positions"></tbody></table></div></section>
+      <section class="panel"><div class="section-title"><div><p class="eyebrow">CLOSED TRADES</p><h2>True net, after every fee.</h2></div></div><div class="table-scroll"><table><thead><tr><th>Token</th><th>Exit</th><th>Spent</th><th>Fees</th><th>Net</th></tr></thead><tbody id="tm-closed"></tbody></table></div>
+        <details class="pf-log-box" open><summary>Activity</summary><ul class="pf-log" id="tm-log"></ul></details>
+        <p class="caption">Paper trading only: nothing is signed or sent. Fills use pump.fun's exact bonding-curve maths and fee, plus Solana network and priority fees (or your Jito tip) in AUD at the live rate. Every memecoin rule Loki has tested so far lost money on data it had not seen; treat paper results as the evidence that must come before any real money.</p></section>
+    </section>
     <section id="overview" class="workspace-view" aria-label="Overview">
       <div class="hero arrival-scene loki-glow" data-loki-scene="hero"><div class="hero-copy"><p class="eyebrow hero-greeting" id="hero-greeting" hidden></p><h2 data-reveal-words>Test ideas against<br><em class="loki-shimmer">real market history.</em></h2><p class="muted loki-rise" style="--rise:2">Bring an idea. Argue it against the tape.<br>Every conclusion here shows its work — sources, grades, and the calls it got wrong too.</p><div class="hero-actions loki-rise" style="--rise:3"><a class="button primary loki-sheen" href="#ai-trading">Open trading workspace <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow"/></svg></a><a class="text-link" href="#copilot">Talk to Loki <span aria-hidden="true">→</span></a></div></div>
         <div class="signal-instrument radar-instrument">
@@ -703,7 +730,7 @@
   <script src="/static/js/live_trading.js?v={{ asset }}" defer></script>
   <script src="/static/js/funded_accounts.js?v={{ asset }}" defer></script>
   <script src="/static/js/trading_tools.js?v={{ asset }}" defer></script>
-  <script src="/static/js/engine/pumpfun_core.js?v={{ asset }}" defer></script>
+  <script src="/static/js/engine/pumpfun_core.js?v={{ asset }}" defer></script><script src="/static/js/engine/scalper_core.js?v={{ asset }}" defer></script><script src="/static/js/terminal.js?v={{ asset }}" defer></script>
   <script src="/static/js/pumpfun.js?v={{ asset }}" defer></script>
   <script src="/static/js/memecoin.js?v={{ asset }}" defer></script>
   <script src="/static/js/analogue_workspace.js?v={{ asset }}" defer></script>

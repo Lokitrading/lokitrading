@@ -6,7 +6,7 @@ in the desktop app's live mode, the user's own signer.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Response
 
@@ -41,19 +41,25 @@ def terminal_rates(response: Response) -> Dict[str, Any]:
 @router.get("/shield")
 def terminal_shield(response: Response, mint: str = Query(..., min_length=32, max_length=44),
                     max_top10_pct: float = Query(30.0, ge=5, le=100),
-                    min_lp_locked_pct: float = Query(90.0, ge=0, le=100)) -> Dict[str, Any]:
-    """Anti-rug pre-flight for a token: every check, and whether a buy would be allowed."""
+                    min_lp_locked_pct: float = Query(90.0, ge=0, le=100),
+                    stream_top10_pct: Optional[float] = Query(None, ge=0, le=100)) -> Dict[str, Any]:
+    """Anti-rug pre-flight for a token: every check, and whether a buy would be allowed.
+
+    ``stream_top10_pct`` (bonding-curve tokens only) is the top-10 buyer share the terminal measured
+    from the live trade stream; it is used only when the token is not indexed yet and has no pool.
+    """
     _no_store(response)
     if not MINT.match(mint):
         raise HTTPException(422, "That is not a Solana token address.")
-    return shield.check(mint, shield.ShieldLimits(max_top10_pct=max_top10_pct, min_lp_locked_pct=min_lp_locked_pct))
+    return shield.check(mint, shield.ShieldLimits(max_top10_pct=max_top10_pct, min_lp_locked_pct=min_lp_locked_pct),
+                        stream_top10_pct=stream_top10_pct)
 
 
 @router.get("/quote")
 def terminal_quote(response: Response, mint: str = Query(..., min_length=32, max_length=44),
                    side: str = Query("buy", pattern="^(buy|sell)$"),
                    aud_amount: float = Query(20.0, gt=0, le=100_000),
-                   tokens: int = Query(0, ge=0), decimals: int = Query(6, ge=0, le=12),
+                   tokens: int = Query(0, ge=0), decimals: Optional[int] = Query(None, ge=0, le=12),
                    jito_tip_lamports: int = Query(0, ge=0, le=10_000_000)) -> Dict[str, Any]:
     """A Jupiter quote in AUD (buy: spend ``aud_amount``; sell: ``tokens`` raw units), with the shield for buys."""
     _no_store(response)
@@ -70,7 +76,11 @@ def terminal_quote(response: Response, mint: str = Query(..., min_length=32, max
             q = jupiter.quote(mint, jupiter.SOL_MINT, tokens, settings)
     except RuntimeError as error:
         raise HTTPException(502, str(error))
+    if decimals is None:  # the token's real decimals, from the chain (6 when it cannot answer)
+        chain = shield.onchain_authorities(mint)
+        decimals = int((chain or {}).get("decimals") or 6)
     out = jupiter.summary(q, r["sol_aud"], side, decimals)
+    out["decimals"] = decimals
     out["fees_aud_estimate"] = round(costs.round_trip_fees_aud(r["sol_aud"], jito_tip_lamports=jito_tip_lamports) / 2, 5)
     out["sol_aud"] = r["sol_aud"]
     if side == "buy":

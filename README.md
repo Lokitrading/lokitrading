@@ -463,6 +463,31 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.89: the memecoin terminal, phase 2: paper scalping in AUD, triggers, Nuke all
+
+**Memecoin terminal** is now the first view in the sidebar and the default landing view.
+- **Live AUD header:** SOL/AUD, USDC/AUD, round-trip fees in AUD, and the circuit-breaker state.
+- **Controls:**
+  - trade size, daily loss limit, per-trade cap and maximum open positions, all in A$;
+  - the exit plan: stop %, take-profit multiple and share, trailing stop on the moonbag, dump-if-no-move minutes, maximum hold;
+  - a Jito tip (or the default priority fee);
+  - the two triggers.
+- **Engine** (`static/js/engine/scalper_core.js`): the same exits and breakers as `loki/terminal/`, run against the same test vectors in Node and Python.
+  - Paper fills use pump.fun's exact bonding-curve maths and fee, plus every Solana fee converted to AUD at the live rate, so each closed trade shows its true net.
+- **Triggers:**
+  - *Volume spike*: one minute's volume is at least 6× (a 500%+ surge) the token's average minute over the previous five, with at least twice as many unique buyers as the minute before and a rising price.
+  - *Whale radar*: a buy by a wallet you list is mirrored on paper.
+- **Every buy** must pass the anti-rug shield (`/api/terminal/shield`) and the breakers. For launches only seconds old that RugCheck has not indexed yet, holder concentration comes from the live trade stream.
+- **Ctrl + Shift + X, or the red NUKE ALL button:** cancels buys still waiting on the shield, dumps every open position at maximum priority, trips the kill switch and stops the bot.
+- **Quotes** now use each token's real decimals from the chain (BONK has 5).
+
+**Tested:**
+- Six Node tests mirror the Python exits and breakers and cover the spike detector, whale radar, holder concentration and the AUD book's fills and fees.
+- In a browser against the local server: the terminal loads as the default view with live SOL/AUD, the live pump.fun stream connects, the shield blocks BONK (top 10 hold 36%), and Ctrl+Shift+X trips the kill switch.
+- With the shield mocked to pass: a A$20 buy, 50% sold automatically past 2x, then Nuke all sold the moonbag at maximum priority. The closed trade showed its net after A$0.23 of fees.
+
+**Still to come (phase 3):** live signing and sending, in the desktop app only, through Jito with the breakers enforced, off by default.
+
 ### 2.88: the Solana memecoin terminal, phase 1: AUD money, exits, fail-safes, rug shield, Jupiter
 
 This is the first phase of rebuilding Loki into a Solana memecoin day-trading and scalping terminal priced in Australian dollars. The core is in `loki/terminal/`, each module unit-tested.
