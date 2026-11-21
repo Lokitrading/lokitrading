@@ -2,7 +2,7 @@
 
 import os
 
-__version__ = "2.87.0"
+__version__ = "2.88.0"
 __version_info__ = tuple(int(i) for i in __version__.split("."))
 
 # The ?v= tag on every /static link: the release plus the deployed commit (on Vercel), so a cached

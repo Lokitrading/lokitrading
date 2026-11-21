@@ -463,6 +463,36 @@ The top bar shows a **feed light** fed by `GET /api/status/feeds` (`loki/api/fee
 
 Newest first. Figures in older notes are as they stood at that release; current figures are in section 2 and on the site.
 
+### 2.88: the Solana memecoin terminal, phase 1: AUD money, exits, fail-safes, rug shield, Jupiter
+
+This is the first phase of rebuilding Loki into a Solana memecoin day-trading and scalping terminal priced in Australian dollars. The core is in `loki/terminal/`, each module unit-tested.
+
+**Phase 1 (this release): the core.** It is read-only: nothing signs or sends a transaction.
+
+| Module | What it does |
+|---|---|
+| `aud.py` | Live **SOL/AUD** = SOL/USD (Jupiter price API, falling back to Coinbase) × **USDC/AUD** (Coinbase, trade by trade). Cached for 3 s and 10 s; a failed source falls over to the next, and a stale value is served only when flagged `live: false`. |
+| `costs.py` | **True net P&L in AUD**: base fee (5,000 lamports per signature), priority fee (compute units × price), Jito tip and slippage on every leg. Also the round-trip fee estimate used to skip trades that fees would eat. |
+| `exits.py` | Exits for **seconds-to-minutes scalps**: hard stop; take-profit tiers (default: sell 50% at 2x to recover the AUD put in, then the rest rides); a trailing stop that arms after +30% and sells the moonbag 25% off the high; a stale exit (no ±5% move in 3 minutes); a 30-minute maximum hold. |
+| `breakers.py` | **Circuit breakers**: a daily loss limit in AUD (resets on the Sydney trading day); a kill switch after N failed transactions in a row (only a person resets it); per-trade AUD cap; maximum open positions; manual kill. Exits are always allowed. |
+| `rpc.py` | **RPC fallback routing**: endpoints from `SOLANA_RPC_URLS` plus the public mainnet; health and latency scored; a failing endpoint is benched for 30 s while the call retries on the next. A bad request is reported rather than failed over. |
+| `shield.py` | **Anti-rug pre-flight**. Any failed check blocks the buy. It checks: mint authority and freeze authority off (verified on-chain); top-10 real wallets ≤ 30% (pools, the bonding curve and programs excluded); and liquidity that cannot be pulled. LP-token pools need ≥ 90% of LP burned or locked. Concentrated-liquidity pools (Orca, Raydium CLMM, Meteora DLMM, which have no LP token) are judged on depth. A token still on the pump.fun curve passes, because the curve program holds its liquidity. Tokens RugCheck flags as rugged or "danger" are blocked. |
+| `jupiter.py` | **Jupiter swap API** (v6 semantics at `/swap/v1`; `JUPITER_API_KEY` switches to api.jup.ag): quotes and **unsigned** swap transactions with dynamic slippage, dynamic compute-unit limit, and either a priority fee level (capped) or a **Jito tip**, for sending via Jito's block engine against sandwiching. |
+| `api.py` | `GET /api/terminal/rates`, `/shield?mint=`, `/quote?mint=&side=&aud_amount=` (an AUD quote, with the shield verdict on buys) and `/rpc`. |
+
+**Tested live on 21 Nov 2026:**
+- **Rates:** SOL/AUD A$104.24 (SOL US$68.67 × USDC/AUD 1.518).
+- **Shield on BONK:** authorities off and the Raydium CPMM LP 100% burned, but the top-10 real wallets hold 36% (over the 30% limit), so it would be blocked.
+- **Jupiter:** a A$20 buy was quoted and an unsigned swap built with a Jito tip, a simulated 170k compute-unit limit and 50 bps dynamic slippage.
+
+**Audit summary.** An automated scan found no unhandled promise chains and no HTTP calls without timeouts, and its repeating timers last for the page's lifetime. The real defects found while running the code this month are all fixed and tested: fighting number animations, the Windows no-console crash and hang, the self-test blocked by the page's security policy, duplicate requests on load, and misread money formats from Sure.
+
+**Next phases:**
+- **Phase 2:** a paper scalping engine on live pump.fun and Jupiter data using these exits and breakers, a volume-spike trigger (≥ 5× one-minute volume with unique-buyer growth), a whale radar that mirrors listed wallets' swaps on paper, and the AUD terminal screen with **Ctrl+Shift+X "Nuke all"**.
+- **Phase 3:** live signing in the desktop app only, with the user's key on their own computer, sent through Jito with the breakers enforced. Off by default.
+
+**Honest note.** Every memecoin scalping rule Loki has tested so far lost money on data it had not seen: the pump.fun bot lost 12% per trade on average, and more with a 3-second delay. Speed and protection cut losses; they do not create an edge. Live mode will stay behind paper evidence.
+
 ### 2.87: Loki's memory, self-study and learning from mistakes
 
 The **Loki's memory** panel (AI trading → Portfolio) shows a memory that studies itself (`loki_v8/mind.py`, `GET /api/fusion/ai/memory`). Four steps:
