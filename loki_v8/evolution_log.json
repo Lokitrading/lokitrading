@@ -146,6 +146,153 @@
     "verified": true
    },
    "generation": 1
+  },
+  {
+   "date": "2026-11-22",
+   "equity": {
+    "promoted": false,
+    "reason": "best challenger scored 0.443 vs the champion's 0.443 \u2014 not the required +0.05 better, so the champion stays",
+    "champion": {
+     "params": {
+      "signal_threshold": 30.0,
+      "stop_loss_atr": 10.0,
+      "trailing_stop_atr": 0.0,
+      "target_vol_pct": 20.0,
+      "exit_mode": "trend",
+      "preset": "trend_only"
+     },
+     "label": "trend_only \u00b7 entry bar 30 \u00b7 stop 10 ATR \u00b7 trail 0 \u00b7 vol target 20% \u00b7 exit on trend",
+     "development_score": 0.46,
+     "validation_score": 0.443,
+     "rank_score": 0.443,
+     "holdout_score": 0.571,
+     "recent_score": 0.058
+    },
+    "best_challenger": {
+     "params": {
+      "signal_threshold": 30.0,
+      "stop_loss_atr": 6.0,
+      "trailing_stop_atr": 0.0,
+      "target_vol_pct": 20.0,
+      "exit_mode": "trend",
+      "preset": "trend_only"
+     },
+     "label": "trend_only \u00b7 entry bar 30 \u00b7 stop 6 ATR \u00b7 trail 0 \u00b7 vol target 20% \u00b7 exit on trend",
+     "development_score": 0.444,
+     "validation_score": 0.443,
+     "rank_score": 0.443,
+     "holdout_score": 0.565,
+     "recent_score": 0.05
+    },
+    "winner": {
+     "params": {
+      "signal_threshold": 30.0,
+      "stop_loss_atr": 10.0,
+      "trailing_stop_atr": 0.0,
+      "target_vol_pct": 20.0,
+      "exit_mode": "trend",
+      "preset": "trend_only"
+     },
+     "label": "trend_only \u00b7 entry bar 30 \u00b7 stop 10 ATR \u00b7 trail 0 \u00b7 vol target 20% \u00b7 exit on trend",
+     "development_score": 0.46,
+     "validation_score": 0.443,
+     "rank_score": 0.443,
+     "holdout_score": 0.571,
+     "recent_score": 0.058
+    },
+    "challengers_tested": 15,
+    "data_through": "2026-11-20",
+    "holdout_pooled": {
+     "mean_cagr_pct": 11.51,
+     "mean_sharpe": 0.601,
+     "mean_max_dd_pct": -21.0,
+     "profitable_symbols": 12,
+     "symbols": 13
+    },
+    "mistakes": {
+     "kept": true,
+     "threshold": 0.3,
+     "lessons": 688,
+     "reason": "the live setting (0.3) passed its checks again; the new search's pick (0.4) did not hold up on unseen data"
+    },
+    "seconds": 355.9
+   },
+   "crypto": {
+    "promoted": false,
+    "reason": "best challenger scored 0.844 vs the champion's 0.852 \u2014 not the required +0.05 better, so the champion stays",
+    "champion": {
+     "params": {
+      "signal_threshold": 8.0,
+      "stop_loss_atr": 10.0,
+      "trailing_stop_atr": 0.0,
+      "target_vol_pct": 20.0,
+      "exit_mode": "signal",
+      "preset": "trend_leader"
+     },
+     "label": "trend_leader \u00b7 entry bar 8 \u00b7 stop 10 ATR \u00b7 trail 0 \u00b7 vol target 20% \u00b7 exit on signal",
+     "development_score": 0.904,
+     "validation_score": 0.852,
+     "rank_score": 0.852,
+     "holdout_score": 0.382,
+     "recent_score": 0.133
+    },
+    "best_challenger": {
+     "params": {
+      "signal_threshold": 8.0,
+      "stop_loss_atr": 10.0,
+      "trailing_stop_atr": 0.0,
+      "target_vol_pct": 30.0,
+      "exit_mode": "signal",
+      "preset": "trend_leader"
+     },
+     "label": "trend_leader \u00b7 entry bar 8 \u00b7 stop 10 ATR \u00b7 trail 0 \u00b7 vol target 30% \u00b7 exit on signal",
+     "development_score": 0.885,
+     "validation_score": 0.844,
+     "rank_score": 0.844,
+     "holdout_score": 0.149,
+     "recent_score": 0.152
+    },
+    "winner": {
+     "params": {
+      "signal_threshold": 8.0,
+      "stop_loss_atr": 10.0,
+      "trailing_stop_atr": 0.0,
+      "target_vol_pct": 20.0,
+      "exit_mode": "signal",
+      "preset": "trend_leader"
+     },
+     "label": "trend_leader \u00b7 entry bar 8 \u00b7 stop 10 ATR \u00b7 trail 0 \u00b7 vol target 20% \u00b7 exit on signal",
+     "development_score": 0.904,
+     "validation_score": 0.852,
+     "rank_score": 0.852,
+     "holdout_score": 0.382,
+     "recent_score": 0.133
+    },
+    "challengers_tested": 16,
+    "data_through": "2026-11-22",
+    "holdout_pooled": {
+     "mean_cagr_pct": 9.11,
+     "mean_sharpe": 0.5,
+     "mean_max_dd_pct": -29.38,
+     "profitable_symbols": 7,
+     "symbols": 8
+    },
+    "mistakes": {
+     "kept": false,
+     "threshold": null,
+     "lessons": null,
+     "reason": "no threshold improved the validation window"
+    },
+    "seconds": 87.0
+   },
+   "data_through": "2026-11-22",
+   "portfolio": {
+    "cagr_pct": 13.58,
+    "sharpe": 1.235,
+    "max_dd_pct": -9.34,
+    "verified": true
+   },
+   "generation": 2
   }
  ],
  "promotions": 0
